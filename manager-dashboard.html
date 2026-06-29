@@ -314,9 +314,9 @@ var chartInstances = {};
 var selectedAgent = null;
 var detailTab = 'clients';
 
-// ===== 雲端同步設定 =====
-var MGR_API_URL = 'https://script.google.com/macros/s/AKfycbxgU-gqY_oFNj03Us28bcs6PK9vH0wchjgzic5lww4uc5nu8byTGbmrLp8kBOZ0nSU6/exec';  // ← 已預設填好網址
-var MGR_CLOUD_ENABLED = false;
+// ===== 雲端同步設定（已預設 Google Apps Script 網址）=====
+var MGR_API_URL = 'https://script.google.com/macros/s/AKfycbxgU-gqY_oFNj03Us28bcs6PK9vH0wchjgzic5lww4uc5nu8byTGbmrLp8kBOZ0nSU6/exec';
+var MGR_CLOUD_ENABLED = Boolean(MGR_API_URL && MGR_API_URL.length > 0);  // 有網址就自動啟用
 
 function mgrSetApiUrl(url) {
   MGR_API_URL = url;
