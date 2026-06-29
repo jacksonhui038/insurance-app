@@ -138,8 +138,10 @@ tr:hover td{background:var(--blue50)}
       <div class="sub">保險經紀業務管理系統 · 經理視角</div>
     </div>
     <div class="header-actions">
+      <button class="btn btn-white" onclick="mgrLoadFromCloud()" id="mgrCloudBtn" style="display:none">☁️ 從雲端載入</button>
       <button class="btn btn-white" onclick="document.getElementById('multiImport').click()">📥 匯入多位代理人</button>
       <button class="btn btn-white" onclick="clearAll()">🗑️ 清除全部</button>
+      <button class="btn btn-white" onclick="mgrShowCloudSetup()">☁️ 雲端設定</button>
     </div>
   </div>
 
@@ -273,6 +275,76 @@ var chartLib = null;
 var chartInstances = {};
 var selectedAgent = null;
 var detailTab = 'clients';
+
+// ===== 雲端同步設定 =====
+var MGR_API_URL = 'https://script.google.com/macros/s/AKfycbxgU-gqY_oFNj03Us28bcs6PK9vH0wchjgzic5lww4uc5nu8byTGbmrLp8kBOZ0nSU6/exec';  // ← 已預設填好網址
+var MGR_CLOUD_ENABLED = false;
+
+function mgrSetApiUrl(url) {
+  MGR_API_URL = url;
+  MGR_CLOUD_ENABLED = url.length > 0;
+  localStorage.setItem('mgr_cloud_api', url);
+}
+function mgrLoadApiUrl() {
+  var saved = localStorage.getItem('mgr_cloud_api') || '';
+  if (saved) { MGR_API_URL = saved; MGR_CLOUD_ENABLED = true; }
+}
+
+function mgrLoadFromCloud() {
+  if (!MGR_CLOUD_ENABLED) { toast('請先設定 API 網址', 'error'); mgrShowCloudSetup(); return; }
+  toast('☁️ 從雲端載入全團隊數據...');
+  // 用 manager 專用端點（需要 key 參數）
+  var managerKey = prompt('請輸入經理密鑰（預設：MANAGER_SECRET_KEY）', 'MANAGER_SECRET_KEY');
+  if (!managerKey) return;
+  var qs = 'action=manager_load&key=' + encodeURIComponent(managerKey);
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', MGR_API_URL + '?' + qs);
+  xhr.onload = function() {
+    try {
+      var r = JSON.parse(xhr.responseText);
+      if (r.success && r.data) {
+        // 轉換格式：Google Sheet 數據 → TEAM 格式
+        TEAM = {};
+        var agents = r.data.agents || [];
+        agents.forEach(function(a) {
+          TEAM[a.name] = { clients: [], policies: [], commissions: [], expenses: [], goals: [] };
+        });
+        ['clients','policies','commissions','expenses','goals'].forEach(function(sheetName) {
+          (r.data[sheetName] || []).forEach(function(row) {
+            var an = row.agentId || row.agentName;
+            if (an && TEAM[an]) {
+              TEAM[an][sheetName].push(row);
+            }
+          });
+        });
+        render();
+        toast('☁️ 已從雲端載入 ' + Object.keys(TEAM).length + ' 位代理人數據！');
+      } else {
+        toast('載入失敗：' + (r.error || '密鑰錯誤'), 'error');
+      }
+    } catch(e) {
+      toast('載入失敗：' + e.toString(), 'error');
+    }
+  };
+  xhr.onerror = function() { toast('網絡錯誤，請重試', 'error'); };
+  xhr.send();
+}
+
+function mgrShowCloudSetup() {
+  document.getElementById('mgrCloudModalBg').classList.add('show');
+  document.getElementById('mgrApiUrlInput').value = MGR_API_URL;
+}
+function mgrHideCloudSetup() {
+  document.getElementById('mgrCloudModalBg').classList.remove('show');
+}
+function mgrSaveCloudSetup() {
+  var url = document.getElementById('mgrApiUrlInput').value.trim();
+  if (!url) { mgrSetApiUrl(''); mgrHideCloudSetup(); toast('已關閉雲端同步'); return; }
+  mgrSetApiUrl(url);
+  mgrHideCloudSetup();
+  toast('☁️ API 網址已儲存');
+  mgrLoadFromCloud();
+}
 
 // ============================================================
 // IMPORT
@@ -446,8 +518,32 @@ function toast(msg,type){type=type||'success';var el=document.createElement('div
   s.onload=function(){chartLib=Chart;if(mgrUnlocked)render();};
   s.onerror=function(){console.warn('Chart.js unavailable');};
   document.head.appendChild(s);
+  mgrLoadApiUrl();
+  if (MGR_CLOUD_ENABLED) document.getElementById('mgrCloudBtn').style.display = '';
   initLock();
 })();
 </script>
+
+<!-- MANAGER CLOUD SETUP MODAL -->
+<div class="modal-bg" id="mgrCloudModalBg">
+  <div class="modal" style="max-width:480px">
+    <h3>☁️ 雲端同步設定（經理版）</h3>
+    <p style="color:var(--gray500);font-size:13px;margin-bottom:14px">
+      填入同一個 Google Apps Script 網址，即可即時載入全團隊數據。
+    </p>
+    <div class="form-group">
+      <label>Google Apps Script 網址</label>
+      <input type="url" id="mgrApiUrlInput" placeholder="https://script.google.com/macros/s/..." style="font-size:12px">
+    </div>
+    <div style="font-size:12px;color:var(--gray400);margin-bottom:14px">
+      💡 同一個網址同代理人版一樣
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="mgrHideCloudSetup()">取消</button>
+      <button class="btn btn-primary" onclick="mgrSaveCloudSetup()">儲存並載入</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
