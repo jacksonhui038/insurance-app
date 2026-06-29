@@ -374,12 +374,20 @@ function mgrLoadFromCloud() {
             if (an && TEAM[an]) {
               TEAM[an][sheetName].push(row);
             } else if (an && !TEAM[an]) {
-              // 如果代理人不在 teamAgents 列表中，自動建立
               TEAM[an] = { clients:[], policies:[], commissions:[], expenses:[], goals:[], managerName:'', team:'' };
               TEAM[an][sheetName].push(row);
             }
           });
         });
+        // DEBUG: show commission data info
+        var debugInfo = 'Agents: ' + Object.keys(TEAM).join(',');
+        Object.keys(TEAM).forEach(function(a) {
+          debugInfo += ' | ' + a + ' commissions:' + TEAM[a].commissions.length;
+          if (TEAM[a].commissions.length > 0) {
+            debugInfo += ' amount:' + TEAM[a].commissions[0].amount;
+          }
+        });
+        console.log('[MGR DEBUG] ' + debugInfo);
         render();
         // 顯示數據面板（載入雲端數據後必須顯示）
         document.getElementById("noDataMsg").style.display = "none";
@@ -472,6 +480,7 @@ function render(){
     d.commissions.forEach(function(c){totalComm+=Number(c.amount)||0;var dt=new Date(c.date);if(dt.getMonth()===m&&dt.getFullYear()===y)monthComm+=Number(c.amount)||0;});
     d.expenses.forEach(function(e){totalExp+=Number(e.amount)||0;});
   });
+  console.log('[MGR RENDER] totalComm=' + totalComm + ' monthComm=' + monthComm + ' m=' + m + ' y=' + y);
   document.getElementById('summaryCards').innerHTML=
     '<div class="stat-card" style="border-left-color:#3b82f6"><div class="label">總代理人數</div><div class="value">'+agentNames.length+'</div><div class="sub">位團隊成員</div></div>'+
     '<div class="stat-card" style="border-left-color:#22c55e"><div class="label">本月團隊佣金</div><div class="value">'+money(monthComm)+'</div><div class="sub">全團隊</div></div>'+
