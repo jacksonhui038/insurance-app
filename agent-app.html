@@ -168,6 +168,28 @@ tr:hover td{background:var(--blue50)}
   </div>
 </div>
 
+<!-- CLOUD SETUP MODAL -->
+<div class="modal-bg" id="cloudModalBg">
+  <div class="modal" style="max-width:480px">
+    <h3>☁️ 雲端同步設定</h3>
+    <p style="color:var(--gray500);font-size:13px;margin-bottom:14px">
+      填入 Google Apps Script 網址，即可跨設備同步數據。<br>
+      <a href="#" onclick="alert('部署教學：\n1. 開一個新 Google Sheet\n2. 擴充功能 → Apps Script\n3. 貼上 code.gs\n4. 部署 → 網頁應用程式\n5. 存取權：任何人\n6. 複製網址填下面');return false" style="color:var(--blue500)">點樣取得網址？睇教學</a>
+    </p>
+    <div class="form-group">
+      <label>Google Apps Script 網址</label>
+      <input type="url" id="apiUrlInput" placeholder="https://script.google.com/macros/s/..." style="font-size:12px">
+    </div>
+    <div style="font-size:12px;color:var(--gray400);margin-bottom:14px">
+      💡 留空並按「儲存」即可關閉雲端同步
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="hideCloudSetup()">取消</button>
+      <button class="btn btn-primary" onclick="saveCloudSetup()">測試並儲存</button>
+    </div>
+  </div>
+</div>
+
 <!-- SIDEBAR -->
 <aside class="sidebar">
   <div class="sidebar-head">
@@ -190,6 +212,11 @@ tr:hover td{background:var(--blue50)}
   <div class="topbar">
     <h2 id="pageTitle">總覽</h2>
     <div class="topbar-right">
+      <div id="cloudStatus" style="display:none;align-items:center;gap:6px;font-size:12px;color:var(--gray500);margin-right:4px">
+        <span style="color:var(--green500);font-size:14px">☁️</span>
+        <span id="lastSyncTime" style="color:var(--gray400)">尚未同步</span>
+        <button onclick="manualSync()" style="padding:3px 10px;border:none;background:var(--blue500);color:#fff;border-radius:10px;font-size:11px;cursor:pointer">同步</button>
+      </div>
       <div class="agent-badge" id="agentBadgeBtn" title="切換代理人">
         <span class="dot"></span> <span id="agentNameDisplay">—</span>
         <button onclick="switchAgent()" title="切換代理人">切換</button>
@@ -197,6 +224,7 @@ tr:hover td{background:var(--blue50)}
       <button class="btn btn-outline btn-sm" onclick="exportForManager()">📤 匯給經理</button>
       <button class="btn btn-outline btn-sm" onclick="exportData()">📥 備份</button>
       <button class="btn btn-outline btn-sm" onclick="document.getElementById('importInput').click()">📤 匯入</button>
+      <button class="btn btn-outline btn-sm" onclick="showCloudSetup()">☁️ 雲端</button>
     </div>
   </div>
   <div class="sync-bar">
@@ -288,6 +316,115 @@ var chartInstances = {};
 var agentName = '';
 var _id = 0;
 
+// ===== 雲端同步設定（請改為你嘅 Google Apps Script 網址）=====
+var API_URL = 'https://script.google.com/macros/s/AKfycbxgU-gqY_oFNj03Us28bcs6PK9vH0wchjgzic5lww4uc5nu8byTGbmrLp8kBOZ0nSU6/exec';  // ← 已預設填好網址
+var CLOUD_ENABLED = false;
+
+function setApiUrl(url) {
+  API_URL = url;
+  CLOUD_ENABLED = url.length > 0;
+  localStorage.setItem('insurance_cloud_api', url);
+  if (url) document.getElementById('cloudStatus').style.display = 'flex';
+  else document.getElementById('cloudStatus').style.display = 'none';
+}
+function loadApiUrl() {
+  var saved = localStorage.getItem('insurance_cloud_api') || '';
+  if (saved) { API_URL = saved; CLOUD_ENABLED = true; }
+}
+
+// ===== 雲端同步函數 =====
+function saveToCloud(callback) {
+  if (!CLOUD_ENABLED || !agentName) { if (callback) callback(false); return; }
+  var payload = {
+    action: 'sync',
+    agentId: agentName,
+    data: JSON.stringify(DB)
+  };
+  var qs = Object.keys(payload).map(function(k) {
+    return encodeURIComponent(k) + '=' + encodeURIComponent(payload[k]);
+  }).join('&');
+  
+  var xhr = new XMLHttpRequest();
+  xhr.open('POST', API_URL);
+  xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+  xhr.onload = function() {
+    try {
+      var r = JSON.parse(xhr.responseText);
+      if (r.success) {
+        setLastSyncTime();
+        if (callback) callback(true);
+        else toast('☁️ 已同步到雲端');
+      } else {
+        if (callback) callback(false);
+        else toast('同步失敗：' + (r.error || '未知錯誤'), 'error');
+      }
+    } catch(e) {
+      if (callback) callback(false);
+      else toast('同步失敗，請檢查網絡', 'error');
+    }
+  };
+  xhr.onerror = function() {
+    if (callback) callback(false);
+    else toast('同步失敗，請檢查網絡', 'error');
+  };
+  xhr.send(qs);
+}
+
+function loadFromCloud(callback) {
+  if (!CLOUD_ENABLED || !agentName) { if (callback) callback(false); return; }
+  var qs = 'action=load&agentId=' + encodeURIComponent(agentName);
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', API_URL + '?' + qs);
+  xhr.onload = function() {
+    try {
+      var r = JSON.parse(xhr.responseText);
+      if (r.success && r.data) {
+        ['clients','policies','commissions','expenses','goals'].forEach(function(k) {
+          if (r.data[k]) DB[k] = r.data[k];
+        });
+        saveDB();  // 保存到本地
+        setLastSyncTime();
+        if (callback) callback(true);
+        else { toast('☁️ 已從雲端載入'); renderDashboard(); renderCurrentTab(); }
+      } else {
+        if (callback) callback(false);
+      }
+    } catch(e) {
+      if (callback) callback(false);
+    }
+  };
+  xhr.onerror = function() {
+    if (callback) callback(false);
+  };
+  xhr.send();
+}
+
+function setLastSyncTime() {
+  var now = new Date();
+  var t = now.toLocaleString('zh-HK');
+  localStorage.setItem('insurance_last_sync', t);
+  var el = document.getElementById('lastSyncTime');
+  if (el) el.textContent = '最後同步：' + t;
+}
+
+function getLastSyncTime() {
+  return localStorage.getItem('insurance_last_sync') || '尚未同步';
+}
+
+// 裝飾 saveDB：每次儲存後自動同步（節流：最少隔 3 秒）
+var _lastSyncPush = 0;
+var _pendingSync = false;
+function saveDBAndSync() {
+  saveDB();
+  var now = Date.now();
+  if (now - _lastSyncPush < 3000) {
+    if (!_pendingSync) { _pendingSync = true; setTimeout(function() { _pendingSync = false; saveToCloud(); }, 3000); }
+    return;
+  }
+  _lastSyncPush = now;
+  saveToCloud();
+}
+
 function getStoreKey(){return'insurance_agent_'+encodeURIComponent(agentName);}
 function loadDB(){
   STORE_KEY = getStoreKey();
@@ -295,6 +432,19 @@ function loadDB(){
   _id=0;['clients','policies','commissions','expenses','goals'].forEach(function(k){DB[k].forEach(function(x){if(x.id>_id)_id=x.id;});});_id++;
 }
 function saveDB(){localStorage.setItem(getStoreKey(),JSON.stringify(DB));}
+// 自動同步版：每次儲存後自動推上雲端（可選用）
+function saveDBAutoSync(){
+  saveDB();
+  if (CLOUD_ENABLED && agentName) {
+    var now = Date.now();
+    if (now - _lastSyncPush < 3000) {
+      if (!_pendingSync) { _pendingSync = true; setTimeout(function(){ _pendingSync=false; saveToCloud(); }, 3000); }
+      return;
+    }
+    _lastSyncPush = now;
+    saveToCloud();
+  }
+}
 
 var AGENT_PIN_KEY = 'insurance_agent_pin';
 var agentPIN = '';
@@ -314,6 +464,7 @@ function saveName(){
   document.getElementById('agentNameDisplay').textContent=n;
   document.getElementById('sidebarAgentInfo').textContent=n+' | 代理人版';
   loadDB();loadSample();renderDashboard();
+  afterLoginSync();  // 登入後自動從雲端載入
 }
 
 function unlockAgent(){
@@ -324,9 +475,11 @@ function unlockAgent(){
   document.getElementById('agentNameDisplay').textContent=agentName;
   document.getElementById('sidebarAgentInfo').textContent=agentName+' | 代理人版';
   loadDB();loadSample();renderDashboard();
+  afterLoginSync();  // 登入後自動從雲端載入
 }
 
 function initAgent(){
+  loadApiUrl();  // 載入已儲存的 API 網址
   var saved=localStorage.getItem(AGENT_KEY);
   var savedPin=localStorage.getItem(AGENT_PIN_KEY);
   document.getElementById('setupMode').style.display='none';
@@ -408,6 +561,83 @@ function money(n){return'HK$ '+Number(n||0).toLocaleString('en-US',{minimumFract
 function dFmt(s){if(!s)return'';var d=new Date(s);return isNaN(d)?'':d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function toast(msg,type){type=type||'success';var el=document.createElement('div');el.className='toast toast-'+type;el.textContent=msg;document.getElementById('toastBox').appendChild(el);setTimeout(function(){el.remove()},2600);}
 function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+// ===== 雲端同步 UI =====
+function manualSync(){
+  if(!CLOUD_ENABLED){toast('請先設定 API 網址','error');showCloudSetup();return;}
+  toast('☁️ 同步中...');
+  saveToCloud(function(success){
+    if(success) toast('☁️ 同步成功！');
+    else toast('同步失敗，請重試','error');
+  });
+}
+
+function loadFromCloudManual(){
+  if(!CLOUD_ENABLED){toast('請先設定 API 網址','error');showCloudSetup();return;}
+  toast('☁️ 載入中...');
+  loadFromCloud(function(success){
+    if(success) toast('☁️ 已從雲端載入最新數據！');
+    else toast('載入失敗','error');
+  });
+}
+
+function showCloudSetup(){
+  document.getElementById('cloudModalBg').classList.add('show');
+  document.getElementById('apiUrlInput').value = API_URL;
+}
+
+function hideCloudSetup(){
+  document.getElementById('cloudModalBg').classList.remove('show');
+}
+
+function saveCloudSetup(){
+  var url = document.getElementById('apiUrlInput').value.trim();
+  if(!url) {
+    setApiUrl('');
+    hideCloudSetup();
+    toast('已關閉雲端同步');
+    return;
+  }
+  // 測試連接
+  setApiUrl(url);
+  toast('☁️ 測試連接中...');
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', API_URL + '?action=init');
+  xhr.onload = function(){
+    try {
+      var r = JSON.parse(xhr.responseText);
+      if(r.success||r.message){
+        hideCloudSetup();
+        toast('☁️ 雲端連接成功！');
+        document.getElementById('cloudStatus').style.display = 'flex';
+        document.getElementById('lastSyncTime').textContent = getLastSyncTime();
+        // 自動載入雲端數據
+        loadFromCloudManual();
+      } else {
+        setApiUrl('');
+        toast('連接失敗：' + (r.error||'未知錯誤'),'error');
+      }
+    } catch(e) {
+      setApiUrl('');
+      toast('連接失敗，請檢查網址','error');
+    }
+  };
+  xhr.onerror = function(){
+    setApiUrl('');
+    toast('連接失敗，請檢查網址同網絡','error');
+  };
+  xhr.send();
+}
+
+// 登入後自動從雲端載入
+function afterLoginSync(){
+  loadApiUrl();
+  if(CLOUD_ENABLED && agentName){
+    document.getElementById('cloudStatus').style.display = 'flex';
+    document.getElementById('lastSyncTime').textContent = getLastSyncTime();
+    loadFromCloud();  // 背景載入，唔彈 toast
+  }
+}
 
 // ===================================================================
 // CHART.JS
@@ -646,6 +876,13 @@ function doImport(evt){
 // INIT
 // ===================================================================
 initAgent();
+
+// 自動同步：每 30 秒推送一次（如果有連接雲端）
+setInterval(function(){
+  if(CLOUD_ENABLED && agentName && API_URL){
+    saveToCloud();  // 背景同步，唔彈 toast
+  }
+}, 30000);
 </script>
 </body>
 </html>
