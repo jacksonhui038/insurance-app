@@ -355,39 +355,47 @@ function loadApiUrl() {
 // ===== 雲端同步函數 =====
 function saveToCloud(callback) {
   if (!CLOUD_ENABLED || !agentName) { if (callback) callback(false); return; }
-  var payload = {
-    action: 'sync',
-    agentId: agentName,
-    data: JSON.stringify(DB)
-  };
-  var qs = Object.keys(payload).map(function(k) {
-    return encodeURIComponent(k) + '=' + encodeURIComponent(payload[k]);
-  }).join('&');
+  // 同步前先更新代理人資訊（經理、團隊）
+  var mgr = assignedManager || localStorage.getItem('insurance_mgr_'+encodeURIComponent(agentName)) || '';
+  var team = assignedTeam || localStorage.getItem('insurance_team_'+encodeURIComponent(agentName)) || '';
+  registerToCloud(agentName, mgr, team, function(regOk) {
+    // 再同步業務數據
+    var payload = {
+      action: 'sync',
+      agentId: agentName,
+      manager: mgr,
+      team: team,
+      data: JSON.stringify(DB)
+    };
+    var qs = Object.keys(payload).map(function(k) {
+      return encodeURIComponent(k) + '=' + encodeURIComponent(payload[k]);
+    }).join('&');
   
-  var xhr = new XMLHttpRequest();
-  xhr.open('POST', API_URL);
-  xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-  xhr.onload = function() {
-    try {
-      var r = JSON.parse(xhr.responseText);
-      if (r.success) {
-        setLastSyncTime();
-        if (callback) callback(true);
-        else toast('☁️ 已同步到雲端');
-      } else {
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', API_URL);
+    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+    xhr.onload = function() {
+      try {
+        var r = JSON.parse(xhr.responseText);
+        if (r.success) {
+          setLastSyncTime();
+          if (callback) callback(true);
+          else toast('☁️ 已同步到雲端');
+        } else {
+          if (callback) callback(false);
+          else toast('同步失敗：' + (r.error || '未知錯誤'), 'error');
+        }
+      } catch(e) {
         if (callback) callback(false);
-        else toast('同步失敗：' + (r.error || '未知錯誤'), 'error');
+        else toast('同步失敗，請檢查網絡', 'error');
       }
-    } catch(e) {
+    };
+    xhr.onerror = function() {
       if (callback) callback(false);
       else toast('同步失敗，請檢查網絡', 'error');
-    }
-  };
-  xhr.onerror = function() {
-    if (callback) callback(false);
-    else toast('同步失敗，請檢查網絡', 'error');
-  };
-  xhr.send(qs);
+    };
+    xhr.send(qs);
+  });
 }
 
 function loadFromCloud(callback) {
@@ -682,23 +690,21 @@ function saveCloudSetup(){
 
 // 登入後自動從雲端載入
 // 註冊代理人去雲端（含所屬經理）
-function registerToCloud(agentName, managerName, team){
-  if(!CLOUD_ENABLED || !API_URL) return;
+function registerToCloud(agentName, managerName, team, callback){
+  if(!CLOUD_ENABLED || !API_URL) { if(callback) callback(false); return; }
   try{
     var xhr=new XMLHttpRequest();
     var qs='action=register_agent&agentId='+encodeURIComponent(agentName)
       +'&agentName='+encodeURIComponent(agentName)
-     +'&managerName='+encodeURIComponent(managerName || '')
+      +'&managerName='+encodeURIComponent(managerName || '')
       +'&team='+encodeURIComponent(team || '');
     xhr.open('GET', API_URL + '?' + qs);
     xhr.onload=function(){
-      if(xhr.status===200){
-        var r=JSON.parse(xhr.responseText);
-        if(r.success) console.log('✅ 已註冊到雲端:', managerName);
-      }
+      if(callback) callback(xhr.status===200);
     };
+    xhr.onerror=function(){ if(callback) callback(false); };
     xhr.send();
-  }catch(e){console.log('註冊失敗（非致命）',e);}
+  }catch(e){ if(callback) callback(false); }
 }
 
 // 經理揀選「其他」時顯示自訂輸入框
