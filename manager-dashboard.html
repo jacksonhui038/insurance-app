@@ -381,6 +381,9 @@ function mgrLoadFromCloud() {
           });
         });
         render();
+        // 顯示數據面板（載入雲端數據後必須顯示）
+        document.getElementById("noDataMsg").style.display = "none";
+        document.getElementById("dataView").style.display = "block";
         var roleText = r.role === 'director' ? '👑 全團隊' : '📊 ' + (r.managerName||'團隊');
         toast('☁️ 已從雲端載入 ' + Object.keys(TEAM).length + ' 位代理人數據！(' + roleText + ')');
       } else {
