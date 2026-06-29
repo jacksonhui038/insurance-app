@@ -190,6 +190,7 @@ tr:hover td{background:var(--blue50)}
         <button class="detail-tab" onclick="showDetailTab('commissions',this)">💰 佣金</button>
         <button class="detail-tab" onclick="showDetailTab('expenses',this)">💳 開支</button>
         <button class="detail-tab" onclick="showDetailTab('goals',this)">🎯 目標</button>
+        <button class="detail-tab" onclick="showDetailTab('schedules',this)">📅 行程</button>
       </div>
       <div class="detail-content" id="detailContent"></div>
     </div>
@@ -363,18 +364,18 @@ function mgrLoadFromCloud() {
           var aName = a.agentName || a.agentId || a.name;
           TEAM[aName] = {
             clients: [], policies: [], commissions: [],
-            expenses: [], goals: [],
+            expenses: [], goals: [], schedules: [],
             managerName: a.managerName || '',
             team: a.team || ''
           };
         });
-        ['clients','policies','commissions','expenses','goals'].forEach(function(sheetName) {
+        ['clients','policies','commissions','expenses','goals','schedules'].forEach(function(sheetName) {
           (r.data[sheetName] || []).forEach(function(row) {
             var an = row.agentId || row.agentName;
             if (an && TEAM[an]) {
               TEAM[an][sheetName].push(row);
             } else if (an && !TEAM[an]) {
-              TEAM[an] = { clients:[], policies:[], commissions:[], expenses:[], goals:[], managerName:'', team:'' };
+              TEAM[an] = { clients:[], policies:[], commissions:[], expenses:[], goals:[], schedules:[], managerName:'', team:'' };
               TEAM[an][sheetName].push(row);
             }
           });
@@ -442,7 +443,7 @@ function importMulti(evt){
       try{
         var d = JSON.parse(reader.result);
         if(d.agent&&d.data){
-          TEAM[d.agent] = {clients:d.data.clients||[],policies:d.data.policies||[],commissions:d.data.commissions||[],expenses:d.data.expenses||[],goals:d.data.goals||[],exportedAt:d.exportedAt||''};
+          TEAM[d.agent] = {clients:d.data.clients||[],policies:d.data.policies||[],commissions:d.data.commissions||[],expenses:d.data.expenses||[],goals:d.data.goals||[],schedules:d.data.schedules||[],exportedAt:d.exportedAt||''};
           count++;
         }
       }catch(e){}
@@ -573,6 +574,37 @@ function renderDetailContent(){
   }else if(detailTab==='goals'){
     if(d.goals.length===0)html='<div class="empty">無目標記錄</div>';
     else{html='<table><thead><tr><th>類型</th><th>週期</th><th>年份</th><th>月份/季度</th><th>目標金額</th><th>描述</th></tr></thead><tbody>';var mn=['','1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];d.goals.forEach(function(g){html+='<tr><td>'+esc(g.type)+'</td><td>'+esc(g.period==='monthly'?'月度':g.period==='quarterly'?'季度':'年度')+'</td><td>'+g.year+'</td><td>'+esc(g.period==='monthly'?mn[g.month||1]:g.period==='quarterly'?'Q'+g.quarter:'全年')+'</td><td>'+money(g.target)+'</td><td>'+esc(g.desc||'—')+'</td></tr>';});html+='</tbody></table>';}
+  }else if(detailTab==='schedules'){
+    if(!d.schedules||d.schedules.length===0)html='<div class="empty">無行程記錄</div>';
+    else{
+      // 本週行程概覽
+      var today=new Date(),dayOfWeek=today.getDay()||7;
+      var monday=new Date(today);monday.setDate(today.getDate()-dayOfWeek+1);
+      var sunday=new Date(monday);sunday.setDate(monday.getDate()+6);
+      function mfmt(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+      var weekStart=mfmt(monday),weekEnd=mfmt(sunday);
+      var weekSched=d.schedules.filter(function(s){return s.date>=weekStart&&s.date<=weekEnd;});
+      html+='<div style="margin-bottom:16px;padding:12px 16px;background:var(--blue50);border-radius:8px;font-size:13px;color:var(--blue700)">';
+      html+='📅 本週行程（'+weekStart+' ~ '+weekEnd+'）：<b>'+weekSched.length+'</b> 個會面安排';
+      if(weekSched.length>0){
+        html+='<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px">';
+        weekSched.sort(function(a,b){return (a.date||'').localeCompare(b.date||'')||(a.startTime||'').localeCompare(b.startTime||'');});
+        weekSched.forEach(function(s){
+          var sc=s.status==='已完成'?'badge-green':s.status==='已確認'?'badge-blue':s.status==='已取消'?'badge-red':'badge-yellow';
+          html+='<span class="badge '+sc+'" style="font-size:11px">'+esc(df(s.date))+' '+esc(s.startTime||'')+' '+esc(s.clientName||'')+' ('+esc(s.purpose||'')+'</span>';
+        });
+        html+='</div>';
+      }
+      html+='</div>';
+      // 全部行程表
+      html+='<table><thead><tr><th>日期</th><th>時間</th><th>客戶</th><th>目的</th><th>地點</th><th>狀態</th><th>備註</th></tr></thead><tbody>';
+      var sorted=d.schedules.slice().sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+      sorted.forEach(function(s){
+        var sc=s.status==='已完成'?'badge-green':s.status==='已確認'?'badge-blue':s.status==='已取消'?'badge-red':'badge-yellow';
+        html+='<tr><td>'+esc(df(s.date))+'</td><td>'+esc(s.startTime||'')+'-'+esc(s.endTime||'')+'</td><td>'+esc(s.clientName||'—')+'</td><td>'+esc(s.purpose||'—')+'</td><td>'+esc(s.location||'—')+'</td><td><span class="badge '+sc+'">'+esc(s.status)+'</span></td><td>'+esc(s.notes||'—')+'</td></tr>';
+      });
+      html+='</tbody></table>';
+    }
   }
   document.getElementById('detailContent').innerHTML=html;
 }
