@@ -247,7 +247,7 @@ tr:hover td{background:var(--blue50)}
     </div>
   </div>
   <div class="sync-bar">
-    <span>☁️ 數據存儲方式：<b>本地</b>（可匯出俾經理整合）</span>
+    <span>☁️ 數據存儲方式：<b id="storageModeText">本地</b><span id="storageModeHint">（可匯出俾經理整合）</span></span>
     <span class="last-sync" id="lastSyncLabel"></span>
   </div>
   <div class="content" id="mainContent">
@@ -344,12 +344,31 @@ function setApiUrl(url) {
   API_URL = url;
   CLOUD_ENABLED = url.length > 0;
   localStorage.setItem('insurance_cloud_api', url);
-  if (url) document.getElementById('cloudStatus').style.display = 'flex';
-  else document.getElementById('cloudStatus').style.display = 'none';
+  // 更新存儲方式顯示
+  if (url) {
+    document.getElementById('cloudStatus').style.display = 'flex';
+    document.getElementById('storageModeText').textContent = '雲端';
+    document.getElementById('storageModeText').style.color = 'var(--blue500)';
+    document.getElementById('storageModeHint').textContent = '（數據已同步至 Google Sheets）';
+  } else {
+    document.getElementById('cloudStatus').style.display = 'none';
+    document.getElementById('storageModeText').textContent = '本地';
+    document.getElementById('storageModeText').style.color = '';
+    document.getElementById('storageModeHint').textContent = '（可匯出俾經理整合）';
+  }
 }
 function loadApiUrl() {
   var saved = localStorage.getItem('insurance_cloud_api') || '';
-  if (saved) { API_URL = saved; CLOUD_ENABLED = true; }
+  if (saved) {
+    API_URL = saved;
+    CLOUD_ENABLED = true;
+    // 更新 UI 顯示
+    document.getElementById('cloudStatus').style.display = 'flex';
+    document.getElementById('storageModeText').textContent = '雲端';
+    document.getElementById('storageModeText').style.color = 'var(--blue500)';
+    document.getElementById('storageModeHint').textContent = '（數據已同步至 Google Sheets）';
+    document.getElementById('lastSyncTime').textContent = getLastSyncTime();
+  }
 }
 
 // ===== 雲端同步函數 =====
