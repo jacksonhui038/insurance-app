@@ -138,19 +138,24 @@ tr:hover td{background:var(--blue50)}
       <div class="sub">保險經紀業務管理系統 · 經理視角</div>
     </div>
     <div class="header-actions">
-      <button class="btn btn-white" onclick="mgrLoadFromCloud()" id="mgrCloudBtn" style="display:none">☁️ 從雲端載入</button>
-      <button class="btn btn-white" onclick="document.getElementById('multiImport').click()">📥 匯入多位代理人</button>
+      <button class="btn btn-white" onclick="mgrLoadFromCloud()" id="mgrCloudBtn">☁️ 從雲端載入全團隊數據</button>
+      <button class="btn btn-white" onclick="document.getElementById('multiImport').click()">📥 匯入 JSON（備用）</button>
       <button class="btn btn-white" onclick="clearAll()">🗑️ 清除全部</button>
-      <button class="btn btn-white" onclick="mgrShowCloudSetup()">☁️ 雲端設定</button>
+      <button class="btn btn-white" onclick="mgrShowCloudSetup()">⚙️ 雲端設定</button>
     </div>
   </div>
 
   <!-- NO DATA -->
   <div id="noDataMsg" style="text-align:center;padding:60px 20px">
-    <div style="font-size:64px;margin-bottom:16px">📥</div>
-    <h2 style="margin-bottom:8px;color:var(--gray600)">尚未匯入任何代理人數據</h2>
-    <p style="color:var(--gray400);margin-bottom:24px;max-width:500px;margin-left:auto;margin-right:auto">代理人喺「保經管家」App 撳 "📤 匯給經理" 產生 JSON 報告檔，你喺度匯入多份報告即可睇到全團隊數據。</p>
-    <button class="btn btn-primary" onclick="document.getElementById('multiImport').click()" style="font-size:16px;padding:12px 28px">📥 匯入代理人報告</button>
+    <div style="font-size:64px;margin-bottom:16px">☁️</div>
+    <h2 style="margin-bottom:8px;color:var(--gray600)">歡迎使用團隊總覽</h2>
+    <p style="color:var(--gray400);margin-bottom:24px;max-width:600px;margin-left:auto;margin-right:auto;line-height:1.6">
+      🎯 <b>推薦方法</b>：按右上角 <b>「☁️ 從雲端載入全團隊數據」</b>，即時讀取全團隊最新數據（來自 Google Sheets 雲端）。<br><br>
+      📝 <b>備用方法</b>：如果雲端載入失敗，可以手動匯入代理人匯出的 JSON 報告檔。
+    </p>
+    <button class="btn btn-primary" onclick="mgrLoadFromCloud()" style="font-size:16px;padding:12px 28px;margin-bottom:12px">☁️ 從雲端載入全團隊數據</button>
+    <br>
+    <button class="btn btn-outline" onclick="document.getElementById('multiImport').click()" style="font-size:14px;padding:10px 20px;margin-top:8px">📥 備用：匯入 JSON 報告</button>
   </div>
 
   <!-- DATA VIEW -->
