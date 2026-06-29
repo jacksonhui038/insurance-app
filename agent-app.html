@@ -126,6 +126,7 @@ tr:hover td{background:var(--blue50)}
   .sidebar-head h1{font-size:12px}
   .charts-grid,.charts-grid-2{grid-template-columns:1fr}
   .form-row{grid-template-columns:1fr}
+  #scheduleWeekView > div{grid-template-columns:1fr 1fr !important}
 }
 </style>
 </head>
@@ -223,6 +224,7 @@ tr:hover td{background:var(--blue50)}
     <button class="nav-btn" onclick="switchTab('expenses',this)"><span class="nav-icon">💳</span> 開支記錄</button>
     <button class="nav-btn" onclick="switchTab('reports',this)"><span class="nav-icon">📈</span> 業績報表</button>
     <button class="nav-btn" onclick="switchTab('goals',this)"><span class="nav-icon">🎯</span> 目標管理</button>
+    <button class="nav-btn" onclick="switchTab('schedules',this)"><span class="nav-icon">📅</span> 行程表</button>
   </nav>
 </aside>
 
@@ -313,6 +315,21 @@ tr:hover td{background:var(--blue50)}
       <div style="margin-bottom:16px"><button class="btn btn-primary" onclick="openForm('goal')">+ 新增目標</button></div>
       <div id="goalList"></div>
     </div>
+    <!-- SCHEDULES -->
+    <div class="tab-panel" id="panel-schedules">
+      <div style="margin-bottom:16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="openForm('schedule')">+ 新增行程</button>
+        <button class="btn btn-outline btn-sm" onclick="shiftWeek(-1)">◀ 上一週</button>
+        <span id="weekLabel" style="font-size:14px;font-weight:600;color:var(--gray600)"></span>
+        <button class="btn btn-outline btn-sm" onclick="shiftWeek(1)">下一週 ▶</button>
+        <button class="btn btn-outline btn-sm" onclick="goCurrentWeek()">本週</button>
+      </div>
+      <div id="scheduleWeekView"></div>
+      <div class="table-wrap" style="margin-top:20px">
+        <div class="table-head"><h3>📋 全部行程</h3></div>
+        <table><thead><tr><th>日期</th><th>時間</th><th>客戶</th><th>目的</th><th>地點</th><th>狀態</th><th>操作</th></tr></thead><tbody id="scheduleTable"></tbody></table>
+      </div>
+    </div>
   </div>
 </main>
 
@@ -329,7 +346,7 @@ tr:hover td{background:var(--blue50)}
 // ===================================================================
 var STORE_KEY = 'insurance_agent_data';
 var AGENT_KEY = 'insurance_agent_name';
-var DB = {clients:[],policies:[],commissions:[],expenses:[],goals:[]};
+var DB = {clients:[],policies:[],commissions:[],expenses:[],goals:[],schedules:[]};
 var chartLib = null;
 var chartInstances = {};
 var agentName = '';
@@ -444,7 +461,7 @@ function loadFromCloud(callback) {
     try {
       var r = JSON.parse(xhr.responseText);
       if (r.success && r.data) {
-        ['clients','policies','commissions','expenses','goals'].forEach(function(k) {
+        ['clients','policies','commissions','expenses','goals','schedules'].forEach(function(k) {
           if (r.data[k]) DB[k] = r.data[k];
         });
         saveDB();  // 保存到本地
@@ -493,8 +510,8 @@ function saveDBAndSync() {
 function getStoreKey(){return'insurance_agent_'+encodeURIComponent(agentName);}
 function loadDB(){
   STORE_KEY = getStoreKey();
-  try{var raw=localStorage.getItem(STORE_KEY);if(raw){var d=JSON.parse(raw);DB={clients:[],policies:[],commissions:[],expenses:[],goals:[]};Object.assign(DB,d);}}catch(e){}
-  _id=0;['clients','policies','commissions','expenses','goals'].forEach(function(k){DB[k].forEach(function(x){if(x.id>_id)_id=x.id;});});_id++;
+  try{var raw=localStorage.getItem(STORE_KEY);if(raw){var d=JSON.parse(raw);DB={clients:[],policies:[],commissions:[],expenses:[],goals:[],schedules:[]};Object.assign(DB,d);}}catch(e){}
+  _id=0;['clients','policies','commissions','expenses','goals','schedules'].forEach(function(k){DB[k].forEach(function(x){if(x.id>_id)_id=x.id;});});_id++;
 }
 function saveDB(){localStorage.setItem(getStoreKey(),JSON.stringify(DB));}
 // 自動同步版：每次儲存後自動推上雲端（可選用）
@@ -622,7 +639,7 @@ function resetAgent(){
   localStorage.removeItem(AGENT_PIN_KEY);
   localStorage.removeItem(getStoreKey());
   agentName='';agentPIN='';
-  DB={clients:[],policies:[],commissions:[],expenses:[],goals:[]};
+  DB={clients:[],policies:[],commissions:[],expenses:[],goals:[],schedules:[]};
   document.getElementById('setupMode').style.display='block';
   document.getElementById('unlockMode').style.display='none';
   document.getElementById('switchMode').style.display='none';
@@ -819,6 +836,7 @@ function switchTab(tab,btnEl){
   if(tab==='expenses')renderExpenses();
   if(tab==='reports'){reportPeriod='month';renderReports();}
   if(tab==='goals')renderGoals();
+  if(tab==='schedules')renderSchedules();
 }
 
 // ===================================================================
@@ -833,6 +851,17 @@ function loadSample(){
   DB.expenses=[{id:uid(),date:y+'-01-25',category:'交通',amount:350,payment:'信用卡',notes:'的士費'},{id:uid(),date:y+'-02-10',category:'餐飲',amount:680,payment:'信用卡',notes:'客戶午餐'},{id:uid(),date:y+'-03-05',category:'交通',amount:1200,payment:'電子錢包',notes:'港鐵月票'},{id:uid(),date:y+'-04-08',category:'教育',amount:2800,payment:'信用卡',notes:'進修課程'},{id:uid(),date:y+'-06-01',category:'家居',amount:1200,payment:'銀行轉帳',notes:'辦公室攤分'}];
   var m=new Date().getMonth()+1;
   DB.goals=[{id:uid(),type:'佣金',period:'monthly',year:y,month:m,quarter:0,target:20000,desc:y+'年'+m+'月目標'},{id:uid(),type:'佣金',period:'yearly',year:y,month:0,quarter:0,target:200000,desc:y+'年度目標'}];
+  // 示範行程（本週）
+  var today=new Date(),dayOfWeek=today.getDay()||7,monday=new Date(today);monday.setDate(today.getDate()-dayOfWeek+1);
+  function fmtD(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+  var tue=new Date(monday);tue.setDate(monday.getDate()+1);
+  var thu=new Date(monday);thu.setDate(monday.getDate()+3);
+  var fri=new Date(monday);fri.setDate(monday.getDate()+4);
+  DB.schedules=[
+    {id:uid(),date:fmtD(tue),startTime:'10:00',endTime:'11:00',clientName:'陳大文',purpose:'講解保單',location:'中環辦公室',status:'已確認',notes:'醫療+人壽組合'},
+    {id:uid(),date:fmtD(thu),startTime:'14:00',endTime:'15:30',clientName:'李小美',purpose:'理財諮詢',location:'金鐘咖啡室',status:'待處理',notes:'儲蓄方案'},
+    {id:uid(),date:fmtD(fri),startTime:'11:00',endTime:'12:00',clientName:'張太',purpose:'續保跟進',location:'客戶家中',status:'已確認',notes:'危疾續保'}
+  ];
   saveDB();renderDashboard();toast('已載入示範數據，開始管理你嘅業務吧！');
 }
 
@@ -966,15 +995,72 @@ function renderGoals(){
 // ===================================================================
 var editId=null,editType=null;
 var TYPES={policy:['人壽保險','醫療保險','危疾保險','意外保險','儲蓄保險','投資相連','旅遊保險','家居保險','汽車保險','其他'],commission:['首年佣金','續年佣金','花紅','轉介費'],expenseCat:['餐飲','交通','娛樂','購物','家居','醫療','教育','通訊','保險','其他'],payment:['現金','信用卡','銀行轉帳','電子錢包','其他']};
+
+// ===================================================================
+// SCHEDULES (行程表)
+// ===================================================================
+var weekOffset=0;
+function shiftWeek(n){weekOffset+=n;renderSchedules();}
+function goCurrentWeek(){weekOffset=0;renderSchedules();}
+function renderSchedules(){
+  var today=new Date();
+  var dayOfWeek=today.getDay()||7;
+  var monday=new Date(today);monday.setDate(today.getDate()-dayOfWeek+1+(weekOffset*7));
+  var sunday=new Date(monday);sunday.setDate(monday.getDate()+6);
+  function fmtD(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+  function fmtL(d){var wd=['日','一','二','三','四','五','六'];return (d.getMonth()+1)+'/'+d.getDate()+' ('+wd[d.getDay()]+')';}
+  // Week label
+  var lbl=document.getElementById('weekLabel');
+  if(lbl) lbl.textContent=fmtD(monday)+' ~ '+fmtD(sunday)+(weekOffset===0?' (本週)':'');
+  // Week view
+  var days=['一','二','三','四','五','六','日'];
+  var html='<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:20px">';
+  for(var d=0;d<7;d++){
+    var dt=new Date(monday);dt.setDate(monday.getDate()+d);
+    var ds=fmtD(dt);
+    var daySchedules=DB.schedules.filter(function(s){return s.date===ds;});
+    daySchedules.sort(function(a,b){return (a.startTime||'').localeCompare(b.startTime||'');});
+    var isToday=fmtD(today)===ds;
+    html+='<div style="background:var(--white);border-radius:8px;padding:10px;min-height:120px;box-shadow:var(--shadow);border-top:3px solid '+(isToday?'var(--blue500)':'var(--gray200)')+'">';
+    html+='<div style="font-size:12px;font-weight:600;color:'+(isToday?'var(--blue500)':'var(--gray500)')+';margin-bottom:6px">'+days[d]+' '+fmtL(dt)+'</div>';
+    if(daySchedules.length===0){
+      html+='<div style="font-size:11px;color:var(--gray300);padding:8px 0;text-align:center">—</div>';
+    } else {
+      daySchedules.forEach(function(s){
+        var sc=s.status==='已完成'?'badge-green':s.status==='已確認'?'badge-blue':s.status==='已取消'?'badge-red':'badge-yellow';
+        html+='<div style="background:var(--blue50);border-radius:6px;padding:6px 8px;margin-bottom:4px;font-size:11px;cursor:pointer" onclick="openForm(\'schedule\','+s.id+')">';
+        html+='<div style="font-weight:600;color:var(--blue700)">'+esc(s.startTime||'')+' - '+esc(s.endTime||'')+'</div>';
+        html+='<div style="color:var(--gray600);margin-top:2px">'+esc(s.clientName||'')+'</div>';
+        html+='<div style="color:var(--gray400)">'+esc(s.purpose||'')+'</div>';
+        html+='<span class="badge '+sc+'" style="margin-top:2px">'+esc(s.status)+'</span>';
+        html+='</div>';
+      });
+    }
+    html+='</div>';
+  }
+  html+='</div>';
+  document.getElementById('scheduleWeekView').innerHTML=html;
+  // Full table
+  var h='';if(DB.schedules.length===0)h='<tr><td colspan="7" class="empty">尚無行程記錄</td></tr>';
+  else{
+    var sorted=DB.schedules.slice().sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+    sorted.forEach(function(s){
+      var sc=s.status==='已完成'?'badge-green':s.status==='已確認'?'badge-blue':s.status==='已取消'?'badge-red':'badge-yellow';
+      h+='<tr><td>'+esc(dFmt(s.date))+'</td><td>'+esc(s.startTime||'')+'-'+esc(s.endTime||'')+'</td><td>'+esc(s.clientName||'—')+'</td><td>'+esc(s.purpose||'—')+'</td><td>'+esc(s.location||'—')+'</td><td><span class="badge '+sc+'">'+esc(s.status)+'</span></td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'schedule\','+s.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'schedules\','+s.id+')">刪除</button></td></tr>';
+    });
+  }
+  document.getElementById('scheduleTable').innerHTML=h;
+}
 function openForm(type,id){
   editType=type;editId=id||null;
-  var title=id?'編輯':'新增',t={client:'客戶',policy:'保單',commission:'佣金記錄',expense:'開支記錄',goal:'目標'};
+  var title=id?'編輯':'新增',t={client:'客戶',policy:'保單',commission:'佣金記錄',expense:'開支記錄',goal:'目標',schedule:'行程'};
   var h='<h3>'+title+t[type]+'</h3>';
   if(type==='client'){var c=id?findById('clients',id):{};h+=fg('姓名','name','text',c.name||'')+fg('電話','phone','text',c.phone||'')+fg('電郵','email','email',c.email||'')+fs('狀態','status',['活躍','潛在','流失'],c.status||'活躍')+fg('備註','notes','text',c.notes||'');}
   else if(type==='policy'){var p=id?findById('policies',id):{};h+=fg('保單編號','policyNo','text',p.policyNo||'')+fs('客戶','clientId',DB.clients.map(function(c){return{val:c.id,label:c.name};}),p.clientId||'')+fs('保險類型','type',TYPES.policy,p.type||'')+fg('保費(HK$)','premium','number',p.premium||'')+fg('佣金率(%)','commissionRate','number',p.commissionRate||'')+fg('開始日','startDate','date',p.startDate||'')+fg('到期日','endDate','date',p.endDate||'')+fs('狀態','status',['生效','待生效','審核中','已到期'],p.status||'生效');}
   else if(type==='commission'){var c2=id?findById('commissions',id):{};h+=fg('日期','date','date',c2.date||new Date().toISOString().slice(0,10))+fs('客戶','clientName',DB.clients.map(function(c){return c.name;}),c2.clientName||'')+fg('保單編號','policyNo','text',c2.policyNo||'')+fs('佣金類型','type',TYPES.commission,c2.type||'')+fg('金額(HK$)','amount','number',c2.amount||'')+fg('備註','notes','text',c2.notes||'');}
   else if(type==='expense'){var e=id?findById('expenses',id):{};h+=fg('日期','date','date',e.date||new Date().toISOString().slice(0,10))+fs('分類','category',TYPES.expenseCat,e.category||'')+fg('金額(HK$)','amount','number',e.amount||'')+fs('付款方式','payment',TYPES.payment,e.payment||'')+fg('備註','notes','text',e.notes||'');}
   else if(type==='goal'){var g=id?findById('goals',id):{};h+=fs('類型','type',['佣金'],g.type||'佣金')+fs('週期','period',['monthly','quarterly','yearly'],g.period||'monthly')+fg('年份','year','number',g.year||new Date().getFullYear())+fg('月份(月目標)','month','number',g.month||new Date().getMonth()+1)+fg('季度(季目標)','quarter','number',g.quarter||Math.ceil((new Date().getMonth()+1)/3))+fg('目標金額(HK$)','target','number',g.target||'')+fg('描述','desc','text',g.desc||'');}
+  else if(type==='schedule'){var sc=id?findById('schedules',id):{};h+=fg('日期','date','date',sc.date||new Date().toISOString().slice(0,10))+fg('開始時間','startTime','time',sc.startTime||'10:00')+fg('結束時間','endTime','time',sc.endTime||'11:00')+fs('客戶','clientName',DB.clients.map(function(c){return c.name;}),sc.clientName||'')+fs('會面目的','purpose',['講解保單','續保跟進','理財諮詢','索償處理','新客開發','售後服務','其他'],sc.purpose||'')+fg('地點','location','text',sc.location||'')+fs('狀態','status',['待處理','已確認','已完成','已取消'],sc.status||'待處理')+fg('備註','notes','text',sc.notes||'');}
   h+='<div class="modal-actions"><button class="btn btn-primary" onclick="saveForm()">儲存</button><button class="btn btn-outline" onclick="closeModal()">取消</button></div>';
   document.getElementById('modalInner').innerHTML=h;document.getElementById('modalBg').classList.add('show');
 }
@@ -987,11 +1073,12 @@ function saveForm(){
   else if(editType==='commission'){var o={id:editId||uid(),date:val('f_date'),clientName:val('f_clientName'),policyNo:val('f_policyNo'),type:val('f_type'),amount:val('f_amount'),notes:val('f_notes')};saveTo('commissions',o);}
   else if(editType==='expense'){var o={id:editId||uid(),date:val('f_date'),category:val('f_category'),amount:val('f_amount'),payment:val('f_payment'),notes:val('f_notes')};saveTo('expenses',o);}
   else if(editType==='goal'){var o={id:editId||uid(),type:val('f_type'),period:val('f_period'),year:Number(val('f_year')),month:Number(val('f_month')),quarter:Number(val('f_quarter')),target:Number(val('f_target')),desc:val('f_desc')};saveTo('goals',o);}
+  else if(editType==='schedule'){var o={id:editId||uid(),date:val('f_date'),startTime:val('f_startTime'),endTime:val('f_endTime'),clientName:val('f_clientName'),purpose:val('f_purpose'),location:val('f_location'),status:val('f_status'),notes:val('f_notes')};saveTo('schedules',o);}
   closeModal();saveDB();toast(editId?'已更新':'已新增');
-  if(currentTab==='dashboard')renderDashboard();if(currentTab==='clients')renderClients();if(currentTab==='policies')renderPolicies();if(currentTab==='commissions')renderCommissions();if(currentTab==='expenses')renderExpenses();if(currentTab==='goals')renderGoals();
+  if(currentTab==='dashboard')renderDashboard();if(currentTab==='clients')renderClients();if(currentTab==='policies')renderPolicies();if(currentTab==='commissions')renderCommissions();if(currentTab==='expenses')renderExpenses();if(currentTab==='goals')renderGoals();if(currentTab==='schedules')renderSchedules();
 }
 function saveTo(key,obj){if(editId){for(var i=0;i<DB[key].length;i++)if(DB[key][i].id===editId){DB[key][i]=obj;return;}}DB[key].push(obj);}
-function del(key,id){if(!confirm('確定刪除？'))return;DB[key]=DB[key].filter(function(x){return x.id!==id;});saveDB();toast('已刪除','error');if(currentTab==='dashboard')renderDashboard();if(currentTab==='clients')renderClients();if(currentTab==='policies')renderPolicies();if(currentTab==='commissions')renderCommissions();if(currentTab==='expenses')renderExpenses();if(currentTab==='goals')renderGoals();}
+function del(key,id){if(!confirm('確定刪除？'))return;DB[key]=DB[key].filter(function(x){return x.id!==id;});saveDB();toast('已刪除','error');if(currentTab==='dashboard')renderDashboard();if(currentTab==='clients')renderClients();if(currentTab==='policies')renderPolicies();if(currentTab==='commissions')renderCommissions();if(currentTab==='expenses')renderExpenses();if(currentTab==='goals')renderGoals();if(currentTab==='schedules')renderSchedules();}
 function findById(key,id){for(var i=0;i<DB[key].length;i++)if(DB[key][i].id===id)return DB[key][i];return {};}
 function val(id){return(document.getElementById(id)||{}).value||'';}
 
@@ -1021,7 +1108,7 @@ function doImport(evt){
   var file=evt.target.files[0];if(!file)return;
   var reader=new FileReader();
   reader.onload=function(){
-    try{var d=JSON.parse(reader.result);if(d.data){DB={clients:[],policies:[],commissions:[],expenses:[],goals:[]};Object.assign(DB,d.data);if(d.agent&&d.agent!==agentName){agentName=d.agent;localStorage.setItem(AGENT_KEY,agentName);document.getElementById('agentNameDisplay').textContent=agentName;document.getElementById('sidebarAgentInfo').textContent=agentName+' | 代理人版';}_id=0;['clients','policies','commissions','expenses','goals'].forEach(function(k){DB[k].forEach(function(x){if(x.id>_id)_id=x.id;});});_id++;saveDB();renderDashboard();toast('已匯入資料');}else{DB=d;saveDB();renderDashboard();toast('已匯入舊格式資料');}}catch(ex){toast('匯入失敗：格式錯誤','error');}
+    try{var d=JSON.parse(reader.result);if(d.data){DB={clients:[],policies:[],commissions:[],expenses:[],goals:[],schedules:[]};Object.assign(DB,d.data);if(d.agent&&d.agent!==agentName){agentName=d.agent;localStorage.setItem(AGENT_KEY,agentName);document.getElementById('agentNameDisplay').textContent=agentName;document.getElementById('sidebarAgentInfo').textContent=agentName+' | 代理人版';}_id=0;['clients','policies','commissions','expenses','goals','schedules'].forEach(function(k){DB[k].forEach(function(x){if(x.id>_id)_id=x.id;});});_id++;saveDB();renderDashboard();toast('已匯入資料');}else{DB=d;saveDB();renderDashboard();toast('已匯入舊格式資料');}}catch(ex){toast('匯入失敗：格式錯誤','error');}
   };reader.readAsText(file);evt.target.value='';
 }
 
