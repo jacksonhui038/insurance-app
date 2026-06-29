@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>保經管家 - 代理人版</title>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f1f5f9;--white:#fff;--blue50:#eff6ff;--blue100:#dbeafe;--blue500:#3b82f6;--blue600:#2563eb;--blue700:#1d4ed8;
+  --gray50:#f9fafb;--gray100:#f3f4f6;--gray200:#e5e7eb;--gray300:#d1d5db;--gray400:#9ca3af;--gray500:#6b7280;--gray600:#4b5563;--gray800:#1f2937;
+  --green500:#22c55e;--red500:#ef4444;--yellow500:#eab308;--purple500:#a855f7;
+  --radius:10px;--shadow:0 1px 3px rgba(0,0,0,0.08),0 4px 12px rgba(0,0,0,0.05)
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft JhengHei',sans-serif;background:var(--bg);color:var(--gray800);display:flex;height:100vh;overflow:hidden;font-size:14px}
+/* SIDEBAR */
+.sidebar{width:230px;background:var(--white);border-right:1px solid var(--gray200);display:flex;flex-direction:column;flex-shrink:0}
+.sidebar-head{padding:16px 18px;border-bottom:1px solid var(--gray200);background:linear-gradient(135deg,var(--blue500),var(--blue700));color:#fff}
+.sidebar-head h1{font-size:16px;font-weight:700}
+.sidebar-head .agent-info{font-size:11px;opacity:0.85;margin-top:4px}
+.sidebar-nav{flex:1;padding:10px 8px;overflow-y:auto}
+.nav-btn{display:flex;align-items:center;gap:10px;width:100%;padding:11px 14px;border:none;background:none;cursor:pointer;font-size:14px;color:var(--gray600);border-radius:8px;text-align:left;transition:all .15s;margin-bottom:2px}
+.nav-btn:hover{background:var(--blue50);color:var(--blue700)}
+.nav-btn.active{background:var(--blue500);color:#fff;font-weight:600}
+.nav-icon{font-size:18px;width:24px;text-align:center}
+/* MAIN */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{padding:10px 24px;background:var(--white);border-bottom:1px solid var(--gray200);display:flex;align-items:center;justify-content:space-between}
+.topbar h2{font-size:18px;font-weight:700}
+.topbar-right{display:flex;gap:8px;align-items:center}
+.agent-badge{display:flex;align-items:center;gap:6px;padding:4px 12px;background:var(--blue50);border-radius:20px;font-size:12px;color:var(--blue700)}
+.agent-badge .dot{width:8px;height:8px;border-radius:50%;background:var(--green500)}
+.agent-badge button{cursor:pointer;border:none;background:none;font-size:13px;color:var(--blue700);font-weight:600;text-decoration:underline}
+.content{flex:1;overflow-y:auto;padding:24px}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+/* CARDS */
+.cards-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px}
+.stat-card{background:var(--white);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);border-left:4px solid var(--blue500);transition:transform .15s}
+.stat-card:hover{transform:translateY(-2px)}
+.stat-card .label{font-size:12px;color:var(--gray400);margin-bottom:8px;font-weight:500}
+.stat-card .value{font-size:26px;font-weight:700}
+.stat-card .sub{font-size:12px;color:var(--gray400);margin-top:6px}
+/* CHARTS */
+.charts-grid{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:24px}
+.charts-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px}
+.chart-card{background:var(--white);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow)}
+.chart-card h3{font-size:14px;color:var(--gray600);margin-bottom:14px;font-weight:600}
+.chart-card canvas{max-height:260px}
+/* TABLES */
+.table-wrap{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;margin-bottom:20px}
+.table-head{padding:14px 20px;border-bottom:1px solid var(--gray200);display:flex;align-items:center;justify-content:space-between}
+.table-head h3{font-size:15px;font-weight:600}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;padding:10px 16px;font-size:11px;color:var(--gray400);text-transform:uppercase;border-bottom:1px solid var(--gray200);background:var(--gray50);font-weight:600}
+td{padding:10px 16px;font-size:13px;border-bottom:1px solid var(--gray100)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--blue50)}
+/* BUTTONS */
+.btn{padding:8px 16px;border-radius:6px;font-size:13px;cursor:pointer;border:none;font-weight:500;transition:all .15s;display:inline-flex;align-items:center;gap:4px}
+.btn-primary{background:var(--blue500);color:#fff}
+.btn-primary:hover{background:var(--blue600)}
+.btn-outline{background:transparent;color:var(--blue500);border:1px solid var(--blue500)}
+.btn-outline:hover{background:var(--blue50)}
+.btn-sm{padding:5px 10px;font-size:12px}
+.btn-danger{background:var(--red500);color:#fff}
+.btn-danger:hover{background:#dc2626}
+.btn-green{background:var(--green500);color:#fff}
+.btn-green:hover{background:#16a34a}
+/* BADGES */
+.badge{display:inline-block;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:500}
+.badge-green{background:#dcfce7;color:#16a34a}
+.badge-yellow{background:#fef9c3;color:#a16207}
+.badge-red{background:#fee2e2;color:#dc2626}
+.badge-blue{background:var(--blue100);color:var(--blue700)}
+.badge-gray{background:var(--gray100);color:var(--gray500)}
+/* FORMS */
+.form-group{margin-bottom:14px}
+.form-group label{display:block;font-size:12px;color:var(--gray500);margin-bottom:4px;font-weight:500}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px;font-family:inherit;background:var(--white);color:var(--gray800);transition:border-color .15s}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:var(--blue500);box-shadow:0 0 0 3px rgba(59,130,246,0.12)}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+/* MODAL */
+.modal-bg{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.45);z-index:1000;justify-content:center;align-items:center}
+.modal-bg.show{display:flex}
+.modal{background:var(--white);border-radius:var(--radius);padding:24px;width:92%;max-width:520px;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.2)}
+.modal h3{font-size:16px;font-weight:700;margin-bottom:18px}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
+/* PERIOD */
+.period-btns{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap}
+.period-btn{padding:6px 16px;border-radius:20px;font-size:12px;cursor:pointer;border:1px solid var(--gray300);background:var(--white);color:var(--gray500);transition:all .15s;font-weight:500}
+.period-btn.active{background:var(--blue500);color:#fff;border-color:var(--blue500)}
+/* REPORT */
+.report-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px}
+.report-card{background:var(--white);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);text-align:center}
+.report-card .rc-label{font-size:12px;color:var(--gray400);margin-bottom:4px}
+.report-card .rc-value{font-size:22px;font-weight:700}
+/* GOAL CARD */
+.goal-card{background:var(--white);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);margin-bottom:12px;border-left:4px solid var(--blue500)}
+.goal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.goal-title{font-size:15px;font-weight:600}
+.goal-meta{font-size:12px;color:var(--gray400)}
+.progress-bar{width:100%;height:8px;background:var(--gray200);border-radius:4px;overflow:hidden;margin-top:8px}
+.progress-fill{height:100%;border-radius:4px;transition:width .4s}
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:8px;font-size:13px;z-index:2000;animation:slideUp .3s ease;box-shadow:0 8px 24px rgba(0,0,0,0.15)}
+.toast-success{background:var(--green500);color:#fff}
+.toast-error{background:var(--red500);color:#fff}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+/* EMPTY */
+.empty{text-align:center;padding:48px 20px;color:var(--gray400)}
+.amt-pos{color:var(--green500);font-weight:600}
+.amt-neg{color:var(--red500);font-weight:600}
+/* NAME MODAL */
+.name-modal{text-align:center}
+.name-modal input{width:200px;padding:10px 14px;border-radius:8px;border:2px solid var(--blue500);font-size:16px;text-align:center;outline:none;margin:12px 0}
+.name-modal .btn{padding:10px 24px;font-size:15px}
+/* SYNC BAR */
+.sync-bar{padding:6px 24px;background:var(--blue50);border-bottom:1px solid var(--blue100);display:flex;align-items:center;justify-content:space-between;font-size:12px}
+.sync-bar .last-sync{color:var(--gray500)}
+.sync-btn{cursor:pointer;background:var(--green500);color:#fff;border:none;padding:4px 14px;border-radius:12px;font-size:12px;font-weight:500;transition:all .15s}
+.sync-btn:hover{background:#16a34a}
+@media(max-width:768px){
+  .sidebar{width:60px}
+  .sidebar .nav-btn span:not(.nav-icon){display:none}
+  .sidebar-head h1{font-size:12px}
+  .charts-grid,.charts-grid-2{grid-template-columns:1fr}
+  .form-row{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- NAME / PIN MODAL -->
+<div class="modal-bg show" id="nameModalBg">
+  <div class="modal name-modal" id="nameModal">
+    <!-- SETUP: new user -->
+    <div id="setupMode">
+      <h3>👋 歡迎使用保經管家</h3>
+      <p style="color:var(--gray500);margin-bottom:6px">請設定你嘅姓名同 PIN 碼</p>
+      <div class="form-group"><label>姓名</label><input type="text" id="nameInput" placeholder="例如：陳大文"></div>
+      <div class="form-group"><label>PIN 碼（4-6 位數字）</label><input type="password" id="pinInput" placeholder="設定 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off"></div>
+      <div class="form-group"><label>確認 PIN 碼</label><input type="password" id="pinConfirm" placeholder="再次輸入 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off"></div>
+      <div class="modal-actions" style="justify-content:center">
+        <button class="btn btn-primary" onclick="saveName()">開始使用</button>
+      </div>
+    </div>
+    <!-- UNLOCK: returning user -->
+    <div id="unlockMode" style="display:none">
+      <h3>🔐 解鎖</h3>
+      <p style="color:var(--gray500);margin-bottom:12px" id="unlockGreeting">歡迎回來</p>
+      <div class="form-group"><input type="password" id="unlockPin" placeholder="請輸入 PIN 碼解鎖" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off" onkeydown="if(event.key==='Enter')unlockAgent()"></div>
+      <div class="modal-actions" style="justify-content:center;flex-wrap:wrap;gap:8px">
+        <button class="btn btn-primary" onclick="unlockAgent()">解鎖</button>
+        <button class="btn btn-outline btn-sm" style="color:var(--red500);border-color:var(--red500)" onclick="resetAgent()">唔係我，清除數據</button>
+      </div>
+    </div>
+    <!-- SWITCH: confirm PIN before switching -->
+    <div id="switchMode" style="display:none">
+      <h3>⚠️ 切換代理人</h3>
+      <p style="color:var(--gray500);margin-bottom:6px">請先輸入 <b id="switchAgentName">—</b> 嘅 PIN 碼確認身份</p>
+      <div class="form-group"><input type="password" id="switchPin" placeholder="請輸入 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off" onkeydown="if(event.key==='Enter')confirmSwitch()"></div>
+      <div class="modal-actions" style="justify-content:center;gap:8px">
+        <button class="btn btn-primary" onclick="confirmSwitch()">確認切換</button>
+        <button class="btn btn-outline" onclick="cancelSwitch()">取消</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-head">
+    <h1>📊 保經管家</h1>
+    <div class="agent-info" id="sidebarAgentInfo">代理人版</div>
+  </div>
+  <nav class="sidebar-nav" id="sidebarNav">
+    <button class="nav-btn active" onclick="switchTab('dashboard',this)"><span class="nav-icon">📋</span> 總覽</button>
+    <button class="nav-btn" onclick="switchTab('clients',this)"><span class="nav-icon">👥</span> 客戶管理</button>
+    <button class="nav-btn" onclick="switchTab('policies',this)"><span class="nav-icon">📄</span> 保單管理</button>
+    <button class="nav-btn" onclick="switchTab('commissions',this)"><span class="nav-icon">💰</span> 佣金收入</button>
+    <button class="nav-btn" onclick="switchTab('expenses',this)"><span class="nav-icon">💳</span> 開支記錄</button>
+    <button class="nav-btn" onclick="switchTab('reports',this)"><span class="nav-icon">📈</span> 業績報表</button>
+    <button class="nav-btn" onclick="switchTab('goals',this)"><span class="nav-icon">🎯</span> 目標管理</button>
+  </nav>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+  <div class="topbar">
+    <h2 id="pageTitle">總覽</h2>
+    <div class="topbar-right">
+      <div class="agent-badge" id="agentBadgeBtn" title="切換代理人">
+        <span class="dot"></span> <span id="agentNameDisplay">—</span>
+        <button onclick="switchAgent()" title="切換代理人">切換</button>
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="exportForManager()">📤 匯給經理</button>
+      <button class="btn btn-outline btn-sm" onclick="exportData()">📥 備份</button>
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('importInput').click()">📤 匯入</button>
+    </div>
+  </div>
+  <div class="sync-bar">
+    <span>☁️ 數據存儲方式：<b>本地</b>（可匯出俾經理整合）</span>
+    <span class="last-sync" id="lastSyncLabel"></span>
+  </div>
+  <div class="content" id="mainContent">
+    <!-- DASHBOARD -->
+    <div class="tab-panel active" id="panel-dashboard">
+      <div class="cards-grid" id="dashCards"></div>
+      <div class="charts-grid">
+        <div class="chart-card"><h3>📊 佣金收入趨勢</h3><canvas id="chartCommission"></canvas></div>
+        <div class="chart-card"><h3>🎯 月度目標達成率</h3><canvas id="chartGoal"></canvas></div>
+      </div>
+      <div class="charts-grid-2">
+        <div class="chart-card"><h3>📋 保單類型分佈</h3><canvas id="chartPolicyType"></canvas></div>
+        <div class="chart-card"><h3>💳 本月開支分類</h3><canvas id="chartExpenseCat"></canvas></div>
+      </div>
+      <div class="table-wrap">
+        <div class="table-head"><h3>📌 待跟進事項</h3></div>
+        <table><thead><tr><th>事項</th><th>客戶</th><th>類型</th><th>到期日</th><th>狀態</th></tr></thead><tbody id="todoTable"></tbody></table>
+      </div>
+    </div>
+    <!-- CLIENTS -->
+    <div class="tab-panel" id="panel-clients">
+      <div class="table-wrap">
+        <div class="table-head"><h3>👥 客戶列表</h3><button class="btn btn-primary" onclick="openForm('client')">+ 新增客戶</button></div>
+        <table><thead><tr><th>姓名</th><th>電話</th><th>電郵</th><th>狀態</th><th>備註</th><th>操作</th></tr></thead><tbody id="clientTable"></tbody></table>
+      </div>
+    </div>
+    <!-- POLICIES -->
+    <div class="tab-panel" id="panel-policies">
+      <div class="table-wrap">
+        <div class="table-head"><h3>📄 保單列表</h3><button class="btn btn-primary" onclick="openForm('policy')">+ 新增保單</button></div>
+        <table><thead><tr><th>保單編號</th><th>客戶</th><th>類型</th><th>保費</th><th>佣金率</th><th>開始日</th><th>到期日</th><th>狀態</th><th>操作</th></tr></thead><tbody id="policyTable"></tbody></table>
+      </div>
+    </div>
+    <!-- COMMISSIONS -->
+    <div class="tab-panel" id="panel-commissions">
+      <div class="table-wrap">
+        <div class="table-head"><h3>💰 佣金記錄</h3><button class="btn btn-primary" onclick="openForm('commission')">+ 新增佣金</button></div>
+        <table><thead><tr><th>日期</th><th>客戶</th><th>保單編號</th><th>類型</th><th>金額</th><th>備註</th><th>操作</th></tr></thead><tbody id="commissionTable"></tbody></table>
+      </div>
+    </div>
+    <!-- EXPENSES -->
+    <div class="tab-panel" id="panel-expenses">
+      <div class="table-wrap">
+        <div class="table-head"><h3>💳 開支記錄</h3><button class="btn btn-primary" onclick="openForm('expense')">+ 新增開支</button></div>
+        <table><thead><tr><th>日期</th><th>分類</th><th>金額</th><th>付款方式</th><th>備註</th><th>操作</th></tr></thead><tbody id="expenseTable"></tbody></table>
+      </div>
+    </div>
+    <!-- REPORTS -->
+    <div class="tab-panel" id="panel-reports">
+      <div class="period-btns" id="reportPeriodBtns">
+        <button class="period-btn active" onclick="switchReport('month',this)">📅 本月</button>
+        <button class="period-btn" onclick="switchReport('quarter',this)">📊 本季</button>
+        <button class="period-btn" onclick="switchReport('half',this)">📆 本半年</button>
+        <button class="period-btn" onclick="switchReport('year',this)">📈 本年</button>
+      </div>
+      <div class="report-cards" id="reportCards"></div>
+      <div class="charts-grid"><div class="chart-card"><h3>📊 佣金收入</h3><canvas id="chartRptComm"></canvas></div><div class="chart-card"><h3>💳 開支</h3><canvas id="chartRptExp"></canvas></div></div>
+      <div class="table-wrap"><div class="table-head"><h3>📋 佣金明細</h3></div><table><thead><tr><th>日期</th><th>客戶</th><th>保單</th><th>類型</th><th>金額</th></tr></thead><tbody id="reportCommTable"></tbody></table></div>
+      <div class="table-wrap"><div class="table-head"><h3>💳 開支明細</h3></div><table><thead><tr><th>日期</th><th>分類</th><th>金額</th><th>備註</th></tr></thead><tbody id="reportExpTable"></tbody></table></div>
+    </div>
+    <!-- GOALS -->
+    <div class="tab-panel" id="panel-goals">
+      <div style="margin-bottom:16px"><button class="btn btn-primary" onclick="openForm('goal')">+ 新增目標</button></div>
+      <div id="goalList"></div>
+    </div>
+  </div>
+</main>
+
+<!-- MODAL -->
+<div class="modal-bg" id="modalBg" onclick="if(event.target===this)closeModal()">
+  <div class="modal" id="modalInner"></div>
+</div>
+<div id="toastBox" style="position:fixed;bottom:24px;right:24px;z-index:2000"></div>
+<input type="file" id="importInput" accept=".json" style="display:none" onchange="doImport(event)">
+
+<script>
+// ===================================================================
+// DATA LAYER (per-agent, localStorage)
+// ===================================================================
+var STORE_KEY = 'insurance_agent_data';
+var AGENT_KEY = 'insurance_agent_name';
+var DB = {clients:[],policies:[],commissions:[],expenses:[],goals:[]};
+var chartLib = null;
+var chartInstances = {};
+var agentName = '';
+var _id = 0;
+
+function getStoreKey(){return'insurance_agent_'+encodeURIComponent(agentName);}
+function loadDB(){
+  STORE_KEY = getStoreKey();
+  try{var raw=localStorage.getItem(STORE_KEY);if(raw){var d=JSON.parse(raw);DB={clients:[],policies:[],commissions:[],expenses:[],goals:[]};Object.assign(DB,d);}}catch(e){}
+  _id=0;['clients','policies','commissions','expenses','goals'].forEach(function(k){DB[k].forEach(function(x){if(x.id>_id)_id=x.id;});});_id++;
+}
+function saveDB(){localStorage.setItem(getStoreKey(),JSON.stringify(DB));}
+
+var AGENT_PIN_KEY = 'insurance_agent_pin';
+var agentPIN = '';
+
+function saveName(){
+  var n=document.getElementById('nameInput').value.trim();
+  var pin=document.getElementById('pinInput').value.trim();
+  var pin2=document.getElementById('pinConfirm').value.trim();
+  if(!n){alert('請輸入姓名');return;}
+  if(!pin||pin.length<4){alert('請設定 4-6 位數字 PIN 碼');return;}
+  if(!/^\d+$/.test(pin)){alert('PIN 碼只能包含數字');return;}
+  if(pin!==pin2){alert('PIN 碼不一致，請重新輸入');return;}
+  agentName=n;agentPIN=pin;
+  localStorage.setItem(AGENT_KEY,n);
+  localStorage.setItem(AGENT_PIN_KEY,pin);
+  document.getElementById('nameModalBg').classList.remove('show');
+  document.getElementById('agentNameDisplay').textContent=n;
+  document.getElementById('sidebarAgentInfo').textContent=n+' | 代理人版';
+  loadDB();loadSample();renderDashboard();
+}
+
+function unlockAgent(){
+  var pin=document.getElementById('unlockPin').value.trim();
+  if(pin!==localStorage.getItem(AGENT_PIN_KEY)){alert('❌ PIN 碼錯誤');document.getElementById('unlockPin').value='';document.getElementById('unlockPin').focus();return;}
+  agentPIN=pin;
+  document.getElementById('nameModalBg').classList.remove('show');
+  document.getElementById('agentNameDisplay').textContent=agentName;
+  document.getElementById('sidebarAgentInfo').textContent=agentName+' | 代理人版';
+  loadDB();loadSample();renderDashboard();
+}
+
+function initAgent(){
+  var saved=localStorage.getItem(AGENT_KEY);
+  var savedPin=localStorage.getItem(AGENT_PIN_KEY);
+  document.getElementById('setupMode').style.display='none';
+  document.getElementById('unlockMode').style.display='none';
+  document.getElementById('switchMode').style.display='none';
+  if(saved&&savedPin){
+    // 有姓名 + PIN → 解鎖畫面
+    agentName=saved;agentPIN=savedPin;
+    document.getElementById('unlockGreeting').textContent='歡迎回來，'+agentName;
+    document.getElementById('unlockMode').style.display='block';
+    document.getElementById('nameModalBg').classList.add('show');
+    document.getElementById('unlockPin').focus();
+  }else if(saved&&!savedPin){
+    // 舊用戶升級：有姓名但冇 PIN → 設定 PIN 畫面（預填姓名）
+    document.getElementById('nameInput').value=saved;
+    document.getElementById('setupMode').style.display='block';
+    document.getElementById('nameModalBg').classList.add('show');
+    document.getElementById('pinInput').focus();
+  }else{
+    // 全新用戶
+    document.getElementById('setupMode').style.display='block';
+    document.getElementById('nameModalBg').classList.add('show');
+    document.getElementById('nameInput').focus();
+  }
+}
+
+function switchAgent(){
+  document.getElementById('setupMode').style.display='none';
+  document.getElementById('unlockMode').style.display='none';
+  document.getElementById('switchMode').style.display='block';
+  document.getElementById('switchAgentName').textContent=agentName;
+  document.getElementById('nameModalBg').classList.add('show');
+  document.getElementById('switchPin').focus();
+}
+
+function confirmSwitch(){
+  var pin=document.getElementById('switchPin').value.trim();
+  if(pin!==agentPIN){alert('❌ PIN 碼錯誤，無法切換');document.getElementById('switchPin').value='';document.getElementById('switchPin').focus();return;}
+  document.getElementById('switchPin').value='';
+  document.getElementById('setupMode').style.display='block';
+  document.getElementById('unlockMode').style.display='none';
+  document.getElementById('switchMode').style.display='none';
+  document.getElementById('nameInput').value='';
+  document.getElementById('pinInput').value='';
+  document.getElementById('pinConfirm').value='';
+  document.getElementById('agentNameDisplay').textContent='—';
+  document.getElementById('sidebarAgentInfo').textContent='代理人版';
+  document.getElementById('nameInput').focus();
+  agentName='';agentPIN='';
+}
+
+function cancelSwitch(){
+  document.getElementById('nameModalBg').classList.remove('show');
+}
+
+function resetAgent(){
+  if(!confirm('⚠️ 將會清除 '+agentName+' 嘅所有本地數據，確定？\n\n（呢個操作無法還原）'))return;
+  localStorage.removeItem(AGENT_KEY);
+  localStorage.removeItem(AGENT_PIN_KEY);
+  localStorage.removeItem(getStoreKey());
+  agentName='';agentPIN='';
+  DB={clients:[],policies:[],commissions:[],expenses:[],goals:[]};
+  document.getElementById('setupMode').style.display='block';
+  document.getElementById('unlockMode').style.display='none';
+  document.getElementById('switchMode').style.display='none';
+  document.getElementById('nameInput').value='';
+  document.getElementById('pinInput').value='';
+  document.getElementById('pinConfirm').value='';
+  document.getElementById('agentNameDisplay').textContent='—';
+  document.getElementById('sidebarAgentInfo').textContent='代理人版';
+  document.getElementById('nameInput').focus();
+}
+
+// ===================================================================
+// UID, MONEY, DATE, TOAST, ESC
+// ===================================================================
+function uid(){return _id++;}
+function money(n){return'HK$ '+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function dFmt(s){if(!s)return'';var d=new Date(s);return isNaN(d)?'':d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function toast(msg,type){type=type||'success';var el=document.createElement('div');el.className='toast toast-'+type;el.textContent=msg;document.getElementById('toastBox').appendChild(el);setTimeout(function(){el.remove()},2600);}
+function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+// ===================================================================
+// CHART.JS
+// ===================================================================
+(function(){var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';s.onload=function(){chartLib=Chart;renderDashboardCharts();};s.onerror=function(){console.warn('Chart.js unavailable');};document.head.appendChild(s);})();
+function destroyChart(id){if(chartInstances[id]){chartInstances[id].destroy();delete chartInstances[id];}}
+
+// ===================================================================
+// NAVIGATION
+// ===================================================================
+var currentTab='dashboard';
+function switchTab(tab,btnEl){
+  var btns=document.querySelectorAll('#sidebarNav .nav-btn');
+  for(var i=0;i<btns.length;i++)btns[i].classList.remove('active');
+  if(btnEl)btnEl.classList.add('active');
+  var panels=document.querySelectorAll('.tab-panel');
+  for(var j=0;j<panels.length;j++)panels[j].classList.remove('active');
+  var target=document.getElementById('panel-'+tab);
+  if(target)target.classList.add('active');
+  if(btnEl)document.getElementById('pageTitle').textContent=btnEl.textContent.replace(/^.{2}/,'').trim();
+  currentTab=tab;
+  if(tab==='dashboard')renderDashboard();
+  if(tab==='clients')renderClients();
+  if(tab==='policies')renderPolicies();
+  if(tab==='commissions')renderCommissions();
+  if(tab==='expenses')renderExpenses();
+  if(tab==='reports'){reportPeriod='month';renderReports();}
+  if(tab==='goals')renderGoals();
+}
+
+// ===================================================================
+// SAMPLE DATA
+// ===================================================================
+function loadSample(){
+  if(DB.clients.length>0)return;
+  var y=new Date().getFullYear();
+  DB.clients=[{id:uid(),name:'陳大文',phone:'9123 4567',email:'chan@example.com',status:'活躍',notes:'已購買醫療+人壽',createdAt:y+'-01-15'},{id:uid(),name:'李小美',phone:'9345 6789',email:'lee@example.com',status:'活躍',notes:'對儲蓄有興趣',createdAt:y+'-02-20'},{id:uid(),name:'王先生',phone:'9567 8901',email:'wong@example.com',status:'潛在',notes:'考慮旅遊保險',createdAt:y+'-03-10'},{id:uid(),name:'張太',phone:'9789 0123',email:'cheung@example.com',status:'活躍',notes:'已投保危疾+意外',createdAt:y+'-01-28'}];
+  DB.policies=[{id:uid(),policyNo:'POL-001',clientId:DB.clients[0].id,clientName:'陳大文',type:'醫療保險',premium:12000,commissionRate:15,startDate:y+'-02-01',endDate:(y+1)+'-01-31',status:'生效'},{id:uid(),policyNo:'POL-002',clientId:DB.clients[0].id,clientName:'陳大文',type:'人壽保險',premium:24000,commissionRate:20,startDate:y+'-02-01',endDate:(y+10)+'-01-31',status:'生效'},{id:uid(),policyNo:'POL-003',clientId:DB.clients[1].id,clientName:'李小美',type:'儲蓄保險',premium:60000,commissionRate:10,startDate:y+'-03-01',endDate:(y+10)+'-02-28',status:'生效'},{id:uid(),policyNo:'POL-004',clientId:DB.clients[3].id,clientName:'張太',type:'危疾保險',premium:18000,commissionRate:18,startDate:y+'-02-15',endDate:(y+10)+'-02-14',status:'生效'},{id:uid(),policyNo:'POL-005',clientId:DB.clients[3].id,clientName:'張太',type:'意外保險',premium:800,commissionRate:12,startDate:y+'-02-15',endDate:(y+1)+'-02-14',status:'待生效'}];
+  DB.commissions=[{id:uid(),date:y+'-01-20',clientName:'陳大文',policyNo:'POL-001',type:'首年佣金',amount:1800,notes:'醫療首期'},{id:uid(),date:y+'-02-05',clientName:'陳大文',policyNo:'POL-002',type:'首年佣金',amount:4800,notes:'人壽首期'},{id:uid(),date:y+'-02-18',clientName:'張太',policyNo:'POL-004',type:'首年佣金',amount:3240,notes:'危疾'},{id:uid(),date:y+'-03-10',clientName:'李小美',policyNo:'POL-003',type:'首年佣金',amount:6000,notes:'儲蓄'},{id:uid(),date:y+'-04-15',clientName:'陳大文',policyNo:'POL-001',type:'續年佣金',amount:900,notes:''},{id:uid(),date:y+'-05-20',clientName:'張太',policyNo:'POL-004',type:'續年佣金',amount:1620,notes:''},{id:uid(),date:y+'-06-10',clientName:'陳大文',policyNo:'POL-002',type:'續年佣金',amount:2400,notes:''}];
+  DB.expenses=[{id:uid(),date:y+'-01-25',category:'交通',amount:350,payment:'信用卡',notes:'的士費'},{id:uid(),date:y+'-02-10',category:'餐飲',amount:680,payment:'信用卡',notes:'客戶午餐'},{id:uid(),date:y+'-03-05',category:'交通',amount:1200,payment:'電子錢包',notes:'港鐵月票'},{id:uid(),date:y+'-04-08',category:'教育',amount:2800,payment:'信用卡',notes:'進修課程'},{id:uid(),date:y+'-06-01',category:'家居',amount:1200,payment:'銀行轉帳',notes:'辦公室攤分'}];
+  var m=new Date().getMonth()+1;
+  DB.goals=[{id:uid(),type:'佣金',period:'monthly',year:y,month:m,quarter:0,target:20000,desc:y+'年'+m+'月目標'},{id:uid(),type:'佣金',period:'yearly',year:y,month:0,quarter:0,target:200000,desc:y+'年度目標'}];
+  saveDB();renderDashboard();toast('已載入示範數據，開始管理你嘅業務吧！');
+}
+
+// ===================================================================
+// DASHBOARD
+// ===================================================================
+function renderDashboard(){
+  var now=new Date(),mth=now.getMonth(),yr=now.getFullYear();
+  var monthComms=DB.commissions.filter(function(c){var d=new Date(c.date);return d.getMonth()===mth&&d.getFullYear()===yr;});
+  var monthTotal=0;monthComms.forEach(function(c){monthTotal+=Number(c.amount)||0;});
+  var newClients=DB.clients.filter(function(c){var d=c.createdAt?new Date(c.createdAt):null;return d&&d.getMonth()===mth&&d.getFullYear()===yr;}).length;
+  var newPolicies=DB.policies.filter(function(p){var d=new Date(p.startDate);return d.getMonth()===mth&&d.getFullYear()===yr;}).length;
+  var pending=DB.policies.filter(function(p){return p.status==='待生效'||p.status==='審核中';}).length;
+  var monthExp=0;DB.expenses.filter(function(e){var d=new Date(e.date);return d.getMonth()===mth&&d.getFullYear()===yr;}).forEach(function(e){monthExp+=Number(e.amount)||0;});
+  document.getElementById('dashCards').innerHTML='<div class="stat-card" style="border-left-color:var(--blue500)"><div class="label">本月佣金總額</div><div class="value">'+money(monthTotal)+'</div><div class="sub">'+monthComms.length+' 筆記錄</div></div><div class="stat-card" style="border-left-color:var(--green500)"><div class="label">本月新增客戶</div><div class="value">'+newClients+'</div><div class="sub">共 '+DB.clients.length+' 位客戶</div></div><div class="stat-card" style="border-left-color:var(--yellow500)"><div class="label">本月新增保單</div><div class="value">'+newPolicies+'</div><div class="sub">共 '+DB.policies.length+' 份保單</div></div><div class="stat-card" style="border-left-color:var(--purple500)"><div class="label">待跟進保單</div><div class="value">'+pending+'</div><div class="sub">需儘快處理</div></div><div class="stat-card" style="border-left-color:var(--red500)"><div class="label">本月總開支</div><div class="value">'+money(monthExp)+'</div><div class="sub">淨收入 '+money(monthTotal-monthExp)+'</div></div>';
+  // Todo
+  var todos=[];DB.policies.forEach(function(p){if(p.status==='待生效'||p.status==='審核中')todos.push({txt:'保單待跟進',client:p.clientName,type:'保單',date:p.endDate,status:p.status});});
+  var th='';if(todos.length===0)th='<tr><td colspan="5" class="empty">暫無待跟進事項 ✓</td></tr>';
+  else todos.forEach(function(t){th+='<tr><td>'+t.txt+'</td><td>'+esc(t.client)+'</td><td><span class="badge badge-blue">'+esc(t.type)+'</span></td><td>'+esc(dFmt(t.date))+'</td><td><span class="badge '+(t.status==='審核中'?'badge-yellow':'badge-red')+'">'+esc(t.status)+'</span></td></tr>';});
+  document.getElementById('todoTable').innerHTML=th;
+  renderDashboardCharts();
+}
+function renderDashboardCharts(){
+  if(!chartLib)return;var now=new Date(),m=now.getMonth(),y=now.getFullYear();
+  destroyChart('chartCommission');
+  var labels=[],d12=[];
+  for(var i=11;i>=0;i--){var dm=new Date(y,m-i,1);labels.push(dm.getFullYear()+'/'+(dm.getMonth()+1));var s=0;DB.commissions.filter(function(c){var d=new Date(c.date);return d.getMonth()===dm.getMonth()&&d.getFullYear()===dm.getFullYear();}).forEach(function(c){s+=Number(c.amount)||0;});d12.push(s);}
+  chartInstances['chartCommission']=new chartLib(document.getElementById('chartCommission'),{type:'line',data:{labels:labels,datasets:[{data:d12,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.1)',fill:true,tension:0.4,pointRadius:2}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:function(v){return'HK$'+v.toLocaleString()}}}}}});
+  destroyChart('chartGoal');
+  var ag=null;for(var i=0;i<DB.goals.length;i++){if(DB.goals[i].period==='monthly'&&DB.goals[i].year===y&&DB.goals[i].month===m+1){ag=DB.goals[i];break;}}
+  var r=ag?Math.min(100,Math.round(DB.commissions.filter(function(c){var d=new Date(c.date);return d.getMonth()===m&&d.getFullYear()===y;}).reduce(function(s,c){return s+(Number(c.amount)||0);},0)/ag.target*100)):0;
+  chartInstances['chartGoal']=new chartLib(document.getElementById('chartGoal'),{type:'doughnut',data:{labels:['已完成','剩餘'],datasets:[{data:[r,100-r],backgroundColor:r>=100?['#22c55e','#e5e7eb']:['#3b82f6','#e5e7eb'],borderWidth:0}]},options:{responsive:true,cutout:'75%',plugins:{legend:{display:false},tooltip:{enabled:false}}}});
+  destroyChart('chartPolicyType');var tc={};DB.policies.forEach(function(p){tc[p.type]=(tc[p.type]||0)+1;});var pt=Object.keys(tc),pn=pt.map(function(k){return tc[k];});
+  chartInstances['chartPolicyType']=new chartLib(document.getElementById('chartPolicyType'),{type:'doughnut',data:{labels:pt,datasets:[{data:pn,backgroundColor:['#3b82f6','#22c55e','#eab308','#ef4444','#a855f7','#06b6d4','#f97316','#64748b'],borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,plugins:{legend:{position:'bottom'}}}});
+  destroyChart('chartExpenseCat');var cc={};DB.expenses.filter(function(e){var d=new Date(e.date);return d.getMonth()===m&&d.getFullYear()===y;}).forEach(function(e){cc[e.category]=(cc[e.category]||0)+Number(e.amount);});var cats=Object.keys(cc),cv=cats.map(function(k){return cc[k];});
+  chartInstances['chartExpenseCat']=new chartLib(document.getElementById('chartExpenseCat'),{type:'bar',data:{labels:cats,datasets:[{data:cv,backgroundColor:'#60a5fa',borderRadius:4}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:function(v){return'HK$'+v.toLocaleString()}}}}}});
+}
+
+// ===================================================================
+// CLIENTS
+// ===================================================================
+function renderClients(){
+  var h='';if(DB.clients.length===0)h='<tr><td colspan="6" class="empty">尚無客戶，點擊「+ 新增客戶」開始</td></tr>';
+  else DB.clients.forEach(function(c){var sc=c.status==='活躍'?'badge-green':c.status==='潛在'?'badge-yellow':'badge-red';h+='<tr><td>'+esc(c.name)+'</td><td>'+esc(c.phone||'—')+'</td><td>'+esc(c.email||'—')+'</td><td><span class="badge '+sc+'">'+esc(c.status)+'</span></td><td>'+esc((c.notes||'').substring(0,30))+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'client\','+c.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'clients\','+c.id+')">刪除</button></td></tr>';});
+  document.getElementById('clientTable').innerHTML=h;
+}
+
+// ===================================================================
+// POLICIES
+// ===================================================================
+function renderPolicies(){
+  var h='';if(DB.policies.length===0)h='<tr><td colspan="9" class="empty">尚無保單記錄</td></tr>';
+  else DB.policies.forEach(function(p){var sc=p.status==='生效'?'badge-green':p.status==='待生效'?'badge-yellow':p.status==='審核中'?'badge-blue':'badge-red';h+='<tr><td>'+esc(p.policyNo||'—')+'</td><td>'+esc(p.clientName)+'</td><td>'+esc(p.type)+'</td><td>'+money(p.premium)+'</td><td>'+esc(p.commissionRate)+'%</td><td>'+esc(dFmt(p.startDate))+'</td><td>'+esc(dFmt(p.endDate))+'</td><td><span class="badge '+sc+'">'+esc(p.status)+'</span></td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'policy\','+p.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'policies\','+p.id+')">刪除</button></td></tr>';});
+  document.getElementById('policyTable').innerHTML=h;
+}
+
+// ===================================================================
+// COMMISSIONS
+// ===================================================================
+function renderCommissions(){
+  var h='';if(DB.commissions.length===0)h='<tr><td colspan="7" class="empty">尚無佣金記錄</td></tr>';
+  else DB.commissions.forEach(function(c){h+='<tr><td>'+esc(dFmt(c.date))+'</td><td>'+esc(c.clientName)+'</td><td>'+esc(c.policyNo||'—')+'</td><td><span class="badge badge-blue">'+esc(c.type)+'</span></td><td class="amt-pos">'+money(c.amount)+'</td><td>'+(c.notes?esc(c.notes):'—')+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'commission\','+c.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'commissions\','+c.id+')">刪除</button></td></tr>';});
+  document.getElementById('commissionTable').innerHTML=h;
+}
+
+// ===================================================================
+// EXPENSES
+// ===================================================================
+function renderExpenses(){
+  var h='';if(DB.expenses.length===0)h='<tr><td colspan="6" class="empty">尚無開支記錄</td></tr>';
+  else DB.expenses.forEach(function(e){h+='<tr><td>'+esc(dFmt(e.date))+'</td><td><span class="badge badge-gray">'+esc(e.category)+'</span></td><td class="amt-neg">'+money(e.amount)+'</td><td>'+esc(e.payment||'—')+'</td><td>'+(e.notes?esc(e.notes):'—')+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'expense\','+e.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'expenses\','+e.id+')">刪除</button></td></tr>';});
+  document.getElementById('expenseTable').innerHTML=h;
+}
+
+// ===================================================================
+// REPORTS
+// ===================================================================
+var reportPeriod='month';
+function switchReport(p,btnEl){reportPeriod=p;var btns=document.querySelectorAll('#reportPeriodBtns .period-btn');for(var i=0;i<btns.length;i++)btns[i].classList.remove('active');if(btnEl)btnEl.classList.add('active');renderReports();}
+function getPeriod(period){
+  var now=new Date(),y=now.getFullYear(),m=now.getMonth();
+  if(period==='month')return[new Date(y,m,1),new Date(y,m+1,0)];
+  if(period==='quarter'){var q=Math.floor(m/3)*3;return[new Date(y,q,1),new Date(y,q+3,0)];}
+  if(period==='half'){var h=m<6?0:6;return[new Date(y,h,1),new Date(y,h+6,0)];}
+  return[new Date(y,0,1),new Date(y,11,31)];
+}
+function renderReports(){
+  var r=getPeriod(reportPeriod),s=r[0],e=r[1];
+  var cm=DB.commissions.filter(function(c){var d=new Date(c.date);return d>=s&&d<=e;});
+  var ex=DB.expenses.filter(function(x){var d=new Date(x.date);return d>=s&&d<=e;});
+  var tc=0,te=0;cm.forEach(function(c){tc+=Number(c.amount)||0;});ex.forEach(function(x){te+=Number(x.amount)||0;});
+  var pn={month:'本月',quarter:'本季',half:'本半年',year:'本年'};
+  document.getElementById('reportCards').innerHTML='<div class="report-card"><div class="rc-label">'+pn[reportPeriod]+'佣金</div><div class="rc-value" style="color:var(--green500)">'+money(tc)+'</div></div><div class="report-card"><div class="rc-label">'+pn[reportPeriod]+'開支</div><div class="rc-value" style="color:var(--red500)">'+money(te)+'</div></div><div class="report-card"><div class="rc-label">淨收入</div><div class="rc-value" style="color:var(--blue700)">'+money(tc-te)+'</div></div><div class="report-card"><div class="rc-label">佣金筆數</div><div class="rc-value">'+cm.length+'</div></div>';
+  var ch='';if(cm.length===0)ch='<tr><td colspan="5" class="empty">此期間無佣金記錄</td></tr>';
+  else cm.forEach(function(c){ch+='<tr><td>'+esc(dFmt(c.date))+'</td><td>'+esc(c.clientName)+'</td><td>'+esc(c.policyNo||'—')+'</td><td><span class="badge badge-blue">'+esc(c.type)+'</span></td><td class="amt-pos">'+money(c.amount)+'</td></tr>';});
+  document.getElementById('reportCommTable').innerHTML=ch;
+  var eh='';if(ex.length===0)eh='<tr><td colspan="4" class="empty">此期間無開支記錄</td></tr>';
+  else ex.forEach(function(x){eh+='<tr><td>'+esc(dFmt(x.date))+'</td><td><span class="badge badge-gray">'+esc(x.category)+'</span></td><td class="amt-neg">'+money(x.amount)+'</td><td>'+(x.notes?esc(x.notes):'—')+'</td></tr>';});
+  document.getElementById('reportExpTable').innerHTML=eh;
+  if(chartLib)renderReportCharts(s,e);
+}
+function renderReportCharts(s,e){
+  destroyChart('chartRptComm');destroyChart('chartRptExp');
+  var months=[],d=new Date(s.getFullYear(),s.getMonth(),1);
+  while(d<=e){months.push({y:d.getFullYear(),m:d.getMonth()});d=new Date(d.getFullYear(),d.getMonth()+1,1);}
+  var cd=[],ed=[];months.forEach(function(mo){var sc=0;DB.commissions.filter(function(c){var d=new Date(c.date);return d.getMonth()===mo.m&&d.getFullYear()===mo.y;}).forEach(function(c){sc+=Number(c.amount)||0;});cd.push(sc);var se=0;DB.expenses.filter(function(x){var d=new Date(x.date);return d.getMonth()===mo.m&&d.getFullYear()===mo.y;}).forEach(function(x){se+=Number(x.amount)||0;});ed.push(se);});
+  var l=months.map(function(mo){return mo.y+'/'+(mo.m+1);});
+  chartInstances['chartRptComm']=new chartLib(document.getElementById('chartRptComm'),{type:'bar',data:{labels:l,datasets:[{label:'佣金',data:cd,backgroundColor:'#3b82f6',borderRadius:4}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:function(v){return'HK$'+v.toLocaleString()}}}}}});
+  chartInstances['chartRptExp']=new chartLib(document.getElementById('chartRptExp'),{type:'bar',data:{labels:l,datasets:[{label:'開支',data:ed,backgroundColor:'#ef4444',borderRadius:4}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:function(v){return'HK$'+v.toLocaleString()}}}}}});
+}
+
+// ===================================================================
+// GOALS
+// ===================================================================
+function renderGoals(){
+  var now=new Date(),y=now.getFullYear(),m=now.getMonth();
+  var h='';if(DB.goals.length===0)h='<div class="empty"><div class="icon">🎯</div>尚無目標，點擊新增開始設定</div>';
+  else DB.goals.forEach(function(g){
+    var mn=['','1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+    var pl=g.period==='monthly'?g.year+'年'+mn[g.month]:g.period==='quarterly'?g.year+'年Q'+g.quarter:g.year+'年度目標';
+    var actual=0;if(g.period==='monthly'){actual=DB.commissions.filter(function(c){var d=new Date(c.date);return d.getMonth()===(g.month-1)&&d.getFullYear()===g.year;}).reduce(function(s,c){return s+(Number(c.amount)||0);},0);}else{var s2,e2;if(g.period==='quarterly'){s2=new Date(g.year,(g.quarter-1)*3,1);e2=new Date(g.year,(g.quarter-1)*3+3,0);}else{s2=new Date(g.year,0,1);e2=new Date(g.year,11,31);}actual=DB.commissions.filter(function(c){var d=new Date(c.date);return d>=s2&&d<=e2;}).reduce(function(s,c){return s+(Number(c.amount)||0);},0);}
+    var pct=Math.round(actual/g.target*100);if(pct>100)pct=100;
+    var bc=pct>=100?'var(--green500)':pct>=70?'var(--blue500)':'var(--yellow500)';
+    h+='<div class="goal-card"><div class="goal-header"><div class="goal-title">'+(g.type||'佣金')+' — '+esc(pl)+'</div><span class="badge '+(pct>=100?'badge-green':'badge-blue')+'">'+pct+'%</span></div><div class="goal-meta">目標: '+money(g.target)+' | 已達成: '+money(actual)+' | 差距: '+money(g.target-actual)+'</div><div class="progress-bar"><div class="progress-fill" style="width:'+pct+'%;background:'+bc+'"></div></div><div style="margin-top:8px"><button class="btn btn-sm btn-outline" onclick="openForm(\'goal\','+g.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'goals\','+g.id+')">刪除</button></div></div>';
+  });
+  document.getElementById('goalList').innerHTML=h;
+}
+
+// ===================================================================
+// FORMS / MODAL
+// ===================================================================
+var editId=null,editType=null;
+var TYPES={policy:['人壽保險','醫療保險','危疾保險','意外保險','儲蓄保險','投資相連','旅遊保險','家居保險','汽車保險','其他'],commission:['首年佣金','續年佣金','花紅','轉介費'],expenseCat:['餐飲','交通','娛樂','購物','家居','醫療','教育','通訊','保險','其他'],payment:['現金','信用卡','銀行轉帳','電子錢包','其他']};
+function openForm(type,id){
+  editType=type;editId=id||null;
+  var title=id?'編輯':'新增',t={client:'客戶',policy:'保單',commission:'佣金記錄',expense:'開支記錄',goal:'目標'};
+  var h='<h3>'+title+t[type]+'</h3>';
+  if(type==='client'){var c=id?findById('clients',id):{};h+=fg('姓名','name','text',c.name||'')+fg('電話','phone','text',c.phone||'')+fg('電郵','email','email',c.email||'')+fs('狀態','status',['活躍','潛在','流失'],c.status||'活躍')+fg('備註','notes','text',c.notes||'');}
+  else if(type==='policy'){var p=id?findById('policies',id):{};h+=fg('保單編號','policyNo','text',p.policyNo||'')+fs('客戶','clientId',DB.clients.map(function(c){return{val:c.id,label:c.name};}),p.clientId||'')+fs('保險類型','type',TYPES.policy,p.type||'')+fg('保費(HK$)','premium','number',p.premium||'')+fg('佣金率(%)','commissionRate','number',p.commissionRate||'')+fg('開始日','startDate','date',p.startDate||'')+fg('到期日','endDate','date',p.endDate||'')+fs('狀態','status',['生效','待生效','審核中','已到期'],p.status||'生效');}
+  else if(type==='commission'){var c2=id?findById('commissions',id):{};h+=fg('日期','date','date',c2.date||new Date().toISOString().slice(0,10))+fs('客戶','clientName',DB.clients.map(function(c){return c.name;}),c2.clientName||'')+fg('保單編號','policyNo','text',c2.policyNo||'')+fs('佣金類型','type',TYPES.commission,c2.type||'')+fg('金額(HK$)','amount','number',c2.amount||'')+fg('備註','notes','text',c2.notes||'');}
+  else if(type==='expense'){var e=id?findById('expenses',id):{};h+=fg('日期','date','date',e.date||new Date().toISOString().slice(0,10))+fs('分類','category',TYPES.expenseCat,e.category||'')+fg('金額(HK$)','amount','number',e.amount||'')+fs('付款方式','payment',TYPES.payment,e.payment||'')+fg('備註','notes','text',e.notes||'');}
+  else if(type==='goal'){var g=id?findById('goals',id):{};h+=fs('類型','type',['佣金'],g.type||'佣金')+fs('週期','period',['monthly','quarterly','yearly'],g.period||'monthly')+fg('年份','year','number',g.year||new Date().getFullYear())+fg('月份(月目標)','month','number',g.month||new Date().getMonth()+1)+fg('季度(季目標)','quarter','number',g.quarter||Math.ceil((new Date().getMonth()+1)/3))+fg('目標金額(HK$)','target','number',g.target||'')+fg('描述','desc','text',g.desc||'');}
+  h+='<div class="modal-actions"><button class="btn btn-primary" onclick="saveForm()">儲存</button><button class="btn btn-outline" onclick="closeModal()">取消</button></div>';
+  document.getElementById('modalInner').innerHTML=h;document.getElementById('modalBg').classList.add('show');
+}
+function fg(label,name,type,value){return'<div class="form-group"><label>'+label+'</label><input type="'+type+'" id="f_'+name+'" value="'+(value||'')+'"></div>';}
+function fs(label,name,options,selected){var isObj=options.length>0&&typeof options[0]==='object';var h='<div class="form-group"><label>'+label+'</label><select id="f_'+name+'">';options.forEach(function(opt){var val=isObj?opt.val:opt,lbl=isObj?opt.label:opt;h+='<option value="'+esc(val)+'"'+(String(val)===String(selected)?' selected':'')+'>'+esc(lbl)+'</option>';});h+='</select></div>';return h;}
+function closeModal(){document.getElementById('modalBg').classList.remove('show');}
+function saveForm(){
+  if(editType==='client'){var o={id:editId||uid(),name:val('f_name'),phone:val('f_phone'),email:val('f_email'),status:val('f_status'),notes:val('f_notes'),createdAt:editId?findById('clients',editId).createdAt:new Date().toISOString()};saveTo('clients',o);}
+  else if(editType==='policy'){var cid=val('f_clientId'),cn='';DB.clients.forEach(function(c){if(String(c.id)===String(cid))cn=c.name;});var o={id:editId||uid(),policyNo:val('f_policyNo'),clientId:cid,clientName:cn,type:val('f_type'),premium:val('f_premium'),commissionRate:val('f_commissionRate'),startDate:val('f_startDate'),endDate:val('f_endDate'),status:val('f_status')};saveTo('policies',o);}
+  else if(editType==='commission'){var o={id:editId||uid(),date:val('f_date'),clientName:val('f_clientName'),policyNo:val('f_policyNo'),type:val('f_type'),amount:val('f_amount'),notes:val('f_notes')};saveTo('commissions',o);}
+  else if(editType==='expense'){var o={id:editId||uid(),date:val('f_date'),category:val('f_category'),amount:val('f_amount'),payment:val('f_payment'),notes:val('f_notes')};saveTo('expenses',o);}
+  else if(editType==='goal'){var o={id:editId||uid(),type:val('f_type'),period:val('f_period'),year:Number(val('f_year')),month:Number(val('f_month')),quarter:Number(val('f_quarter')),target:Number(val('f_target')),desc:val('f_desc')};saveTo('goals',o);}
+  closeModal();saveDB();toast(editId?'已更新':'已新增');
+  if(currentTab==='dashboard')renderDashboard();if(currentTab==='clients')renderClients();if(currentTab==='policies')renderPolicies();if(currentTab==='commissions')renderCommissions();if(currentTab==='expenses')renderExpenses();if(currentTab==='goals')renderGoals();
+}
+function saveTo(key,obj){if(editId){for(var i=0;i<DB[key].length;i++)if(DB[key][i].id===editId){DB[key][i]=obj;return;}}DB[key].push(obj);}
+function del(key,id){if(!confirm('確定刪除？'))return;DB[key]=DB[key].filter(function(x){return x.id!==id;});saveDB();toast('已刪除','error');if(currentTab==='dashboard')renderDashboard();if(currentTab==='clients')renderClients();if(currentTab==='policies')renderPolicies();if(currentTab==='commissions')renderCommissions();if(currentTab==='expenses')renderExpenses();if(currentTab==='goals')renderGoals();}
+function findById(key,id){for(var i=0;i<DB[key].length;i++)if(DB[key][i].id===id)return DB[key][i];return null;}
+function val(id){return(document.getElementById(id)||{}).value||'';}
+
+// ===================================================================
+// EXPORT / IMPORT
+// ===================================================================
+function exportData(){
+  var payload={agent:agentName,exportedAt:new Date().toISOString(),data:DB};
+  var blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='backup_'+encodeURIComponent(agentName)+'_'+new Date().toISOString().slice(0,10)+'.json';
+  a.click();toast('已匯出備份');
+}
+function exportForManager(){
+  var payload={agent:agentName,exportedAt:new Date().toISOString(),data:DB};
+  var blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='report_'+encodeURIComponent(agentName)+'_'+new Date().toISOString().slice(0,10)+'.json';
+  a.click();
+  // Also copy to clipboard
+  var summary='代理人: '+agentName+'\n客戶: '+DB.clients.length+' 位\n保單: '+DB.policies.length+' 份\n本月佣金: '+money(DB.commissions.filter(function(c){var d=new Date(c.date);return d.getMonth()===new Date().getMonth()&&d.getFullYear()===new Date().getFullYear();}).reduce(function(s,c){return s+(Number(c.amount)||0);},0));
+  try{navigator.clipboard.writeText(summary);}catch(e){}
+  document.getElementById('lastSyncLabel').textContent='上次匯出: '+new Date().toLocaleString('zh-HK');
+  toast('已匯出給經理的報告檔 📄\n經理可用「經理總覽頁」匯入多份報告');
+}
+function doImport(evt){
+  var file=evt.target.files[0];if(!file)return;
+  var reader=new FileReader();
+  reader.onload=function(){
+    try{var d=JSON.parse(reader.result);if(d.data){DB={clients:[],policies:[],commissions:[],expenses:[],goals:[]};Object.assign(DB,d.data);if(d.agent&&d.agent!==agentName){agentName=d.agent;localStorage.setItem(AGENT_KEY,agentName);document.getElementById('agentNameDisplay').textContent=agentName;document.getElementById('sidebarAgentInfo').textContent=agentName+' | 代理人版';}_id=0;['clients','policies','commissions','expenses','goals'].forEach(function(k){DB[k].forEach(function(x){if(x.id>_id)_id=x.id;});});_id++;saveDB();renderDashboard();toast('已匯入資料');}else{DB=d;saveDB();renderDashboard();toast('已匯入舊格式資料');}}catch(ex){toast('匯入失敗：格式錯誤','error');}
+  };reader.readAsText(file);evt.target.value='';
+}
+
+// ===================================================================
+// INIT
+// ===================================================================
+initAgent();
+</script>
+</body>
+</html>
