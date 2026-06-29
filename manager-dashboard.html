@@ -356,7 +356,7 @@ function mgrLoadFromCloud() {
     try {
       var r = JSON.parse(xhr.responseText);
       if (r.success && r.data) {
-        // 轉換格式：Google Sheet 數據 → TEAM 格式（v3 團隊版）
+        // 轉換格式：Google Sheet 數據 → TEAM 格式（團隊分組版）
         TEAM = {};
         var agents = r.data.teamAgents || r.data.agents || [];
         agents.forEach(function(a) {
