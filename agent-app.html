@@ -194,8 +194,13 @@ tr:hover td{background:var(--blue50)}
       <label>Google Apps Script 網址</label>
       <input type="url" id="apiUrlInput" placeholder="https://script.google.com/macros/s/..." style="font-size:12px">
     </div>
+    <div class="form-group">
+      <label>所屬經理（更新後同步到雲端）</label>
+      <input type="text" id="mgrInputSetting" placeholder="例如：張經理" style="letter-spacing:normal;font-size:15px;text-align:left">
+      <div style="font-size:12px;color:var(--gray400);margin-top:4px">目前：「<span id="currentMgrDisplay">尚未設定</span>」— 留空即不更改</div>
+    </div>
     <div style="font-size:12px;color:var(--gray400);margin-bottom:14px">
-      💡 留空並按「儲存」即可關閉雲端同步
+      💡 留空網址並按「儲存」即可關閉雲端同步
     </div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="hideCloudSetup()">取消</button>
@@ -503,6 +508,10 @@ function unlockAgent(){
   document.getElementById('sidebarAgentInfo').textContent=agentName+' | 代理人版'+(assignedManager?' | '+assignedManager:'');
   loadDB();loadSample();renderDashboard();
   afterLoginSync();  // 登入後自動從雲端載入
+  // 檢查是否已設定所屬經理
+  if(!assignedManager){
+    toast('⚠️ 尚未設定所屬經理，請到「☁️ 雲端」設定', 'error');
+  }
 }
 
 function initAgent(){
@@ -611,6 +620,10 @@ function loadFromCloudManual(){
 function showCloudSetup(){
   document.getElementById('cloudModalBg').classList.add('show');
   document.getElementById('apiUrlInput').value = API_URL;
+  // 載入目前所屬經理
+  var mgr = assignedManager || '';
+  document.getElementById('mgrInputSetting').value = mgr;
+  document.getElementById('currentMgrDisplay').textContent = mgr || '尚未設定';
 }
 
 function hideCloudSetup(){
@@ -619,6 +632,17 @@ function hideCloudSetup(){
 
 function saveCloudSetup(){
   var url = document.getElementById('apiUrlInput').value.trim();
+  var mgr = document.getElementById('mgrInputSetting').value.trim();
+  // 儲存所屬經理（如果有輸入）
+  if (mgr && mgr !== assignedManager) {
+    assignedManager = mgr;
+    localStorage.setItem('insurance_mgr_'+encodeURIComponent(agentName), mgr);
+    document.getElementById('sidebarAgentInfo').textContent = agentName+' | 代理人版 | '+mgr;
+    document.getElementById('currentMgrDisplay').textContent = mgr;
+    // 同步到雲端
+    if (url) registerToCloud(agentName, mgr, localStorage.getItem('insurance_team_'+encodeURIComponent(agentName))||'');
+    toast('已更新所屬經理：' + mgr);
+  }
   if(!url) {
     setApiUrl('');
     hideCloudSetup();
