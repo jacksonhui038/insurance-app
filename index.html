@@ -3,32 +3,53 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>保經管家 - 團隊協作系統</title>
+<title>保經管家 - 保險經紀業務管理系統</title>
 <style>
-* { margin:0; padding:0; box-sizing:border-box; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%); min-height:100vh; display:flex; align-items:center; justify-content:center; }
-.container { max-width:480px; width:100%; padding:24px; }
-.card { background:#fff; border-radius:20px; padding:40px 32px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); text-align:center; }
-.logo { font-size:56px; margin-bottom:16px; }
-h1 { font-size:24px; color:#1e293b; margin-bottom:8px; }
-.subtitle { color:#64748b; font-size:14px; margin-bottom:32px; }
-.btn { display:block; width:100%; padding:16px; border-radius:12px; font-size:16px; font-weight:600; text-decoration:none; margin-bottom:12px; transition:all 0.2s; cursor:pointer; border:none; }
-.btn-primary { background:#2563eb; color:#fff; }
-.btn-primary:hover { background:#1d4ed8; transform:translateY(-2px); box-shadow:0 8px 24px rgba(37,99,235,0.4); }
-.btn-secondary { background:#f1f5f9; color:#1e293b; }
-.btn-secondary:hover { background:#e2e8f0; transform:translateY(-2px); }
-.footer { margin-top:24px; color:#94a3b8; font-size:12px; }
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f1f5f9;--white:#fff;--blue50:#eff6ff;--blue100:#dbeafe;--blue500:#3b82f6;--blue600:#2563eb;--blue700:#1d4ed8;
+  --gray50:#f9fafb;--gray100:#f3f4f6;--gray200:#e5e7eb;--gray300:#d1d5db;--gray400:#9ca3af;--gray500:#6b7280;--gray600:#4b5563;--gray800:#1f2937;
+  --green500:#22c55e;--red500:#ef4444;
+  --radius:12px;--shadow:0 1px 3px rgba(0,0,0,0.08),0 4px 12px rgba(0,0,0,0.05)
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft JhengHei',sans-serif;background:linear-gradient(135deg,#1e3a5f,#2563eb);min-height:100vh;display:flex;justify-content:center;align-items:center;color:var(--white)}
+.container{text-align:center;max-width:500px;padding:40px 20px}
+.logo{font-size:64px;margin-bottom:20px}
+h1{font-size:32px;font-weight:700;margin-bottom:10px}
+.sub{font-size:16px;opacity:0.9;margin-bottom:40px;line-height:1.6}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:32px}
+.card{background:rgba(255,255,255,0.15);backdrop-filter:blur(10px);border-radius:var(--radius);padding:24px 16px;cursor:pointer;transition:all .2s;border:1px solid rgba(255,255,255,0.2);text-decoration:none;color:var(--white);display:block}
+.card:hover{background:rgba(255,255,255,0.25);transform:translateY(-2px)}
+.card-icon{font-size:36px;margin-bottom:10px}
+.card h3{font-size:16px;font-weight:600;margin-bottom:6px}
+.card p{font-size:12px;opacity:0.8;line-height:1.4}
+.footer{font-size:12px;opacity:0.7;margin-top:32px}
+@media(max-width:480px){.cards{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <div class="container">
-  <div class="card">
-    <div class="logo">🏢</div>
-    <h1>保經管家</h1>
-    <p class="subtitle">保險經紀團隊協作系統</p>
-    <a href="agent-app.html" class="btn btn-primary">📱 代理人版（我自己用）</a>
-    <a href="manager-dashboard.html" class="btn btn-secondary">👔 經理版（管理團隊）</a>
-    <p class="footer">手機、平板、電腦皆可使用 | 數據本地儲存</p>
+  <div class="logo">🏠</div>
+  <h1>保經管家</h1>
+  <p class="sub">保險經紀業務管理系統<br>請選擇你的角色</p>
+  
+  <div class="cards">
+    <a href="agent-app.html" class="card">
+      <div class="card-icon">👤</div>
+      <h3>代理人版</h3>
+      <p>管理客戶、保單、<br>佣金、開支、目標</p>
+    </a>
+    
+    <a href="manager-dashboard.html" class="card">
+      <div class="card-icon">📊</div>
+      <h3>經理版</h3>
+      <p>查看全團隊數據、<br>業績報表、排名</p>
+    </a>
+  </div>
+  
+  <div class="footer">
+    保經管家 v2.0 · 雲端同步版<br>
+    有任何問題？聯絡 Jackson
   </div>
 </div>
 </body>
