@@ -992,7 +992,7 @@ function saveForm(){
 }
 function saveTo(key,obj){if(editId){for(var i=0;i<DB[key].length;i++)if(DB[key][i].id===editId){DB[key][i]=obj;return;}}DB[key].push(obj);}
 function del(key,id){if(!confirm('確定刪除？'))return;DB[key]=DB[key].filter(function(x){return x.id!==id;});saveDB();toast('已刪除','error');if(currentTab==='dashboard')renderDashboard();if(currentTab==='clients')renderClients();if(currentTab==='policies')renderPolicies();if(currentTab==='commissions')renderCommissions();if(currentTab==='expenses')renderExpenses();if(currentTab==='goals')renderGoals();}
-function findById(key,id){for(var i=0;i<DB[key].length;i++)if(DB[key][i].id===id)return DB[key][i];return null;}
+function findById(key,id){for(var i=0;i<DB[key].length;i++)if(DB[key][i].id===id)return DB[key][i];return {};}
 function val(id){return(document.getElementById(id)||{}).value||'';}
 
 // ===================================================================
