@@ -112,7 +112,12 @@ tr:hover td{background:var(--blue50)}
     <h2 id="lockTitle">經理登入</h2>
     <div class="lock-sub" id="lockSub">請設定你的 PIN 碼以保護團隊數據</div>
     <div id="lockSetup">
-      <label class="lock-label">經理姓名</label>
+      <label class="lock-label">你的角色</label>
+      <div style="display:flex;gap:10px;margin-bottom:16px">
+        <button type="button" id="roleMgrBtn" onclick="selectRole('manager')" style="flex:1;padding:14px;border-radius:10px;border:2px solid var(--blue500);background:var(--blue50);color:var(--blue700);font-size:14px;font-weight:600;cursor:pointer">👔 經理<br><span style="font-size:11px;font-weight:400;color:var(--gray500)">睇自己團隊</span></button>
+        <button type="button" id="roleDirBtn" onclick="selectRole('director')" style="flex:1;padding:14px;border-radius:10px;border:2px solid var(--gray300);background:var(--white);color:var(--gray500);font-size:14px;font-weight:600;cursor:pointer">👑 大區總監<br><span style="font-size:11px;font-weight:400;color:var(--gray400)">睇晒全部</span></button>
+      </div>
+      <label class="lock-label">姓名</label>
       <input type="text" class="lock-input" id="mgrName" placeholder="例如：張經理" style="letter-spacing:normal;font-size:15px;text-align:left;margin-bottom:16px" autocomplete="off">
       <label class="lock-label">設定 PIN 碼（4-6 位數字）</label>
       <input type="password" class="lock-input" id="mgrPinSetup" placeholder="••••" maxlength="6" inputmode="numeric" autocomplete="off" onkeydown="if(event.key==='Enter')document.getElementById('mgrPinConfirm').focus()">
@@ -138,10 +143,10 @@ tr:hover td{background:var(--blue50)}
       <div class="sub">保險經紀業務管理系統 · 經理視角</div>
     </div>
     <div class="header-actions">
-      <button class="btn btn-white" onclick="mgrLoadFromCloud()" id="mgrCloudBtn">☁️ 從雲端載入全團隊數據</button>
+      <button class="btn btn-white" onclick="mgrLoadFromCloud()" id="mgrCloudBtn">☁️ 載入團隊數據</button>
       <button class="btn btn-white" onclick="document.getElementById('multiImport').click()">📥 匯入 JSON（備用）</button>
       <button class="btn btn-white" onclick="clearAll()">🗑️ 清除全部</button>
-      <button class="btn btn-white" onclick="mgrShowCloudSetup()">⚙️ 雲端設定</button>
+      <button class="btn btn-white" onclick="mgrShowCloudSetup()">⚙️ 設定</button>
     </div>
   </div>
 
@@ -200,6 +205,8 @@ tr:hover td{background:var(--blue50)}
 // ============================================================
 var MGR_KEY = 'mgr_name';
 var MGR_PIN_KEY = 'mgr_pin';
+var MGR_ROLE_KEY = 'mgr_role';  // 'manager' | 'director'
+var mgrRole = 'manager';  // 預設經理
 var mgrUnlocked = false;
 
 function initLock(){
@@ -222,6 +229,20 @@ function initLock(){
   }
 }
 
+// 角色揀選（經理 / 總監）
+function selectRole(role){
+  mgrRole = role;
+  var mgrBtn = document.getElementById('roleMgrBtn');
+  var dirBtn = document.getElementById('roleDirBtn');
+  if(role === 'manager'){
+    mgrBtn.style.borderColor='var(--blue500)';mgrBtn.style.background='var(--blue50)';mgrBtn.style.color='var(--blue700)';
+    dirBtn.style.borderColor='var(--gray300)';dirBtn.style.background='#fff';dirBtn.style.color='var(--gray500)';
+  } else {
+    dirBtn.style.borderColor='var(--purple500)';dirBtn.style.background='#faf5ff';dirBtn.style.color='var(--purple500)';
+    mgrBtn.style.borderColor='var(--gray300)';mgrBtn.style.background='#fff';mgrBtn.style.color='var(--gray500)';
+  }
+}
+
 function doSetupPin(){
   var name = document.getElementById('mgrName').value.trim();
   var pin = document.getElementById('mgrPinSetup').value.trim();
@@ -234,6 +255,7 @@ function doSetupPin(){
   if(pin!==pin2){err.textContent='PIN 碼不一致';return;}
   localStorage.setItem(MGR_KEY,name);
   localStorage.setItem(MGR_PIN_KEY,pin);
+  localStorage.setItem(MGR_ROLE_KEY,mgrRole);  // 儲存角色
   unlockOK();
 }
 
@@ -247,12 +269,22 @@ function doUnlock(){
     document.getElementById('mgrPinUnlock').focus();
     return;
   }
+  // 載入角色
+  var savedRole = localStorage.getItem(MGR_ROLE_KEY) || 'manager';
+  mgrRole = savedRole;
   unlockOK();
 }
 
 function unlockOK(){
   mgrUnlocked = true;
   document.getElementById('lockBg').classList.add('hide');
+  // 更新 Header 標題顯示角色
+  var savedName = localStorage.getItem(MGR_KEY) || '';
+  var roleLabel = mgrRole === 'director' ? '👑 大區總監' : '👔 經理';
+  var hdrTitle = document.querySelector('.header h1');
+  if(hdrTitle) hdrTitle.textContent = (mgrRole==='director'?'👑 大區總覽':'📊 團隊總覽') + ' · ' + savedName;
+  var hdrSub = document.querySelector('.header .sub');
+  if(hdrSub) hdrSub.textContent = roleLabel + '視角 · 保經管家';
   render();
 }
 
@@ -260,7 +292,8 @@ function doResetMgr(){
   if(!confirm('⚠️ 確定清除經理數據？\n\n（包括姓名、PIN 碼同所有已匯入嘅代理人數據）'))return;
   localStorage.removeItem(MGR_KEY);
   localStorage.removeItem(MGR_PIN_KEY);
-  TEAM={};selectedAgent=null;
+  localStorage.removeItem(MGR_ROLE_KEY);
+  TEAM={};selectedAgent=null;mgrRole='manager';
   document.getElementById('lockSetup').style.display='block';
   document.getElementById('lockUnlock').style.display='none';
   document.getElementById('lockIcon').textContent='🔐';
@@ -297,33 +330,59 @@ function mgrLoadApiUrl() {
 
 function mgrLoadFromCloud() {
   if (!MGR_CLOUD_ENABLED) { toast('請先設定 API 網址', 'error'); mgrShowCloudSetup(); return; }
-  toast('☁️ 從雲端載入全團隊數據...');
-  // 用 manager 專用端點（需要 key 參數）
-  var managerKey = prompt('請輸入經理密鑰（預設：MANAGER_SECRET_KEY）', 'MANAGER_SECRET_KEY');
-  if (!managerKey) return;
-  var qs = 'action=manager_load&key=' + encodeURIComponent(managerKey);
+  
+  var mgrName = localStorage.getItem(MGR_KEY) || '';
+  
+  // 根據角色決定密鑰
+  var useKey, keyLabel;
+  if (mgrRole === 'director') {
+    useKey = prompt('👑 大區總監驗證\n\n請輸入總監密鑰', 'DIRECTOR_SECRET_KEY');
+    if (!useKey) return;
+    keyLabel = '總監';
+  } else {
+    useKey = 'MANAGER_SECRET_KEY';  // 經理用固定密鑰
+    keyLabel = '經理（' + mgrName + '）';
+  }
+
+  toast('☁️ 從雲端載入' + keyLabel + '數據...');
+  
+  var qs = 'action=manager_load&key=' + encodeURIComponent(useKey);
+  if (mgrRole === 'manager' && mgrName) {
+    qs += '&managerName=' + encodeURIComponent(mgrName);
+  }
   var xhr = new XMLHttpRequest();
   xhr.open('GET', MGR_API_URL + '?' + qs);
   xhr.onload = function() {
     try {
       var r = JSON.parse(xhr.responseText);
       if (r.success && r.data) {
-        // 轉換格式：Google Sheet 數據 → TEAM 格式
+        // 轉換格式：Google Sheet 數據 → TEAM 格式（v3 團隊版）
         TEAM = {};
-        var agents = r.data.agents || [];
+        var agents = r.data.teamAgents || r.data.agents || [];
         agents.forEach(function(a) {
-          TEAM[a.name] = { clients: [], policies: [], commissions: [], expenses: [], goals: [] };
+          var aName = a.agentName || a.agentId || a.name;
+          TEAM[aName] = {
+            clients: [], policies: [], commissions: [],
+            expenses: [], goals: [],
+            managerName: a.managerName || '',
+            team: a.team || ''
+          };
         });
         ['clients','policies','commissions','expenses','goals'].forEach(function(sheetName) {
           (r.data[sheetName] || []).forEach(function(row) {
             var an = row.agentId || row.agentName;
             if (an && TEAM[an]) {
               TEAM[an][sheetName].push(row);
+            } else if (an && !TEAM[an]) {
+              // 如果代理人不在 teamAgents 列表中，自動建立
+              TEAM[an] = { clients:[], policies:[], commissions:[], expenses:[], goals:[], managerName:'', team:'' };
+              TEAM[an][sheetName].push(row);
             }
           });
         });
         render();
-        toast('☁️ 已從雲端載入 ' + Object.keys(TEAM).length + ' 位代理人數據！');
+        var roleText = r.role === 'director' ? '👑 全團隊' : '📊 ' + (r.managerName||'團隊');
+        toast('☁️ 已從雲端載入 ' + Object.keys(TEAM).length + ' 位代理人數據！(' + roleText + ')');
       } else {
         toast('載入失敗：' + (r.error || '密鑰錯誤'), 'error');
       }
