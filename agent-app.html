@@ -678,23 +678,24 @@ function hideCloudSetup(){
 function saveCloudSetup(){
   var url = document.getElementById('apiUrlInput').value.trim();
   var mgr = document.getElementById('mgrInputSetting').value.trim();
-  // 儲存所屬經理（如果有輸入）
+  
+  // 儲存所屬經理（如果有輸入）— 唔再彈額外 toast
   if (mgr && mgr !== assignedManager) {
     assignedManager = mgr;
     localStorage.setItem('insurance_mgr_'+encodeURIComponent(agentName), mgr);
     document.getElementById('sidebarAgentInfo').textContent = agentName+' | 代理人版 | '+mgr;
     document.getElementById('currentMgrDisplay').textContent = mgr;
-    // 同步到雲端
-    if (url) registerToCloud(agentName, mgr, localStorage.getItem('insurance_team_'+encodeURIComponent(agentName))||'');
-    toast('已更新所屬經理：' + mgr);
+    // 註冊到雲端（等連線成功後再做）
   }
+  
   if(!url) {
     setApiUrl('');
     hideCloudSetup();
     toast('已關閉雲端同步');
     return;
   }
-  // 測試連接
+  
+  // 測試連接（只顯示一個 loading toast）
   setApiUrl(url);
   toast('☁️ 測試連接中...');
   var xhr = new XMLHttpRequest();
@@ -704,11 +705,19 @@ function saveCloudSetup(){
       var r = JSON.parse(xhr.responseText);
       if(r.success||r.message){
         hideCloudSetup();
-        toast('☁️ 雲端連接成功！');
+        // 先註冊代理人到雲端，再載入數據
+        if (mgr) {
+          registerToCloud(agentName, mgr, localStorage.getItem('insurance_team_'+encodeURIComponent(agentName))||'', function(){
+            // 只顯示一個成功 toast
+            toast('✅ 連線成功！已設定所屬經理：' + mgr);
+          });
+        } else {
+          toast('✅ 雲端連接成功！');
+        }
         document.getElementById('cloudStatus').style.display = 'flex';
         document.getElementById('lastSyncTime').textContent = getLastSyncTime();
-        // 自動載入雲端數據
-        loadFromCloudManual();
+        // 載入雲端數據（靜默，唔彈額外 toast）
+        setTimeout(function(){ loadFromCloudManual(); }, 500);
       } else {
         setApiUrl('');
         toast('連接失敗：' + (r.error||'未知錯誤'),'error');
