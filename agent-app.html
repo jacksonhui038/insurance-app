@@ -380,6 +380,14 @@ function saveToCloud(callback) {
   // 同步前先更新代理人資訊（經理、團隊）
   var mgr = assignedManager || localStorage.getItem('insurance_mgr_'+encodeURIComponent(agentName)) || '';
   var team = assignedTeam || localStorage.getItem('insurance_team_'+encodeURIComponent(agentName)) || '';
+  
+  // Bug 修復：如果未設定所屬經理，提示使用者
+  if (!mgr) {
+    toast('⚠️ 請先設定所屬經理（右上角 ☁️ 雲端）', 'error');
+    if (callback) callback(false);
+    return;
+  }
+  
   registerToCloud(agentName, mgr, team, function(regOk) {
     // 再同步業務數據
     var payload = {
@@ -404,15 +412,21 @@ function saveToCloud(callback) {
           if (callback) callback(true);
           else toast('☁️ 已同步到雲端');
         } else {
+          // 修復：顯示詳細錯誤訊息
+          var errMsg = r.error || '未知錯誤';
+          console.error('[saveToCloud] 同步失敗：', errMsg, r);
           if (callback) callback(false);
-          else toast('同步失敗：' + (r.error || '未知錯誤'), 'error');
+          else toast('同步失敗：' + errMsg, 'error');
         }
       } catch(e) {
+        // 修復：顯示服務器原始響應，方便調試
+        console.error('[saveToCloud] 解析響應失敗：', e, xhr.responseText);
         if (callback) callback(false);
         else toast('同步失敗，請檢查網絡', 'error');
       }
     };
     xhr.onerror = function() {
+      console.error('[saveToCloud] 網絡錯誤');
       if (callback) callback(false);
       else toast('同步失敗，請檢查網絡', 'error');
     };
@@ -722,11 +736,27 @@ function registerToCloud(agentName, managerName, team, callback){
       +'&team='+encodeURIComponent(team || '');
     xhr.open('GET', API_URL + '?' + qs);
     xhr.onload=function(){
-      if(callback) callback(xhr.status===200);
+      try {
+        var r = JSON.parse(xhr.responseText);
+        // 修復：檢查業務邏輯成功與否，而唔係淨係檢查 HTTP 狀態碼
+        if (callback) callback(r.success === true);
+        if (!r.success) {
+          console.error('[registerToCloud] 註冊失敗：', r.error);
+        }
+      } catch(e) {
+        console.error('[registerToCloud] 解析響應失敗：', e, xhr.responseText);
+        if(callback) callback(false);
+      }
     };
-    xhr.onerror=function(){ if(callback) callback(false); };
+    xhr.onerror=function(){ 
+      console.error('[registerToCloud] 網絡錯誤');
+      if(callback) callback(false); 
+    };
     xhr.send();
-  }catch(e){ if(callback) callback(false); }
+  }catch(e){ 
+    console.error('[registerToCloud] 例外錯誤：', e);
+    if(callback) callback(false); 
+  }
 }
 
 // 經理揀選「其他」時顯示自訂輸入框
