@@ -336,9 +336,9 @@ var agentName = '';
 var assignedManager = '';  // 所屬經理
 var _id = 0;
 
-// ===== 雲端同步設定（請改為你嘅 Google Apps Script 網址）=====
-var API_URL = 'https://script.google.com/macros/s/AKfycbxgU-gqY_oFNj03Us28bcs6PK9vH0wchjgzic5lww4uc5nu8byTGbmrLp8kBOZ0nSU6/exec';  // ← 已預設填好網址
-var CLOUD_ENABLED = false;
+// ===== 雲端同步設定（已預設 Google Apps Script 網址）=====
+var API_URL = 'https://script.google.com/macros/s/AKfycbxgU-gqY_oFNj03Us28bcs6PK9vH0wchjgzic5lww4uc5nu8byTGbmrLp8kBOZ0nSU6/exec';
+var CLOUD_ENABLED = Boolean(API_URL && API_URL.length > 0);  // 有網址就自動啟用
 
 function setApiUrl(url) {
   API_URL = url;
@@ -359,10 +359,13 @@ function setApiUrl(url) {
 }
 function loadApiUrl() {
   var saved = localStorage.getItem('insurance_cloud_api') || '';
-  if (saved) {
-    API_URL = saved;
+  // 優先用 localStorage 儲存的網址，否則用預設網址
+  if (saved) { API_URL = saved; }
+  if (API_URL && API_URL.length > 0) {
     CLOUD_ENABLED = true;
-    // 更新 UI 顯示
+    // 如果 localStorage 冇儲存，就自動儲存
+    if (!saved) { localStorage.setItem('insurance_cloud_api', API_URL); }
+    // 更新 UI 顯示為雲端
     document.getElementById('cloudStatus').style.display = 'flex';
     document.getElementById('storageModeText').textContent = '雲端';
     document.getElementById('storageModeText').style.color = 'var(--blue500)';
