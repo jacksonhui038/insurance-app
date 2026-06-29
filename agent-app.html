@@ -141,9 +141,23 @@ tr:hover td{background:var(--blue50)}
       <div class="form-group"><label>姓名</label><input type="text" id="nameInput" placeholder="例如：陳大文"></div>
       <div class="form-group"><label>PIN 碼（4-6 位數字）</label><input type="password" id="pinInput" placeholder="設定 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off"></div>
       <div class="form-group"><label>確認 PIN 碼</label><input type="password" id="pinConfirm" placeholder="再次輸入 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off"></div>
+      <hr style="border:none;border-top:1px solid var(--gray200);margin:14px 0">
+      <div class="form-group"><label>👔 所屬經理 <span style="color:var(--red500)">*</span></label>
+        <select id="managerSelect" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px;font-family:inherit;background:var(--white)">
+          <option value="">-- 請選擇所屬經理 --</option>
+          <option value="張經理">張經理</option>
+          <option value="李經理">李經理</option>
+          <option value="王經理">王經理</option>
+          <option value="陳經理">陳經理</option>
+          <option value="其他">其他（請在下面填寫）</option>
+        </select>
+      </div>
+      <div class="form-group" id="customMgrGroup" style="display:none"><label>經理姓名</label><input type="text" id="customMgrName" placeholder="輸入經理姓名"></div>
+      <div class="form-group"><label>團隊名稱（選填）</label><input type="text" id="teamInput" placeholder="例如：Team A（選填）"></div>
       <div class="modal-actions" style="justify-content:center">
         <button class="btn btn-primary" onclick="saveName()">開始使用</button>
       </div>
+      <p style="font-size:11px;color:var(--gray400);margin-top:10px;text-align:center">⚠️ 所屬經理決定咗邊位可以睇到你嘅數據</p>
     </div>
     <!-- UNLOCK: returning user -->
     <div id="unlockMode" style="display:none">
@@ -314,6 +328,7 @@ var DB = {clients:[],policies:[],commissions:[],expenses:[],goals:[]};
 var chartLib = null;
 var chartInstances = {};
 var agentName = '';
+var assignedManager = '';  // 所屬經理
 var _id = 0;
 
 // ===== 雲端同步設定（請改為你嘅 Google Apps Script 網址）=====
@@ -453,27 +468,39 @@ function saveName(){
   var n=document.getElementById('nameInput').value.trim();
   var pin=document.getElementById('pinInput').value.trim();
   var pin2=document.getElementById('pinConfirm').value.trim();
+  var mgrSelect=document.getElementById('managerSelect').value;
+  var customMgr=document.getElementById('customMgrName').value.trim();
+  var team=document.getElementById('teamInput').value.trim();
   if(!n){alert('請輸入姓名');return;}
   if(!pin||pin.length<4){alert('請設定 4-6 位數字 PIN 碼');return;}
   if(!/^\d+$/.test(pin)){alert('PIN 碼只能包含數字');return;}
   if(pin!==pin2){alert('PIN 碼不一致，請重新輸入');return;}
-  agentName=n;agentPIN=pin;
+  // 所屬經理驗證
+  var finalMgr = mgrSelect === '其他' ? customMgr : mgrSelect;
+  if(!finalMgr){alert('請選擇所屬經理');return;}
+  agentName=n;agentPIN=pin;assignedManager=finalMgr;
   localStorage.setItem(AGENT_KEY,n);
   localStorage.setItem(AGENT_PIN_KEY,pin);
+  localStorage.setItem('insurance_mgr_'+encodeURIComponent(n),finalMgr);
+  if(team) localStorage.setItem('insurance_team_'+encodeURIComponent(n),team);
   document.getElementById('nameModalBg').classList.remove('show');
   document.getElementById('agentNameDisplay').textContent=n;
-  document.getElementById('sidebarAgentInfo').textContent=n+' | 代理人版';
+  document.getElementById('sidebarAgentInfo').textContent=n+' | 代理人版 | '+finalMgr;
   loadDB();loadSample();renderDashboard();
   afterLoginSync();  // 登入後自動從雲端載入
+  // 註冊代理人去雲端（含所屬經理）
+  registerToCloud(n, finalMgr, team);
 }
 
 function unlockAgent(){
   var pin=document.getElementById('unlockPin').value.trim();
   if(pin!==localStorage.getItem(AGENT_PIN_KEY)){alert('❌ PIN 碼錯誤');document.getElementById('unlockPin').value='';document.getElementById('unlockPin').focus();return;}
   agentPIN=pin;
+  // 載入所屬經理
+  assignedManager = localStorage.getItem('insurance_mgr_'+encodeURIComponent(agentName)) || '';
   document.getElementById('nameModalBg').classList.remove('show');
   document.getElementById('agentNameDisplay').textContent=agentName;
-  document.getElementById('sidebarAgentInfo').textContent=agentName+' | 代理人版';
+  document.getElementById('sidebarAgentInfo').textContent=agentName+' | 代理人版'+(assignedManager?' | '+assignedManager:'');
   loadDB();loadSample();renderDashboard();
   afterLoginSync();  // 登入後自動從雲端載入
 }
@@ -630,6 +657,40 @@ function saveCloudSetup(){
 }
 
 // 登入後自動從雲端載入
+// 註冊代理人去雲端（含所屬經理）
+function registerToCloud(agentName, managerName, team){
+  if(!CLOUD_ENABLED || !API_URL) return;
+  try{
+    var xhr=new XMLHttpRequest();
+    var qs='action=register_agent&agentId='+encodeURIComponent(agentName)
+      +'&agentName='+encodeURIComponent(agentName)
+     +'&managerName='+encodeURIComponent(managerName || '')
+      +'&team='+encodeURIComponent(team || '');
+    xhr.open('GET', API_URL + '?' + qs);
+    xhr.onload=function(){
+      if(xhr.status===200){
+        var r=JSON.parse(xhr.responseText);
+        if(r.success) console.log('✅ 已註冊到雲端:', managerName);
+      }
+    };
+    xhr.send();
+  }catch(e){console.log('註冊失敗（非致命）',e);}
+}
+
+// 經理揀選「其他」時顯示自訂輸入框
+document.addEventListener('DOMContentLoaded',function(){
+  var mgrSel=document.getElementById('managerSelect');
+  if(mgrSel){
+    mgrSel.addEventListener('change',function(){
+      document.getElementById('customMgrGroup').style.display=
+        this.value==='其他'?'block':'none';
+      if(this.value==='其他'){
+        setTimeout(function(){document.getElementById('customMgrName').focus();},100);
+      }
+    });
+  }
+});
+
 function afterLoginSync(){
   loadApiUrl();
   if(CLOUD_ENABLED && agentName){
