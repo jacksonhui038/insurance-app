@@ -114,10 +114,33 @@ tr:hover td{background:var(--blue50)}
 <!-- LOCK SCREEN -->
 <div class="lock-bg" id="lockBg">
   <div class="lock-card" id="lockCard">
-    <div class="lock-icon" id="lockIcon">🔐</div>
-    <h2 id="lockTitle">經理登入</h2>
-    <div class="lock-sub" id="lockSub">請設定你的 PIN 碼以保護團隊數據</div>
-    <div id="lockSetup">
+    <!-- CHOICE -->
+    <div id="lockChoice">
+      <div class="lock-icon">📊</div>
+      <h2>經理系統</h2>
+      <div class="lock-sub">請選擇</div>
+      <button class="lock-btn lock-btn-primary" onclick="showMgrLogin()" style="margin-bottom:8px">🔐 登入</button>
+      <button class="lock-btn lock-btn-outline" onclick="showMgrSetup()">📝 首次設定</button>
+    </div>
+    <!-- LOGIN (name + PIN, no confirm) -->
+    <div id="lockLogin" style="display:none">
+      <div class="lock-icon">🔐</div>
+      <h2>經理登入</h2>
+      <div class="lock-sub">輸入姓名同 PIN 碼</div>
+      <label class="lock-label">經理姓名</label>
+      <input type="text" class="lock-input" id="mgrLoginName" placeholder="例如：張經理" style="letter-spacing:normal;font-size:15px;text-align:left;margin-bottom:16px" autocomplete="off">
+      <label class="lock-label">PIN 碼</label>
+      <input type="password" class="lock-input" id="mgrLoginPin" placeholder="••••" maxlength="6" inputmode="numeric" autocomplete="off" onkeydown="if(event.key==='Enter')doMgrLogin()">
+      <button class="lock-btn lock-btn-primary" onclick="doMgrLogin()" id="mgrLoginBtn">登入</button>
+      <div class="lock-err" id="mgrLoginErr"></div>
+      <button class="lock-btn lock-btn-outline" onclick="showMgrChoice()">返回</button>
+      <p style="font-size:11px;color:var(--gray400);margin-top:10px;text-align:center">忘記 PIN？請聯絡系統管理員重置</p>
+    </div>
+    <!-- SETUP (first time) -->
+    <div id="lockSetup" style="display:none">
+      <div class="lock-icon">📝</div>
+      <h2>首次設定</h2>
+      <div class="lock-sub">設定你的姓名同 PIN 碼</div>
       <label class="lock-label">經理姓名</label>
       <input type="text" class="lock-input" id="mgrName" placeholder="例如：張經理" style="letter-spacing:normal;font-size:15px;text-align:left;margin-bottom:16px" autocomplete="off">
       <label class="lock-label">設定 PIN 碼（4-6 位數字）</label>
@@ -126,13 +149,19 @@ tr:hover td{background:var(--blue50)}
       <input type="password" class="lock-input" id="mgrPinConfirm" placeholder="••••" maxlength="6" inputmode="numeric" autocomplete="off" onkeydown="if(event.key==='Enter')doSetupPin()">
       <button class="lock-btn lock-btn-primary" onclick="doSetupPin()">設定並進入</button>
       <div class="lock-err" id="setupErr"></div>
+      <button class="lock-btn lock-btn-outline" onclick="showMgrChoice()">返回</button>
     </div>
+    <!-- UNLOCK (returning user same device) -->
     <div id="lockUnlock" style="display:none">
+      <div class="lock-icon" id="lockIconUnlock">🔓</div>
+      <h2 id="lockTitleUnlock">歡迎回來</h2>
+      <div class="lock-sub" id="lockSubUnlock">請輸入 PIN 碼解鎖</div>
       <p style="font-size:14px;color:var(--gray600);margin-bottom:16px">歡迎回來，<b id="lockMgrName">—</b></p>
       <input type="password" class="lock-input" id="mgrPinUnlock" placeholder="輸入 PIN 碼" maxlength="6" inputmode="numeric" autocomplete="off" onkeydown="if(event.key==='Enter')doUnlock()" autofocus>
       <button class="lock-btn lock-btn-primary" onclick="doUnlock()">解鎖</button>
       <div class="lock-err" id="unlockErr"></div>
-      <button class="lock-btn lock-btn-danger" onclick="doResetMgr()">忘記 PIN？清除所有數據</button>
+      <button class="lock-btn lock-btn-outline" onclick="showMgrChoice()">切換帳戶</button>
+      <p style="font-size:11px;color:var(--gray400);margin-top:10px;text-align:center">忘記 PIN？請聯絡系統管理員重置</p>
     </div>
   </div>
 </div>
@@ -253,19 +282,65 @@ var mgrUnlocked = false;
 function initLock(){
   var name = localStorage.getItem(MGR_KEY);
   var pin = localStorage.getItem(MGR_PIN_KEY);
+  // Hide all
+  ['lockChoice','lockLogin','lockSetup','lockUnlock'].forEach(function(id) {
+    var el = document.getElementById(id); if (el) el.style.display = 'none';
+  });
   if(name && pin){
-    document.getElementById('lockSetup').style.display='none';
     document.getElementById('lockUnlock').style.display='block';
-    document.getElementById('lockIcon').textContent='🔓';
-    document.getElementById('lockTitle').textContent='歡迎回來';
-    document.getElementById('lockSub').textContent='請輸入 PIN 碼解鎖';
     document.getElementById('lockMgrName').textContent=name;
     document.getElementById('mgrPinUnlock').focus();
   } else {
-    document.getElementById('lockSetup').style.display='block';
-    document.getElementById('lockUnlock').style.display='none';
-    document.getElementById('mgrName').focus();
+    document.getElementById('lockChoice').style.display='block';
   }
+}
+
+function showMgrChoice() {
+  ['lockChoice','lockLogin','lockSetup','lockUnlock'].forEach(function(id) {
+    var el = document.getElementById(id); if (el) el.style.display = 'none';
+  });
+  document.getElementById('lockChoice').style.display='block';
+}
+
+function showMgrLogin() {
+  ['lockChoice','lockLogin','lockSetup','lockUnlock'].forEach(function(id) {
+    var el = document.getElementById(id); if (el) el.style.display = 'none';
+  });
+  document.getElementById('lockLogin').style.display='block';
+  document.getElementById('mgrLoginName').value='';
+  document.getElementById('mgrLoginPin').value='';
+  var err = document.getElementById('mgrLoginErr'); if (err) err.textContent='';
+  document.getElementById('mgrLoginName').focus();
+}
+
+function showMgrSetup() {
+  ['lockChoice','lockLogin','lockSetup','lockUnlock'].forEach(function(id) {
+    var el = document.getElementById(id); if (el) el.style.display = 'none';
+  });
+  document.getElementById('lockSetup').style.display='block';
+  document.getElementById('mgrName').focus();
+}
+
+function doMgrLogin() {
+  var name = document.getElementById('mgrLoginName').value.trim();
+  var pin = document.getElementById('mgrLoginPin').value.trim();
+  var err = document.getElementById('mgrLoginErr');
+  var btn = document.getElementById('mgrLoginBtn');
+  err.textContent = '';
+  if (!name) { err.textContent = '請輸入姓名'; return; }
+  if (!pin || pin.length < 4) { err.textContent = 'PIN 碼至少 4 位數字'; return; }
+  // For manager: just save to localStorage (manager data is local, team data comes from cloud)
+  // On a new device, this IS the first setup for that device
+  btn.textContent = '進入中...'; btn.disabled = true;
+  localStorage.setItem(MGR_KEY, name);
+  localStorage.setItem(MGR_PIN_KEY, pin);
+  mgrUnlocked = true;
+  document.getElementById('lockBg').classList.add('hide');
+  var hdr = document.getElementById('mgrNameDisplay');
+  if (hdr) hdr.textContent = '經理：' + name;
+  render();
+  toast('登入成功！請按「載入團隊數據」查看代理人資料');
+  btn.textContent = '登入'; btn.disabled = false;
 }
 
 function doSetupPin(){
@@ -288,7 +363,7 @@ function doUnlock(){
   var saved = localStorage.getItem(MGR_PIN_KEY);
   var err = document.getElementById('unlockErr');
   if(pin!==saved){
-    err.textContent='❌ PIN 碼錯誤';
+    err.textContent='PIN 碼錯誤';
     document.getElementById('mgrPinUnlock').value='';
     document.getElementById('mgrPinUnlock').focus();
     return;
@@ -306,19 +381,14 @@ function unlockOK(){
 }
 
 function doResetMgr(){
-  if(!confirm('⚠️ 確定清除經理數據？\n\n（包括姓名、PIN 碼同所有已匯入嘅代理人數據）'))return;
+  if(!confirm('確定清除經理數據？\n\n（包括姓名、PIN 碼同所有已匯入嘅代理人數據）\n雲端數據不受影響'))return;
   localStorage.removeItem(MGR_KEY);
   localStorage.removeItem(MGR_PIN_KEY);
   TEAM={};selectedAgent=null;
-  document.getElementById('lockSetup').style.display='block';
-  document.getElementById('lockUnlock').style.display='none';
-  document.getElementById('lockIcon').textContent='🔐';
-  document.getElementById('lockTitle').textContent='經理登入';
-  document.getElementById('lockSub').textContent='請設定你的 PIN 碼以保護團隊數據';
-  document.getElementById('mgrName').value='';
-  document.getElementById('mgrPinSetup').value='';
-  document.getElementById('mgrPinConfirm').value='';
-  document.getElementById('mgrName').focus();
+  ['lockChoice','lockLogin','lockSetup','lockUnlock'].forEach(function(id) {
+    var el = document.getElementById(id); if (el) el.style.display = 'none';
+  });
+  document.getElementById('lockChoice').style.display='block';
 }
 
 // ===== 帳號設定（改名 / 改密碼）=====
