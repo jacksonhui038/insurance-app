@@ -203,6 +203,21 @@ tr:hover td{background:var(--blue50)}
   </div>
 </div>
 
+<!-- CHANGE NAME MODAL -->
+<div class="modal-bg" id="changeNameModalBg">
+  <div class="modal" style="max-width:400px">
+    <h3>👤 修改姓名</h3>
+    <div class="form-group"><label>目前姓名</label><input type="text" id="curNameDisplay" disabled style="background:var(--gray100);color:var(--gray500)"></div>
+    <div class="form-group"><label>新姓名 <span style="color:var(--red500)">*</span></label><input type="text" id="newNameInput" placeholder="輸入新姓名" autocomplete="off"></div>
+    <div class="form-group"><label>輸入 PIN 碼確認 <span style="color:var(--red500)">*</span></label><input type="password" id="nameChangePin" placeholder="輸入 PIN 碼以確認更改" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off"></div>
+    <div style="font-size:12px;color:var(--gray400);margin-bottom:8px">⚠️ 改名後，雲端會以新名登記，經理端會顯示新名。舊名數據會自動遷移。</div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="changeName()">確認改名</button>
+      <button class="btn btn-outline" onclick="hideChangeName()">取消</button>
+    </div>
+  </div>
+</div>
+
 <!-- CLOUD SETUP MODAL -->
 <div class="modal-bg" id="cloudModalBg">
   <div class="modal" style="max-width:480px">
@@ -263,6 +278,7 @@ tr:hover td{background:var(--blue50)}
         <button onclick="switchAgent()" title="切換代理人">切換</button>
       </div>
       <button class="btn btn-outline btn-sm" onclick="showChangePin()">🔑 改密碼</button>
+      <button class="btn btn-outline btn-sm" onclick="showChangeName()">👤 改名</button>
       <button class="btn btn-outline btn-sm" onclick="exportForManager()">📤 匯給經理</button>
       <button class="btn btn-outline btn-sm" onclick="exportData()">📥 備份</button>
       <button class="btn btn-outline btn-sm" onclick="document.getElementById('importInput').click()">📤 匯入</button>
@@ -717,6 +733,72 @@ function changePin() {
   localStorage.setItem(AGENT_PIN_KEY, new1);
   hideChangePin();
   toast('✅ PIN 碼已更新');
+}
+
+// ===== CHANGE NAME =====
+function showChangeName() {
+  document.getElementById('curNameDisplay').value = agentName;
+  document.getElementById('newNameInput').value = '';
+  document.getElementById('nameChangePin').value = '';
+  document.getElementById('changeNameModalBg').classList.add('show');
+  document.getElementById('newNameInput').focus();
+}
+
+function hideChangeName() {
+  document.getElementById('changeNameModalBg').classList.remove('show');
+  document.getElementById('newNameInput').value = '';
+  document.getElementById('nameChangePin').value = '';
+}
+
+function changeName() {
+  var newName = document.getElementById('newNameInput').value.trim();
+  var pin = document.getElementById('nameChangePin').value.trim();
+  if (!newName) { alert('請輸入新姓名'); return; }
+  if (newName === agentName) { alert('新姓名與目前相同'); return; }
+  if (pin !== agentPIN) { alert('❌ PIN 碼錯誤'); return; }
+  if (!confirm('⚠️ 確認將姓名由「'+agentName+'」改為「'+newName+'」？\n\n所有本地數據會自動遷移到新名下。')) return;
+
+  var oldName = agentName;
+  var oldKey = 'insurance_agent_' + encodeURIComponent(oldName);
+  var newKey = 'insurance_agent_' + encodeURIComponent(newName);
+
+  // 1. Copy DB data to new key
+  var dbData = localStorage.getItem(oldKey);
+  if (dbData) localStorage.setItem(newKey, dbData);
+
+  // 2. Copy manager/team
+  var mgr = localStorage.getItem('insurance_mgr_' + encodeURIComponent(oldName));
+  if (mgr) localStorage.setItem('insurance_mgr_' + encodeURIComponent(newName), mgr);
+  var team = localStorage.getItem('insurance_team_' + encodeURIComponent(oldName));
+  if (team) localStorage.setItem('insurance_team_' + encodeURIComponent(newName), team);
+
+  // 3. Update agent name
+  agentName = newName;
+  localStorage.setItem(AGENT_KEY, newName);
+
+  // 4. Remove old keys (clean up)
+  localStorage.removeItem(oldKey);
+  localStorage.removeItem('insurance_mgr_' + encodeURIComponent(oldName));
+  localStorage.removeItem('insurance_team_' + encodeURIComponent(oldName));
+
+  // 5. Update UI
+  document.getElementById('agentNameDisplay').textContent = newName;
+  document.getElementById('sidebarAgentInfo').textContent = newName + ' | 代理人版' + (mgr ? ' | ' + mgr : '');
+
+  hideChangeName();
+  loadDB();
+  renderDashboard();
+  toast('✅ 姓名已更新為「' + newName + '」');
+
+  // 6. Re-register to cloud with new name
+  if (CLOUD_ENABLED && mgr) {
+    registerToCloudFetch(newName, mgr, team || '', function(ok) {
+      if (ok) {
+        saveDBAutoSync();
+        toast('☁️ 雲端已更新為新姓名');
+      }
+    });
+  }
 }
 
 // ===================================================================
