@@ -356,7 +356,7 @@ tr:hover td{background:var(--blue50)}
       </div>
       <div class="table-wrap" style="margin-top:20px">
         <div class="table-head"><h3>📋 全部行程</h3></div>
-        <table><thead><tr><th>日期</th><th>時間</th><th>客戶</th><th>目的</th><th>地點</th><th>狀態</th><th>操作</th></tr></thead><tbody id="scheduleTable"></tbody></table>
+        <table><thead><tr><th>日期</th><th>時間</th><th>客戶</th><th>目的</th><th>地點</th><th>狀態</th><th>筆記</th><th>操作</th></tr></thead><tbody id="scheduleTable"></tbody></table>
       </div>
     </div>
     <!-- DASHBOARD -->
@@ -1383,8 +1383,15 @@ function renderDashboard() {
     '<div class="stat-card" style="border-left-color:var(--red500)"><div class="label">本月 PC 收取</div><div class="value">'+money(monthPC)+'</div><div class="sub">共 '+DB.pcs.filter(function(pc){var d=new Date(pc.date);return d.getMonth()===mth&&d.getFullYear()===yr;}).length+' 筆</div></div>';
   // Todo
   var todos = []; DB.policies.forEach(function(p){ if (p.status==='待生效'||p.status==='審核中') todos.push({txt:'保單待跟進',client:p.clientName,type:'保單',date:p.insureDate,status:p.status}); });
+  // Add schedule follow-up items
+  DB.schedules.forEach(function(s){
+    if (s.followUp && s.followUp.trim() && s.status !== '已取消') {
+      var isOverdue = s.date < new Date().toISOString().slice(0,10);
+      todos.push({txt:'跟進：'+(s.purpose||'會面'),client:s.clientName,type:'行程',date:s.date,status:isOverdue?'待跟進':'已排程'});
+    }
+  });
   var th = ''; if (todos.length===0) th='<tr><td colspan="5" class="empty">暫無待跟進事項 ✓</td></tr>';
-  else todos.forEach(function(t){ th+='<tr><td>'+t.txt+'</td><td>'+esc(t.client)+'</td><td><span class="badge badge-blue">'+esc(t.type)+'</span></td><td>'+esc(dFmt(t.date))+'</td><td><span class="badge '+(t.status==='審核中'?'badge-yellow':'badge-red')+'">'+esc(t.status)+'</span></td></tr>'; });
+  else todos.forEach(function(t){ th+='<tr><td>'+t.txt+'</td><td>'+esc(t.client)+'</td><td><span class="badge '+(t.type==='行程'?'badge-blue':'badge-blue')+'">'+esc(t.type)+'</span></td><td>'+esc(dFmt(t.date))+'</td><td><span class="badge '+(t.status==='審核中'?'badge-yellow':t.status==='待跟進'?'badge-red':'badge-blue')+'">'+esc(t.status)+'</span></td></tr>'; });
   document.getElementById('todoTable').innerHTML = th;
   renderDashboardCharts();
 }
@@ -1579,8 +1586,9 @@ function renderSchedules() {
     } else {
       daySchedules.forEach(function(s){
         var sc = s.status==='已完成'?'badge-green':s.status==='已確認'?'badge-blue':s.status==='已取消'?'badge-red':'badge-yellow';
+        var hasNotes = (s.meetingNotes && s.meetingNotes.trim()) || (s.followUp && s.followUp.trim());
         html += '<div style="background:var(--blue50);border-radius:6px;padding:6px 8px;margin-bottom:4px;font-size:11px;cursor:pointer" onclick="openForm(\'schedule\','+s.id+')">';
-        html += '<div style="font-weight:600;color:var(--blue700)">'+esc(s.startTime||'')+' - '+esc(s.endTime||'')+'</div>';
+        html += '<div style="font-weight:600;color:var(--blue700)">'+esc(s.startTime||'')+' - '+esc(s.endTime||'')+(hasNotes?' 📝':'')+'</div>';
         html += '<div style="color:var(--blue500);margin-top:2px;cursor:pointer;text-decoration:underline" onclick="event.stopPropagation();showQuickView(\''+esc(s.clientName||'')+'\')">'+esc(s.clientName||'')+'</div>';
         html += '<div style="color:var(--gray400)">'+esc(s.purpose||'')+'</div>';
         html += '<span class="badge '+sc+'" style="margin-top:2px">'+esc(s.status)+'</span>';
@@ -1592,12 +1600,14 @@ function renderSchedules() {
   html += '</div>';
   document.getElementById('scheduleWeekView').innerHTML = html;
   // Full table
-  var h = ''; if (DB.schedules.length===0) h='<tr><td colspan="7" class="empty">尚無行程記錄</td></tr>';
+  var h = ''; if (DB.schedules.length===0) h='<tr><td colspan="8" class="empty">尚無行程記錄</td></tr>';
   else {
     var sorted = DB.schedules.slice().sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
     sorted.forEach(function(s){
       var sc = s.status==='已完成'?'badge-green':s.status==='已確認'?'badge-blue':s.status==='已取消'?'badge-red':'badge-yellow';
-      h += '<tr><td>'+esc(dFmt(s.date))+'</td><td>'+esc(s.startTime||'')+'-'+esc(s.endTime||'')+'</td><td><a style="color:var(--blue500);cursor:pointer;text-decoration:underline" onclick="showQuickView(\''+esc(s.clientName||'')+'\')">'+esc(s.clientName||'—')+'</a></td><td>'+esc(s.purpose||'—')+'</td><td>'+esc(s.location||'—')+'</td><td><span class="badge '+sc+'">'+esc(s.status)+'</span></td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'schedule\','+s.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'schedules\','+s.id+')">刪除</button></td></tr>';
+      var hasNotes = (s.meetingNotes && s.meetingNotes.trim()) || (s.followUp && s.followUp.trim());
+      var notesBtn = hasNotes ? '<button class="btn btn-sm btn-outline" style="border-color:var(--blue500);color:var(--blue500)" onclick="event.stopPropagation();showMeetingNotes('+s.id+')">📝 查看</button>' : '<span style="color:var(--gray300);font-size:11px">—</span>';
+      h += '<tr><td>'+esc(dFmt(s.date))+'</td><td>'+esc(s.startTime||'')+'-'+esc(s.endTime||'')+'</td><td><a style="color:var(--blue500);cursor:pointer;text-decoration:underline" onclick="showQuickView(\''+esc(s.clientName||'')+'\')">'+esc(s.clientName||'—')+'</a></td><td>'+esc(s.purpose||'—')+'</td><td>'+esc(s.location||'—')+'</td><td><span class="badge '+sc+'">'+esc(s.status)+'</span></td><td>'+notesBtn+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'schedule\','+s.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'schedules\','+s.id+')">刪除</button></td></tr>';
     });
   }
   document.getElementById('scheduleTable').innerHTML = h;
@@ -1651,6 +1661,24 @@ function showQuickView(clientName) {
     });
     html += '</tbody></table>';
   }
+  // Past meeting notes for this client
+  var pastMeetings = DB.schedules.filter(function(s){ return s.clientName === clientName && s.status === '已完成' && ((s.meetingNotes&&s.meetingNotes.trim())||(s.followUp&&s.followUp.trim())); });
+  pastMeetings.sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
+  if (pastMeetings.length > 0) {
+    html += '<div style="font-size:13px;font-weight:600;color:var(--gray600);margin:10px 0 6px">📝 會面筆記紀錄 ('+pastMeetings.length+')</div>';
+    pastMeetings.forEach(function(s){
+      html += '<div style="background:var(--gray50);border-radius:8px;padding:10px;margin-bottom:8px;border-left:3px solid var(--green500)">';
+      html += '<div style="font-size:12px;color:var(--gray500);margin-bottom:4px">'+esc(dFmt(s.date))+' '+esc(s.startTime||'')+'-'+esc(s.endTime||'')+' | '+esc(s.purpose||'')+'</div>';
+      if (s.meetingNotes && s.meetingNotes.trim()) {
+        html += '<div style="font-size:12px;margin-bottom:4px"><b>📝 筆記：</b><span style="white-space:pre-wrap">'+esc(s.meetingNotes.substring(0,200))+(s.meetingNotes.length>200?'...':'')+'</span></div>';
+      }
+      if (s.followUp && s.followUp.trim()) {
+        html += '<div style="font-size:12px;color:#a16207"><b>📋 跟進：</b><span style="white-space:pre-wrap">'+esc(s.followUp.substring(0,200))+(s.followUp.length>200?'...':'')+'</span></div>';
+      }
+      html += '<button class="btn btn-sm btn-outline" style="margin-top:4px;font-size:11px" onclick="showMeetingNotes('+s.id+')">查看完整筆記</button>';
+      html += '</div>';
+    });
+  }
   // Upcoming schedules for this client
   var scheds = DB.schedules.filter(function(s){ return s.clientName === clientName && s.date >= new Date().toISOString().slice(0,10); });
   if (scheds.length > 0) {
@@ -1669,6 +1697,36 @@ function showQuickView(clientName) {
 
 function hideQuickView() {
   document.getElementById('scheduleQuickView').style.display = 'none';
+}
+
+// ===== Meeting Notes Quick View =====
+function showMeetingNotes(scheduleId) {
+  var s = findById('schedules', scheduleId);
+  if (!s) return;
+  var qv = document.getElementById('scheduleQuickView');
+  var title = document.getElementById('qvClientTitle');
+  var content = document.getElementById('qvContent');
+  title.innerHTML = '📝 會面筆記 — ' + esc(s.clientName||'') + ' (' + esc(dFmt(s.date)) + ')';
+  var html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">';
+  html += '<div style="background:var(--blue50);border-radius:8px;padding:8px 10px"><div style="font-size:11px;color:var(--gray400)">時間</div><div style="font-weight:600">'+esc(s.startTime||'')+' - '+esc(s.endTime||'')+'</div></div>';
+  html += '<div style="background:var(--blue50);border-radius:8px;padding:8px 10px"><div style="font-size:11px;color:var(--gray400)">目的</div><div style="font-weight:600">'+esc(s.purpose||'—')+'</div></div>';
+  html += '</div>';
+  if (s.meetingNotes && s.meetingNotes.trim()) {
+    html += '<div style="margin-bottom:14px"><div style="font-size:13px;font-weight:600;color:var(--gray600);margin-bottom:6px">📝 會面筆記</div><div style="background:var(--gray50);border-radius:8px;padding:12px;font-size:13px;line-height:1.6;white-space:pre-wrap">'+esc(s.meetingNotes)+'</div></div>';
+  }
+  if (s.followUp && s.followUp.trim()) {
+    html += '<div style="margin-bottom:14px"><div style="font-size:13px;font-weight:600;color:var(--gray600);margin-bottom:6px">📋 跟進事項</div><div style="background:#fef9c3;border-radius:8px;padding:12px;font-size:13px;line-height:1.6;white-space:pre-wrap">'+esc(s.followUp)+'</div></div>';
+  }
+  if (s.notes && s.notes.trim()) {
+    html += '<div style="margin-bottom:14px"><div style="font-size:13px;font-weight:600;color:var(--gray600);margin-bottom:6px">備註</div><div style="background:var(--gray50);border-radius:8px;padding:12px;font-size:13px;line-height:1.6">'+esc(s.notes)+'</div></div>';
+  }
+  if (!((s.meetingNotes&&s.meetingNotes.trim())||(s.followUp&&s.followUp.trim())||(s.notes&&s.notes.trim()))) {
+    html += '<div class="empty">此行程尚無筆記</div>';
+  }
+  html += '<div style="margin-top:10px"><button class="btn btn-sm btn-primary" onclick="hideQuickView();openForm(\'schedule\','+s.id+')">✏️ 編輯筆記</button></div>';
+  content.innerHTML = html;
+  qv.style.display = 'block';
+  qv.scrollIntoView({behavior:'smooth'});
 }
 
 // ===================================================================
@@ -1724,6 +1782,7 @@ function openForm(type, id) {
   else if (type === 'schedule') {
     var sc = id?findById('schedules',id):{};
     var timeSlots = generateTimeSlots();
+    var isDone = sc.status === '已完成';
     h += fg('日期','date','date',sc.date||new Date().toISOString().slice(0,10))
       +fTime('開始時間','startTime',timeSlots,sc.startTime||'10:00')
       +fTime('結束時間','endTime',timeSlots,sc.endTime||'11:00')
@@ -1731,6 +1790,8 @@ function openForm(type, id) {
       +fs('會面目的','purpose',['講解保單','續保跟進','理財諮詢','索償處理','新客開發','售後服務','其他'],sc.purpose||'')
       +fg('地點','location','text',sc.location||'')
       +fs('狀態','status',['待處理','已確認','已完成','已取消'],sc.status||'待處理')
+      +ft('📝 會面筆記','meetingNotes',sc.meetingNotes||'', isDone?'記低今次傾咗嘅重點、客戶關注事項、報價內容等':'（完成會面後填寫）')
+      +ft('📋 跟進事項','followUp',sc.followUp||'','下次要跟進嘅事項，例如：準備報價單、安排體檢、跟進文件等')
       +fg('備註','notes','text',sc.notes||'');
   }
   else if (type === 'income') {
@@ -1777,6 +1838,7 @@ function openForm(type, id) {
 }
 
 function fg(label, name, type, value) { return '<div class="form-group"><label>'+label+'</label><input type="'+type+'" id="f_'+name+'" value="'+(value||'')+'"></div>'; }
+function ft(label, name, value, placeholder) { return '<div class="form-group"><label>'+label+'</label><textarea id="f_'+name+'" rows="4" placeholder="'+(placeholder||'')+'" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px;font-family:inherit;resize:vertical">'+esc(value||'')+'</textarea></div>'; }
 function fs(label, name, options, selected) {
   var isObj = options.length>0 && typeof options[0]==='object';
   var h = '<div class="form-group"><label>'+label+'</label><select id="f_'+name+'">';
@@ -1850,7 +1912,7 @@ function saveForm() {
         toast('✓ 已連結客戶「'+clientName+'」');
       }
     }
-    var o = {id:editId||uid(),date:val('f_date'),startTime:val('f_startTime'),endTime:val('f_endTime'),clientName:clientName,purpose:val('f_purpose'),location:val('f_location'),status:val('f_status'),notes:val('f_notes')};
+    var o = {id:editId||uid(),date:val('f_date'),startTime:val('f_startTime'),endTime:val('f_endTime'),clientName:clientName,purpose:val('f_purpose'),location:val('f_location'),status:val('f_status'),meetingNotes:val('f_meetingNotes'),followUp:val('f_followUp'),notes:val('f_notes')};
     saveTo('schedules',o);
   }
   else if (editType === 'income') {
