@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>經理團隊總覽</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2563eb">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="保經管家">
+<link rel="apple-touch-icon" href="icon-192.png">
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 :root{
@@ -68,7 +74,7 @@ tr:hover td{background:var(--blue50)}
 .detail-panel{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;margin-bottom:24px}
 .detail-panel h3{font-size:18px;font-weight:700;margin-bottom:6px}
 .detail-panel .meta{font-size:13px;color:var(--gray400);margin-bottom:16px}
-.detail-tabs{display:flex;gap:8px;margin-bottom:16px;border-bottom:2px solid var(--gray200);padding-bottom:8px}
+.detail-tabs{display:flex;gap:8px;margin-bottom:16px;border-bottom:2px solid var(--gray200);padding-bottom:8px;flex-wrap:wrap}
 .detail-tab{padding:8px 18px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;border:none;background:none;color:var(--gray500);transition:all .15s}
 .detail-tab.active{background:var(--blue500);color:#fff}
 .detail-content{overflow-x:auto}
@@ -112,12 +118,7 @@ tr:hover td{background:var(--blue50)}
     <h2 id="lockTitle">經理登入</h2>
     <div class="lock-sub" id="lockSub">請設定你的 PIN 碼以保護團隊數據</div>
     <div id="lockSetup">
-      <label class="lock-label">你的角色</label>
-      <div style="display:flex;gap:10px;margin-bottom:16px">
-        <button type="button" id="roleMgrBtn" onclick="selectRole('manager')" style="flex:1;padding:14px;border-radius:10px;border:2px solid var(--blue500);background:var(--blue50);color:var(--blue700);font-size:14px;font-weight:600;cursor:pointer">👔 經理<br><span style="font-size:11px;font-weight:400;color:var(--gray500)">睇自己團隊</span></button>
-        <button type="button" id="roleDirBtn" onclick="selectRole('director')" style="flex:1;padding:14px;border-radius:10px;border:2px solid var(--gray300);background:var(--white);color:var(--gray500);font-size:14px;font-weight:600;cursor:pointer">👑 大區總監<br><span style="font-size:11px;font-weight:400;color:var(--gray400)">睇晒全部</span></button>
-      </div>
-      <label class="lock-label">姓名</label>
+      <label class="lock-label">經理姓名</label>
       <input type="text" class="lock-input" id="mgrName" placeholder="例如：張經理" style="letter-spacing:normal;font-size:15px;text-align:left;margin-bottom:16px" autocomplete="off">
       <label class="lock-label">設定 PIN 碼（4-6 位數字）</label>
       <input type="password" class="lock-input" id="mgrPinSetup" placeholder="••••" maxlength="6" inputmode="numeric" autocomplete="off" onkeydown="if(event.key==='Enter')document.getElementById('mgrPinConfirm').focus()">
@@ -143,24 +144,18 @@ tr:hover td{background:var(--blue50)}
       <div class="sub">保險經紀業務管理系統 · 經理視角</div>
     </div>
     <div class="header-actions">
-      <button class="btn btn-white" onclick="mgrLoadFromCloud()" id="mgrCloudBtn">☁️ 載入團隊數據</button>
-      <button class="btn btn-white" onclick="document.getElementById('multiImport').click()">📥 匯入 JSON（備用）</button>
+      <button class="btn btn-white" onclick="document.getElementById('multiImport').click()">📥 匯入多位代理人</button>
+      <button class="btn btn-white" onclick="showMergeModal()">🔗 合併代理人</button>
       <button class="btn btn-white" onclick="clearAll()">🗑️ 清除全部</button>
-      <button class="btn btn-white" onclick="mgrShowCloudSetup()">⚙️ 設定</button>
     </div>
   </div>
 
   <!-- NO DATA -->
   <div id="noDataMsg" style="text-align:center;padding:60px 20px">
-    <div style="font-size:64px;margin-bottom:16px">☁️</div>
-    <h2 style="margin-bottom:8px;color:var(--gray600)">歡迎使用團隊總覽</h2>
-    <p style="color:var(--gray400);margin-bottom:24px;max-width:600px;margin-left:auto;margin-right:auto;line-height:1.6">
-      🎯 <b>推薦方法</b>：按右上角 <b>「☁️ 從雲端載入全團隊數據」</b>，即時讀取全團隊最新數據（來自 Google Sheets 雲端）。<br><br>
-      📝 <b>備用方法</b>：如果雲端載入失敗，可以手動匯入代理人匯出的 JSON 報告檔。
-    </p>
-    <button class="btn btn-primary" onclick="mgrLoadFromCloud()" style="font-size:16px;padding:12px 28px;margin-bottom:12px">☁️ 從雲端載入全團隊數據</button>
-    <br>
-    <button class="btn btn-outline" onclick="document.getElementById('multiImport').click()" style="font-size:14px;padding:10px 20px;margin-top:8px">📥 備用：匯入 JSON 報告</button>
+    <div style="font-size:64px;margin-bottom:16px">📥</div>
+    <h2 style="margin-bottom:8px;color:var(--gray600)">尚未匯入任何代理人數據</h2>
+    <p style="color:var(--gray400);margin-bottom:24px;max-width:500px;margin-left:auto;margin-right:auto">代理人喺「保經管家」App 撳 "📤 匯給經理" 產生 JSON 報告檔，你喺度匯入多份報告即可睇到全團隊數據。</p>
+    <button class="btn btn-primary" onclick="document.getElementById('multiImport').click()" style="font-size:16px;padding:12px 28px">📥 匯入代理人報告</button>
   </div>
 
   <!-- DATA VIEW -->
@@ -177,7 +172,7 @@ tr:hover td{background:var(--blue50)}
     <!-- Performance Table -->
     <div class="table-wrap">
       <div class="table-head"><h3>👥 代理人表現總表</h3></div>
-      <table><thead><tr><th>排名</th><th>代理人</th><th>客戶數</th><th>保單數</th><th>本月佣金</th><th>本年佣金</th><th>目標達成率</th><th>淨收入</th></tr></thead><tbody id="agentRankingTable"></tbody></table>
+      <table><thead><tr><th>排名</th><th>代理人</th><th>客戶數</th><th>保單數</th><th>本月佣金</th><th>本年佣金</th><th>PC</th><th>目標達成率</th><th>淨收入</th></tr></thead><tbody id="agentRankingTable"></tbody></table>
     </div>
 
     <!-- Drill-down -->
@@ -189,10 +184,31 @@ tr:hover td{background:var(--blue50)}
         <button class="detail-tab" onclick="showDetailTab('policies',this)">📄 保單</button>
         <button class="detail-tab" onclick="showDetailTab('commissions',this)">💰 佣金</button>
         <button class="detail-tab" onclick="showDetailTab('expenses',this)">💳 開支</button>
-        <button class="detail-tab" onclick="showDetailTab('goals',this)">🎯 目標</button>
         <button class="detail-tab" onclick="showDetailTab('schedules',this)">📅 行程</button>
+        <button class="detail-tab" onclick="showDetailTab('goals',this)">🎯 目標</button>
       </div>
       <div class="detail-content" id="detailContent"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MERGE MODAL -->
+<div id="mergeModalBg" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.45);z-index:1000;justify-content:center;align-items:center">
+  <div style="background:#fff;border-radius:12px;padding:24px;width:92%;max-width:520px;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.2)">
+    <h3 style="font-size:16px;font-weight:700;margin-bottom:18px">🔗 合併代理人</h3>
+    <p style="font-size:13px;color:var(--gray400);margin-bottom:14px">當代理人打錯名字產生重複時，可將兩個記錄合併為一個。所有數據（客戶、保單、佣金等）會合併到目標代理人。</p>
+    <div style="margin-bottom:14px">
+      <label style="font-size:12px;color:var(--gray500);font-weight:500;display:block;margin-bottom:4px">要合併嘅代理人（將被刪除）</label>
+      <select id="mergeSource" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px;background:#fff"></select>
+    </div>
+    <div style="margin-bottom:14px">
+      <label style="font-size:12px;color:var(--gray500);font-weight:500;display:block;margin-bottom:4px">目標代理人（保留此名）</label>
+      <select id="mergeTarget" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px;background:#fff"></select>
+    </div>
+    <div id="mergePreview" style="background:var(--blue50);border-radius:8px;padding:14px;margin-bottom:14px;font-size:12px;color:var(--gray600)"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-outline" onclick="hideMergeModal()">取消</button>
+      <button class="btn btn-danger" onclick="doMerge()">⚠️ 確認合併</button>
     </div>
   </div>
 </div>
@@ -206,15 +222,12 @@ tr:hover td{background:var(--blue50)}
 // ============================================================
 var MGR_KEY = 'mgr_name';
 var MGR_PIN_KEY = 'mgr_pin';
-var MGR_ROLE_KEY = 'mgr_role';  // 'manager' | 'director'
-var mgrRole = 'manager';  // 預設經理
 var mgrUnlocked = false;
 
 function initLock(){
   var name = localStorage.getItem(MGR_KEY);
   var pin = localStorage.getItem(MGR_PIN_KEY);
   if(name && pin){
-    // returning user — show unlock
     document.getElementById('lockSetup').style.display='none';
     document.getElementById('lockUnlock').style.display='block';
     document.getElementById('lockIcon').textContent='🔓';
@@ -223,24 +236,9 @@ function initLock(){
     document.getElementById('lockMgrName').textContent=name;
     document.getElementById('mgrPinUnlock').focus();
   } else {
-    // first time — show setup
     document.getElementById('lockSetup').style.display='block';
     document.getElementById('lockUnlock').style.display='none';
     document.getElementById('mgrName').focus();
-  }
-}
-
-// 角色揀選（經理 / 總監）
-function selectRole(role){
-  mgrRole = role;
-  var mgrBtn = document.getElementById('roleMgrBtn');
-  var dirBtn = document.getElementById('roleDirBtn');
-  if(role === 'manager'){
-    mgrBtn.style.borderColor='var(--blue500)';mgrBtn.style.background='var(--blue50)';mgrBtn.style.color='var(--blue700)';
-    dirBtn.style.borderColor='var(--gray300)';dirBtn.style.background='#fff';dirBtn.style.color='var(--gray500)';
-  } else {
-    dirBtn.style.borderColor='var(--purple500)';dirBtn.style.background='#faf5ff';dirBtn.style.color='var(--purple500)';
-    mgrBtn.style.borderColor='var(--gray300)';mgrBtn.style.background='#fff';mgrBtn.style.color='var(--gray500)';
   }
 }
 
@@ -256,7 +254,6 @@ function doSetupPin(){
   if(pin!==pin2){err.textContent='PIN 碼不一致';return;}
   localStorage.setItem(MGR_KEY,name);
   localStorage.setItem(MGR_PIN_KEY,pin);
-  localStorage.setItem(MGR_ROLE_KEY,mgrRole);  // 儲存角色
   unlockOK();
 }
 
@@ -270,22 +267,12 @@ function doUnlock(){
     document.getElementById('mgrPinUnlock').focus();
     return;
   }
-  // 載入角色
-  var savedRole = localStorage.getItem(MGR_ROLE_KEY) || 'manager';
-  mgrRole = savedRole;
   unlockOK();
 }
 
 function unlockOK(){
   mgrUnlocked = true;
   document.getElementById('lockBg').classList.add('hide');
-  // 更新 Header 標題顯示角色
-  var savedName = localStorage.getItem(MGR_KEY) || '';
-  var roleLabel = mgrRole === 'director' ? '👑 大區總監' : '👔 經理';
-  var hdrTitle = document.querySelector('.header h1');
-  if(hdrTitle) hdrTitle.textContent = (mgrRole==='director'?'👑 大區總覽':'📊 團隊總覽') + ' · ' + savedName;
-  var hdrSub = document.querySelector('.header .sub');
-  if(hdrSub) hdrSub.textContent = roleLabel + '視角 · 保經管家';
   render();
 }
 
@@ -293,8 +280,7 @@ function doResetMgr(){
   if(!confirm('⚠️ 確定清除經理數據？\n\n（包括姓名、PIN 碼同所有已匯入嘅代理人數據）'))return;
   localStorage.removeItem(MGR_KEY);
   localStorage.removeItem(MGR_PIN_KEY);
-  localStorage.removeItem(MGR_ROLE_KEY);
-  TEAM={};selectedAgent=null;mgrRole='manager';
+  TEAM={};selectedAgent=null;
   document.getElementById('lockSetup').style.display='block';
   document.getElementById('lockUnlock').style.display='none';
   document.getElementById('lockIcon').textContent='🔐';
@@ -309,118 +295,11 @@ function doResetMgr(){
 // ============================================================
 // DATA
 // ============================================================
-var TEAM = {}; // {agentName: {clients:[],policies:[],commissions:[],expenses:[],goals:[],exportedAt:...}}
+var TEAM = {};
 var chartLib = null;
 var chartInstances = {};
 var selectedAgent = null;
 var detailTab = 'clients';
-
-// ===== 雲端同步設定（已預設 Google Apps Script 網址）=====
-var MGR_API_URL = 'https://script.google.com/macros/s/AKfycbxgU-gqY_oFNj03Us28bcs6PK9vH0wchjgzic5lww4uc5nu8byTGbmrLp8kBOZ0nSU6/exec';
-var MGR_CLOUD_ENABLED = Boolean(MGR_API_URL && MGR_API_URL.length > 0);  // 有網址就自動啟用
-
-function mgrSetApiUrl(url) {
-  MGR_API_URL = url;
-  MGR_CLOUD_ENABLED = url.length > 0;
-  localStorage.setItem('mgr_cloud_api', url);
-}
-function mgrLoadApiUrl() {
-  var saved = localStorage.getItem('mgr_cloud_api') || '';
-  if (saved) { MGR_API_URL = saved; MGR_CLOUD_ENABLED = true; }
-}
-
-function mgrLoadFromCloud() {
-  if (!MGR_CLOUD_ENABLED) { toast('請先設定 API 網址', 'error'); mgrShowCloudSetup(); return; }
-  
-  var mgrName = localStorage.getItem(MGR_KEY) || '';
-  
-  // 根據角色決定密鑰
-  var useKey, keyLabel;
-  if (mgrRole === 'director') {
-    useKey = prompt('👑 大區總監驗證\n\n請輸入總監密鑰', 'DIRECTOR_SECRET_KEY');
-    if (!useKey) return;
-    keyLabel = '總監';
-  } else {
-    useKey = 'MANAGER_SECRET_KEY';  // 經理用固定密鑰
-    keyLabel = '經理（' + mgrName + '）';
-  }
-
-  toast('☁️ 從雲端載入' + keyLabel + '數據...');
-  
-  var qs = 'action=manager_load&key=' + encodeURIComponent(useKey);
-  if (mgrRole === 'manager' && mgrName) {
-    qs += '&managerName=' + encodeURIComponent(mgrName);
-  }
-  var xhr = new XMLHttpRequest();
-  xhr.open('GET', MGR_API_URL + '?' + qs);
-  xhr.onload = function() {
-    try {
-      var r = JSON.parse(xhr.responseText);
-      if (r.success && r.data) {
-        // 轉換格式：Google Sheet 數據 → TEAM 格式（團隊分組版）
-        TEAM = {};
-        var agents = r.data.teamAgents || r.data.agents || [];
-        agents.forEach(function(a) {
-          var aName = a.agentName || a.agentId || a.name;
-          TEAM[aName] = {
-            clients: [], policies: [], commissions: [],
-            expenses: [], goals: [], schedules: [],
-            managerName: a.managerName || '',
-            team: a.team || ''
-          };
-        });
-        ['clients','policies','commissions','expenses','goals','schedules'].forEach(function(sheetName) {
-          (r.data[sheetName] || []).forEach(function(row) {
-            var an = row.agentId || row.agentName;
-            if (an && TEAM[an]) {
-              TEAM[an][sheetName].push(row);
-            } else if (an && !TEAM[an]) {
-              TEAM[an] = { clients:[], policies:[], commissions:[], expenses:[], goals:[], schedules:[], managerName:'', team:'' };
-              TEAM[an][sheetName].push(row);
-            }
-          });
-        });
-        // DEBUG: show commission data info
-        var debugInfo = 'Agents: ' + Object.keys(TEAM).join(',');
-        Object.keys(TEAM).forEach(function(a) {
-          debugInfo += ' | ' + a + ' commissions:' + TEAM[a].commissions.length;
-          if (TEAM[a].commissions.length > 0) {
-            debugInfo += ' amount:' + TEAM[a].commissions[0].amount;
-          }
-        });
-        console.log('[MGR DEBUG] ' + debugInfo);
-        render();
-        // 顯示數據面板（載入雲端數據後必須顯示）
-        document.getElementById("noDataMsg").style.display = "none";
-        document.getElementById("dataView").style.display = "block";
-        var roleText = r.role === 'director' ? '👑 全團隊' : '📊 ' + (r.managerName||'團隊');
-        toast('☁️ 已從雲端載入 ' + Object.keys(TEAM).length + ' 位代理人數據！(' + roleText + ')');
-      } else {
-        toast('載入失敗：' + (r.error || '密鑰錯誤'), 'error');
-      }
-    } catch(e) {
-      toast('載入失敗：' + e.toString(), 'error');
-    }
-  };
-  xhr.onerror = function() { toast('網絡錯誤，請重試', 'error'); };
-  xhr.send();
-}
-
-function mgrShowCloudSetup() {
-  document.getElementById('mgrCloudModalBg').classList.add('show');
-  document.getElementById('mgrApiUrlInput').value = MGR_API_URL;
-}
-function mgrHideCloudSetup() {
-  document.getElementById('mgrCloudModalBg').classList.remove('show');
-}
-function mgrSaveCloudSetup() {
-  var url = document.getElementById('mgrApiUrlInput').value.trim();
-  if (!url) { mgrSetApiUrl(''); mgrHideCloudSetup(); toast('已關閉雲端同步'); return; }
-  mgrSetApiUrl(url);
-  mgrHideCloudSetup();
-  toast('☁️ API 網址已儲存');
-  mgrLoadFromCloud();
-}
 
 // ============================================================
 // IMPORT
@@ -443,7 +322,17 @@ function importMulti(evt){
       try{
         var d = JSON.parse(reader.result);
         if(d.agent&&d.data){
-          TEAM[d.agent] = {clients:d.data.clients||[],policies:d.data.policies||[],commissions:d.data.commissions||[],expenses:d.data.expenses||[],goals:d.data.goals||[],schedules:d.data.schedules||[],exportedAt:d.exportedAt||''};
+          TEAM[d.agent] = {
+            clients:d.data.clients||[],
+            policies:d.data.policies||[],
+            commissions:d.data.commissions||[],
+            expenses:d.data.expenses||[],
+            incomes:d.data.incomes||[],
+            pcs:d.data.pcs||[],
+            goals:d.data.goals||[],
+            schedules:d.data.schedules||[],
+            exportedAt:d.exportedAt||''
+          };
           count++;
         }
       }catch(e){}
@@ -472,21 +361,21 @@ function render(){
   if(agentNames.length===0)return;
 
   // Summary
-  var totalClients=0, totalPolicies=0, totalComm=0, totalExp=0, totalGoals=0;
+  var totalClients=0, totalPolicies=0, totalComm=0, totalExp=0, totalPC=0, totalGoals=0;
   var now=new Date(),m=now.getMonth(),y=now.getFullYear();
-  var monthComm=0;
+  var monthComm=0, monthPC=0;
   agentNames.forEach(function(a){
     var d=TEAM[a];
-    totalClients+=d.clients.length;totalPolicies+=d.policies.length;totalGoals+=d.goals.length;
+    totalClients+=d.clients.length;totalPolicies+=d.policies.length;totalGoals+=(d.goals||[]).length;
     d.commissions.forEach(function(c){totalComm+=Number(c.amount)||0;var dt=new Date(c.date);if(dt.getMonth()===m&&dt.getFullYear()===y)monthComm+=Number(c.amount)||0;});
     d.expenses.forEach(function(e){totalExp+=Number(e.amount)||0;});
+    if(d.pcs) d.pcs.forEach(function(pc){totalPC+=Number(pc.amount)||0;var dt=new Date(pc.date);if(dt.getMonth()===m&&dt.getFullYear()===y)monthPC+=Number(pc.amount)||0;});
   });
-  console.log('[MGR RENDER] totalComm=' + totalComm + ' monthComm=' + monthComm + ' m=' + m + ' y=' + y);
   document.getElementById('summaryCards').innerHTML=
     '<div class="stat-card" style="border-left-color:#3b82f6"><div class="label">總代理人數</div><div class="value">'+agentNames.length+'</div><div class="sub">位團隊成員</div></div>'+
     '<div class="stat-card" style="border-left-color:#22c55e"><div class="label">本月團隊佣金</div><div class="value">'+money(monthComm)+'</div><div class="sub">全團隊</div></div>'+
     '<div class="stat-card" style="border-left-color:#a855f7"><div class="label">總客戶數</div><div class="value">'+totalClients+'</div><div class="sub">保單總數: '+totalPolicies+'</div></div>'+
-    '<div class="stat-card" style="border-left-color:#eab308"><div class="label">累計佣金總額</div><div class="value">'+money(totalComm)+'</div><div class="sub">開支: '+money(totalExp)+'</div></div>'+
+    '<div class="stat-card" style="border-left-color:#eab308"><div class="label">累計佣金總額</div><div class="value">'+money(totalComm)+'</div><div class="sub">開支: '+money(totalExp)+' | PC: '+money(totalPC)+'</div></div>'+
     '<div class="stat-card" style="border-left-color:#ef4444"><div class="label">人均月佣</div><div class="value">'+money(agentNames.length>0?Math.round(monthComm/agentNames.length):0)+'</div><div class="sub">人均客戶: '+Math.round(totalClients/agentNames.length)+'</div></div>';
 
   // Agent ranking
@@ -495,14 +384,16 @@ function render(){
     var d=TEAM[a];
     var mc=0,yc=0;
     d.commissions.forEach(function(c){var dt=new Date(c.date);if(dt.getMonth()===m&&dt.getFullYear()===y)mc+=Number(c.amount)||0;if(dt.getFullYear()===y)yc+=Number(c.amount)||0;});
+    var mpc=0,ypc=0;
+    if(d.pcs) d.pcs.forEach(function(pc){var dt=new Date(pc.date);if(dt.getMonth()===m&&dt.getFullYear()===y)mpc+=Number(pc.amount)||0;if(dt.getFullYear()===y)ypc+=Number(pc.amount)||0;});
     var me=0;d.expenses.forEach(function(e){var dt=new Date(e.date);if(dt.getMonth()===m&&dt.getFullYear()===y)me+=Number(e.amount)||0;});
-    var goalRate=0;d.goals.forEach(function(g){if(g.period==='monthly'&&g.year===y&&g.month===m+1&&g.target>0)goalRate=Math.round(mc/g.target*100);});
-    ranks.push({name:a,clients:d.clients.length,policies:d.policies.length,monthComm:mc,yearComm:yc,expenses:me,goalRate:Math.min(goalRate,999),net:mc-me});
+    var goalRate=0;(d.goals||[]).forEach(function(g){if(g.period==='monthly'&&g.year===y&&g.month===m+1&&g.target>0)goalRate=Math.round(mc/g.target*100);});
+    ranks.push({name:a,clients:d.clients.length,policies:d.policies.length,monthComm:mc,yearComm:yc,monthPC:mpc,yearPC:ypc,expenses:me,goalRate:Math.min(goalRate,999),net:mc-me});
   });
   ranks.sort(function(a,b){return b.monthComm-a.monthComm;});
   var maxComm=ranks.length>0?ranks[0].monthComm:1;
   var tableHtml='';
-  ranks.forEach(function(r,i){tableHtml+='<tr class="agent-row'+(selectedAgent===r.name?' selected':'')+'" onclick="selectAgent(\''+esc(r.name)+'\',this)"><td>'+(i+1)+'</td><td>'+esc(r.name)+'</td><td>'+r.clients+'</td><td>'+r.policies+'</td><td class="amt-pos">'+money(r.monthComm)+'</td><td>'+money(r.yearComm)+'</td><td><span class="badge '+(r.goalRate>=100?'badge-green':r.goalRate>=70?'badge-blue':'badge-yellow')+'">'+(r.goalRate===0?'未設定':r.goalRate+'%')+'</span></td><td>'+money(r.net)+'</td></tr>';});
+  ranks.forEach(function(r,i){tableHtml+='<tr class="agent-row'+(selectedAgent===r.name?' selected':'')+'" onclick="selectAgent(\''+esc(r.name)+'\',this)"><td>'+(i+1)+'</td><td>'+esc(r.name)+'</td><td>'+r.clients+'</td><td>'+r.policies+'</td><td class="amt-pos">'+money(r.monthComm)+'</td><td>'+money(r.yearComm)+'</td><td>'+money(r.monthPC)+'</td><td><span class="badge '+(r.goalRate>=100?'badge-green':r.goalRate>=70?'badge-blue':'badge-yellow')+'">'+(r.goalRate===0?'未設定':r.goalRate+'%')+'</span></td><td>'+money(r.net)+'</td></tr>';});
   document.getElementById('agentRankingTable').innerHTML=tableHtml;
 
   // Ranking chart
@@ -517,12 +408,10 @@ function render(){
 // ============================================================
 function renderCharts(ranks,maxComm,agentNames,y,m){
   if(!chartLib)return;
-  // Bar chart — Top 15
   var top=ranks.slice(0,15),labels=top.map(function(r){return r.name;}),data=top.map(function(r){return r.monthComm;});
   if(chartInstances['chartRanking'])chartInstances['chartRanking'].destroy();
   chartInstances['chartRanking']=new chartLib(document.getElementById('chartRanking'),{type:'bar',data:{labels:labels,datasets:[{data:data,backgroundColor:'#3b82f6',borderRadius:6}]},options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{callback:function(v){return'HK$'+v.toLocaleString()}}}}}});
 
-  // Line chart — team trend (last 6 months)
   if(chartInstances['chartTeamTrend'])chartInstances['chartTeamTrend'].destroy();
   var tlabels=[],tdata=[];
   for(var i=5;i>=0;i--){var dm=new Date(y,m-i,1);tlabels.push(dm.getFullYear()+'/'+(dm.getMonth()+1));var ts=0;agentNames.forEach(function(a){TEAM[a].commissions.forEach(function(c){var d=new Date(c.date);if(d.getMonth()===dm.getMonth()&&d.getFullYear()===dm.getFullYear())ts+=Number(c.amount)||0;});});tdata.push(ts);}
@@ -550,7 +439,7 @@ function renderDetail(){
   var now=new Date(),m=now.getMonth(),y=now.getFullYear();
   var mc=0;d.commissions.forEach(function(c){var dt=new Date(c.date);if(dt.getMonth()===m&&dt.getFullYear()===y)mc+=Number(c.amount)||0;});
   document.getElementById('detailAgentName').textContent='🔍 '+selectedAgent;
-  document.getElementById('detailMeta').innerHTML='客戶: '+d.clients.length+' | 保單: '+d.policies.length+' | 本月佣金: '+money(mc)+' | 匯出時間: '+(d.exportedAt?new Date(d.exportedAt).toLocaleString('zh-HK'):'未知');
+  document.getElementById('detailMeta').innerHTML='客戶: '+d.clients.length+' | 保單: '+d.policies.length+' | 本月佣金: '+money(mc)+' | PC: '+(d.pcs?d.pcs.length:0)+' 筆 | 匯出時間: '+(d.exportedAt?new Date(d.exportedAt).toLocaleString('zh-HK'):'未知');
   detailTab='clients';
   document.querySelectorAll('.detail-tab').forEach(function(b){b.classList.remove('active');});
   document.querySelector('.detail-tab').classList.add('active');
@@ -564,49 +453,101 @@ function renderDetailContent(){
     else{html='<table><thead><tr><th>姓名</th><th>電話</th><th>電郵</th><th>狀態</th><th>備註</th></tr></thead><tbody>';d.clients.forEach(function(c){var sc=c.status==='活躍'?'badge-green':c.status==='潛在'?'badge-yellow':'badge-red';html+='<tr><td>'+esc(c.name)+'</td><td>'+esc(c.phone||'—')+'</td><td>'+esc(c.email||'—')+'</td><td><span class="badge '+sc+'">'+esc(c.status)+'</span></td><td>'+esc((c.notes||'').substring(0,40))+'</td></tr>';});html+='</tbody></table>';}
   }else if(detailTab==='policies'){
     if(d.policies.length===0)html='<div class="empty">無保單記錄</div>';
-    else{html='<table><thead><tr><th>保單編號</th><th>客戶</th><th>類型</th><th>保費</th><th>佣金率</th><th>狀態</th></tr></thead><tbody>';d.policies.forEach(function(p){var sc=p.status==='生效'?'badge-green':p.status==='待生效'?'badge-yellow':p.status==='審核中'?'badge-blue':'badge-red';html+='<tr><td>'+esc(p.policyNo||'—')+'</td><td>'+esc(p.clientName)+'</td><td>'+esc(p.type)+'</td><td>'+money(p.premium)+'</td><td>'+(p.commissionRate||0)+'%</td><td><span class="badge '+sc+'">'+esc(p.status)+'</span></td></tr>';});html+='</tbody></table>';}
+    else{html='<table><thead><tr><th>保單編號</th><th>客戶</th><th>類型</th><th>保費</th><th>佣金率</th><th>投保日期</th><th>狀態</th></tr></thead><tbody>';d.policies.forEach(function(p){var sc=p.status==='生效'?'badge-green':p.status==='待生效'?'badge-yellow':p.status==='審核中'?'badge-blue':'badge-red';var insDate=p.insureDate||p.startDate||'';html+='<tr><td>'+esc(p.policyNo||'—')+'</td><td>'+esc(p.clientName)+'</td><td>'+esc(p.type)+'</td><td>'+money(p.premium)+'</td><td>'+(p.commissionRate||0)+'%</td><td>'+esc(df(insDate))+'</td><td><span class="badge '+sc+'">'+esc(p.status)+'</span></td></tr>';});html+='</tbody></table>';}
   }else if(detailTab==='commissions'){
     if(d.commissions.length===0)html='<div class="empty">無佣金記錄</div>';
     else{html='<table><thead><tr><th>日期</th><th>客戶</th><th>保單</th><th>類型</th><th>金額</th><th>備註</th></tr></thead><tbody>';d.commissions.forEach(function(c){html+='<tr><td>'+esc(df(c.date))+'</td><td>'+esc(c.clientName)+'</td><td>'+esc(c.policyNo||'—')+'</td><td><span class="badge badge-blue">'+esc(c.type)+'</span></td><td class="amt-pos">'+money(c.amount)+'</td><td>'+(c.notes?esc(c.notes):'—')+'</td></tr>';});html+='</tbody></table>';}
   }else if(detailTab==='expenses'){
     if(d.expenses.length===0)html='<div class="empty">無開支記錄</div>';
     else{html='<table><thead><tr><th>日期</th><th>分類</th><th>金額</th><th>付款方式</th><th>備註</th></tr></thead><tbody>';d.expenses.forEach(function(e){html+='<tr><td>'+esc(df(e.date))+'</td><td><span class="badge badge-gray">'+esc(e.category)+'</span></td><td class="amt-neg">'+money(e.amount)+'</td><td>'+esc(e.payment||'—')+'</td><td>'+(e.notes?esc(e.notes):'—')+'</td></tr>';});html+='</tbody></table>';}
-  }else if(detailTab==='goals'){
-    if(d.goals.length===0)html='<div class="empty">無目標記錄</div>';
-    else{html='<table><thead><tr><th>類型</th><th>週期</th><th>年份</th><th>月份/季度</th><th>目標金額</th><th>描述</th></tr></thead><tbody>';var mn=['','1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];d.goals.forEach(function(g){html+='<tr><td>'+esc(g.type)+'</td><td>'+esc(g.period==='monthly'?'月度':g.period==='quarterly'?'季度':'年度')+'</td><td>'+g.year+'</td><td>'+esc(g.period==='monthly'?mn[g.month||1]:g.period==='quarterly'?'Q'+g.quarter:'全年')+'</td><td>'+money(g.target)+'</td><td>'+esc(g.desc||'—')+'</td></tr>';});html+='</tbody></table>';}
   }else if(detailTab==='schedules'){
     if(!d.schedules||d.schedules.length===0)html='<div class="empty">無行程記錄</div>';
-    else{
-      // 本週行程概覽
-      var today=new Date(),dayOfWeek=today.getDay()||7;
-      var monday=new Date(today);monday.setDate(today.getDate()-dayOfWeek+1);
-      var sunday=new Date(monday);sunday.setDate(monday.getDate()+6);
-      function mfmt(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
-      var weekStart=mfmt(monday),weekEnd=mfmt(sunday);
-      var weekSched=d.schedules.filter(function(s){return s.date>=weekStart&&s.date<=weekEnd;});
-      html+='<div style="margin-bottom:16px;padding:12px 16px;background:var(--blue50);border-radius:8px;font-size:13px;color:var(--blue700)">';
-      html+='📅 本週行程（'+weekStart+' ~ '+weekEnd+'）：<b>'+weekSched.length+'</b> 個會面安排';
-      if(weekSched.length>0){
-        html+='<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px">';
-        weekSched.sort(function(a,b){return (a.date||'').localeCompare(b.date||'')||(a.startTime||'').localeCompare(b.startTime||'');});
-        weekSched.forEach(function(s){
-          var sc=s.status==='已完成'?'badge-green':s.status==='已確認'?'badge-blue':s.status==='已取消'?'badge-red':'badge-yellow';
-          html+='<span class="badge '+sc+'" style="font-size:11px">'+esc(df(s.date))+' '+esc(s.startTime||'')+' '+esc(s.clientName||'')+' ('+esc(s.purpose||'')+'</span>';
-        });
-        html+='</div>';
-      }
-      html+='</div>';
-      // 全部行程表
-      html+='<table><thead><tr><th>日期</th><th>時間</th><th>客戶</th><th>目的</th><th>地點</th><th>狀態</th><th>備註</th></tr></thead><tbody>';
-      var sorted=d.schedules.slice().sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
-      sorted.forEach(function(s){
-        var sc=s.status==='已完成'?'badge-green':s.status==='已確認'?'badge-blue':s.status==='已取消'?'badge-red':'badge-yellow';
-        html+='<tr><td>'+esc(df(s.date))+'</td><td>'+esc(s.startTime||'')+'-'+esc(s.endTime||'')+'</td><td>'+esc(s.clientName||'—')+'</td><td>'+esc(s.purpose||'—')+'</td><td>'+esc(s.location||'—')+'</td><td><span class="badge '+sc+'">'+esc(s.status)+'</span></td><td>'+esc(s.notes||'—')+'</td></tr>';
-      });
-      html+='</tbody></table>';
-    }
+    else{html='<table><thead><tr><th>日期</th><th>時間</th><th>客戶</th><th>目的</th><th>地點</th><th>狀態</th></tr></thead><tbody>';d.schedules.forEach(function(s){var sc=s.status==='已完成'?'badge-green':s.status==='已確認'?'badge-blue':s.status==='已取消'?'badge-red':'badge-yellow';html+='<tr><td>'+esc(df(s.date))+'</td><td>'+esc(s.startTime||'')+'-'+esc(s.endTime||'')+'</td><td>'+esc(s.clientName||'—')+'</td><td>'+esc(s.purpose||'—')+'</td><td>'+esc(s.location||'—')+'</td><td><span class="badge '+sc+'">'+esc(s.status)+'</span></td></tr>';});html+='</tbody></table>';}
+  }else if(detailTab==='goals'){
+    if(!d.goals||d.goals.length===0)html='<div class="empty">無目標記錄</div>';
+    else{html='<table><thead><tr><th>類型</th><th>週期</th><th>年份</th><th>月份/季度</th><th>目標金額</th><th>描述</th></tr></thead><tbody>';var mn=['','1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];d.goals.forEach(function(g){html+='<tr><td>'+esc(g.type)+'</td><td>'+esc(g.period==='monthly'?'月度':g.period==='quarterly'?'季度':'年度')+'</td><td>'+g.year+'</td><td>'+esc(g.period==='monthly'?mn[g.month||1]:g.period==='quarterly'?'Q'+g.quarter:'全年')+'</td><td>'+money(g.target)+'</td><td>'+esc(g.desc||'—')+'</td></tr>';});html+='</tbody></table>';}
   }
   document.getElementById('detailContent').innerHTML=html;
+}
+
+// ============================================================
+// MERGE AGENTS
+// ============================================================
+function showMergeModal() {
+  var names = Object.keys(TEAM);
+  if (names.length < 2) { toast('至少需要 2 位代理人才能合併','error'); return; }
+  // Populate dropdowns
+  var srcSel = document.getElementById('mergeSource');
+  var tgtSel = document.getElementById('mergeTarget');
+  srcSel.innerHTML = '<option value="">-- 請選擇 --</option>';
+  tgtSel.innerHTML = '<option value="">-- 請選擇 --</option>';
+  names.forEach(function(n){
+    srcSel.innerHTML += '<option value="'+esc(n)+'">'+esc(n)+' ('+TEAM[n].clients.length+' 客戶, '+TEAM[n].policies.length+' 保單)</option>';
+    tgtSel.innerHTML += '<option value="'+esc(n)+'">'+esc(n)+' ('+TEAM[n].clients.length+' 客戶, '+TEAM[n].policies.length+' 保單)</option>';
+  });
+  document.getElementById('mergePreview').innerHTML = '請選擇兩個代理人以預覽合併結果';
+  document.getElementById('mergeModalBg').style.display = 'flex';
+  srcSel.addEventListener('change', updateMergePreview);
+  tgtSel.addEventListener('change', updateMergePreview);
+}
+
+function hideMergeModal() {
+  document.getElementById('mergeModalBg').style.display = 'none';
+}
+
+function updateMergePreview() {
+  var src = document.getElementById('mergeSource').value;
+  var tgt = document.getElementById('mergeTarget').value;
+  if (!src || !tgt || src === tgt) {
+    document.getElementById('mergePreview').innerHTML = src === tgt ? '⚠️ 不能選擇同一個代理人' : '請選擇兩個不同嘅代理人';
+    return;
+  }
+  var sd = TEAM[src], td = TEAM[tgt];
+  var preview = '合併後「'+tgt+'」將擁有：';
+  preview += '<br>客戶：'+(td.clients.length+sd.clients.length)+' 位（原 '+td.clients.length+' + 新 '+sd.clients.length+'）';
+  preview += '<br>保單：'+(td.policies.length+sd.policies.length)+' 份';
+  preview += '<br>佣金：'+(td.commissions.length+sd.commissions.length)+' 筆';
+  preview += '<br>開支：'+(td.expenses.length+sd.expenses.length)+' 筆';
+  preview += '<br>行程：'+((td.schedules||[]).length+(sd.schedules||[]).length)+' 筆';
+  preview += '<br>PC：'+((td.pcs||[]).length+(sd.pcs||[]).length)+' 筆';
+  preview += '<br>目標：'+((td.goals||[]).length+(sd.goals||[]).length)+' 筆';
+  preview += '<br><br>⚠️ 「'+src+'」嘅所有數據會移到「'+tgt+'」，而「'+src+'」將會被刪除。';
+  document.getElementById('mergePreview').innerHTML = preview;
+}
+
+function doMerge() {
+  var src = document.getElementById('mergeSource').value;
+  var tgt = document.getElementById('mergeTarget').value;
+  if (!src || !tgt) { toast('請選擇兩個代理人','error'); return; }
+  if (src === tgt) { toast('不能合併同一個代理人','error'); return; }
+  if (!confirm('⚠️ 確定將「'+src+'」合併到「'+tgt+'」？\n\n「'+src+'」嘅所有數據會移到「'+tgt+'」，而「'+src+'」將被刪除。\n此操作無法還原！')) return;
+  var sd = TEAM[src], td = TEAM[tgt];
+  // Merge all data arrays (append, avoid duplicates by id)
+  ['clients','policies','commissions','expenses','schedules','pcs','goals'].forEach(function(key){
+    if (!sd[key]) sd[key] = [];
+    if (!td[key]) td[key] = [];
+    // Rename client references in source data to target agent context
+    sd[key].forEach(function(item){
+      // Check if this id already exists in target
+      var exists = td[key].some(function(t){ return t.id === item.id; });
+      if (!exists) td[key].push(item);
+    });
+  });
+  // Merge incomes (may not exist in older data)
+  if (sd.incomes) {
+    if (!td.incomes) td.incomes = [];
+    sd.incomes.forEach(function(item){
+      var exists = td.incomes.some(function(t){ return t.id === item.id; });
+      if (!exists) td.incomes.push(item);
+    });
+  }
+  // Delete source agent
+  delete TEAM[src];
+  // Update selection if source was selected
+  if (selectedAgent === src) selectedAgent = tgt;
+  hideMergeModal();
+  render();
+  toast('✅ 已合併「'+src+'」到「'+tgt+'」');
 }
 
 // ============================================================
@@ -626,32 +567,11 @@ function toast(msg,type){type=type||'success';var el=document.createElement('div
   s.onload=function(){chartLib=Chart;if(mgrUnlocked)render();};
   s.onerror=function(){console.warn('Chart.js unavailable');};
   document.head.appendChild(s);
-  mgrLoadApiUrl();
-  if (MGR_CLOUD_ENABLED) document.getElementById('mgrCloudBtn').style.display = '';
   initLock();
 })();
 </script>
-
-<!-- MANAGER CLOUD SETUP MODAL -->
-<div class="modal-bg" id="mgrCloudModalBg">
-  <div class="modal" style="max-width:480px">
-    <h3>☁️ 雲端同步設定（經理版）</h3>
-    <p style="color:var(--gray500);font-size:13px;margin-bottom:14px">
-      填入同一個 Google Apps Script 網址，即可即時載入全團隊數據。
-    </p>
-    <div class="form-group">
-      <label>Google Apps Script 網址</label>
-      <input type="url" id="mgrApiUrlInput" placeholder="https://script.google.com/macros/s/..." style="font-size:12px">
-    </div>
-    <div style="font-size:12px;color:var(--gray400);margin-bottom:14px">
-      💡 同一個網址同代理人版一樣
-    </div>
-    <div class="modal-actions">
-      <button class="btn btn-outline" onclick="mgrHideCloudSetup()">取消</button>
-      <button class="btn btn-primary" onclick="mgrSaveCloudSetup()">儲存並載入</button>
-    </div>
-  </div>
-</div>
-
+<script>
+if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(function(r){console.log('[PWA] Service Worker 已註冊:',r.scope);}).catch(function(e){console.warn('[PWA] SW 註冊失敗:',e);});}
+</script>
 </body>
 </html>
