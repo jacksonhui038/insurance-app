@@ -143,10 +143,32 @@ tr:hover td{background:var(--blue50)}
 <!-- NAME / PIN MODAL -->
 <div class="modal-bg show" id="nameModalBg">
   <div class="modal name-modal" id="nameModal">
-    <!-- SETUP: new user -->
-    <div id="setupMode">
+    <!-- CHOICE: Login or Register -->
+    <div id="choiceMode">
       <h3>👋 歡迎使用保經管家</h3>
-      <p style="color:var(--gray500);margin-bottom:6px">請設定你嘅姓名同 PIN 碼</p>
+      <p style="color:var(--gray500);margin-bottom:16px">請選擇</p>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <button class="btn btn-primary" onclick="showLoginMode()" style="padding:14px;font-size:15px">🔐 登入已有帳戶</button>
+        <button class="btn btn-outline" onclick="showRegisterMode()" style="padding:14px;font-size:15px">📝 註冊新帳戶</button>
+      </div>
+    </div>
+    <!-- LOGIN MODE -->
+    <div id="loginMode" style="display:none">
+      <h3>🔐 登入</h3>
+      <p style="color:var(--gray500);margin-bottom:12px">輸入姓名同 PIN 碼</p>
+      <div class="form-group"><label>姓名</label><input type="text" id="loginName" placeholder="例如：陳大文" autocomplete="off"></div>
+      <div class="form-group"><label>PIN 碼</label><input type="password" id="loginPin" placeholder="輸入 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <div class="modal-actions" style="justify-content:center;flex-wrap:wrap;gap:8px">
+        <button class="btn btn-primary" onclick="doLogin()" id="loginBtn">登入</button>
+        <button class="btn btn-outline" onclick="showChoiceMode()">返回</button>
+      </div>
+      <p id="loginErr" style="color:var(--red500);font-size:12px;margin-top:8px;display:none"></p>
+      <p style="font-size:11px;color:var(--gray400);margin-top:10px;text-align:center">忘記 PIN？請聯絡系統管理員重置</p>
+    </div>
+    <!-- REGISTER MODE -->
+    <div id="registerMode" style="display:none">
+      <h3>📝 註冊新帳戶</h3>
+      <p style="color:var(--gray500);margin-bottom:6px">設定你嘅姓名同 PIN 碼</p>
       <div class="form-group"><label>姓名 <span style="color:var(--red500)">*</span> <span style="font-size:11px;color:var(--gray400)">⚠️ 確認後不可更改</span></label><input type="text" id="nameInput" placeholder="例如：陳大文"></div>
       <div class="form-group"><label>PIN 碼（4-6 位數字）</label><input type="password" id="pinInput" placeholder="設定 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off"></div>
       <div class="form-group"><label>確認 PIN 碼</label><input type="password" id="pinConfirm" placeholder="再次輸入 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off"></div>
@@ -163,20 +185,23 @@ tr:hover td{background:var(--blue50)}
       </div>
       <div class="form-group" id="customMgrGroup" style="display:none"><label>經理姓名</label><input type="text" id="customMgrName" placeholder="輸入經理姓名"></div>
       <div class="form-group"><label>團隊名稱（選填）</label><input type="text" id="teamInput" placeholder="例如：Team A（選填）"></div>
-      <div class="modal-actions" style="justify-content:center">
-        <button class="btn btn-primary" onclick="saveName()">開始使用</button>
+      <div class="modal-actions" style="justify-content:center;flex-wrap:wrap;gap:8px">
+        <button class="btn btn-primary" onclick="saveName()" id="regBtn">註冊</button>
+        <button class="btn btn-outline" onclick="showChoiceMode()">返回</button>
       </div>
+      <p id="regErr" style="color:var(--red500);font-size:12px;margin-top:8px;display:none"></p>
       <p style="font-size:11px;color:var(--gray400);margin-top:10px;text-align:center">⚠️ 所屬經理決定咗邊位可以睇到你嘅數據</p>
     </div>
-    <!-- UNLOCK: returning user -->
+    <!-- UNLOCK: returning user on same device -->
     <div id="unlockMode" style="display:none">
       <h3>🔐 解鎖</h3>
       <p style="color:var(--gray500);margin-bottom:12px" id="unlockGreeting">歡迎回來</p>
       <div class="form-group"><input type="password" id="unlockPin" placeholder="請輸入 PIN 碼解鎖" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off" onkeydown="if(event.key==='Enter')unlockAgent()"></div>
       <div class="modal-actions" style="justify-content:center;flex-wrap:wrap;gap:8px">
         <button class="btn btn-primary" onclick="unlockAgent()">解鎖</button>
-        <button class="btn btn-outline btn-sm" style="color:var(--red500);border-color:var(--red500)" onclick="resetAgent()">唔係我，清除數據</button>
+        <button class="btn btn-outline btn-sm" onclick="showChoiceMode()">切換帳戶</button>
       </div>
+      <p style="font-size:11px;color:var(--gray400);margin-top:10px;text-align:center">忘記 PIN？請聯絡系統管理員重置</p>
     </div>
     <!-- SWITCH: confirm PIN before switching -->
     <div id="switchMode" style="display:none">
@@ -616,7 +641,7 @@ function saveToSupabase(callback) {
       'Content-Type':'application/json',
       'Prefer':'resolution=merge-duplicates'
     },
-    body:JSON.stringify({name:agentName,data:DB,manager:mgr,team:team}),
+    body:JSON.stringify({name:agentName,data:Object.assign({},DB,{_pinHash:agentPIN?hashPin(agentPIN):''}),manager:mgr,team:team}),
     signal:controller.signal
   })
   .then(function(res){ clearTimeout(timeoutId); if(res.ok) { if(callback) callback(true); } else { console.error('[saveToSupabase] HTTP',res.status); if(callback) callback(false); } })
@@ -721,6 +746,155 @@ var AGENT_PIN_KEY = 'insurance_agent_pin';
 var agentPIN = '';
 
 // ===== PIN / AUTH =====
+function hashPin(pin) {
+  var h = 5381;
+  for (var i = 0; i < pin.length; i++) { h = ((h << 5) + h) + pin.charCodeAt(i); h = h & 0xffffffff; }
+  return 'p' + Math.abs(h).toString(36);
+}
+
+function showChoiceMode() {
+  ['choiceMode','loginMode','registerMode','unlockMode','switchMode'].forEach(function(id) {
+    var el = document.getElementById(id); if (el) el.style.display = 'none';
+  });
+  document.getElementById('choiceMode').style.display = 'block';
+}
+
+function showLoginMode() {
+  ['choiceMode','loginMode','registerMode','unlockMode','switchMode'].forEach(function(id) {
+    var el = document.getElementById(id); if (el) el.style.display = 'none';
+  });
+  document.getElementById('loginMode').style.display = 'block';
+  document.getElementById('loginName').value = '';
+  document.getElementById('loginPin').value = '';
+  var errEl = document.getElementById('loginErr'); if (errEl) errEl.style.display = 'none';
+  document.getElementById('loginName').focus();
+}
+
+function showRegisterMode() {
+  ['choiceMode','loginMode','registerMode','unlockMode','switchMode'].forEach(function(id) {
+    var el = document.getElementById(id); if (el) el.style.display = 'none';
+  });
+  document.getElementById('registerMode').style.display = 'block';
+  var errEl = document.getElementById('regErr'); if (errEl) errEl.style.display = 'none';
+  document.getElementById('nameInput').focus();
+}
+
+function doLogin() {
+  var name = document.getElementById('loginName').value.trim();
+  var pin = document.getElementById('loginPin').value.trim();
+  var errEl = document.getElementById('loginErr');
+  var btn = document.getElementById('loginBtn');
+  errEl.style.display = 'none';
+  if (!name) { errEl.textContent = '請輸入姓名'; errEl.style.display = 'block'; return; }
+  if (!pin) { errEl.textContent = '請輸入 PIN 碼'; errEl.style.display = 'block'; return; }
+  btn.textContent = '驗證中...'; btn.disabled = true;
+  var pinH = hashPin(pin);
+
+  // Try Supabase first
+  if (SUPA_URL && SUPA_KEY) {
+    var ctrl = new AbortController();
+    var tid = setTimeout(function(){ ctrl.abort(); }, 15000);
+    fetch(SUPA_URL + '/rest/v1/agents?name=eq.' + encodeURIComponent(name) + '&select=data,manager,team', {
+      headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }, signal: ctrl.signal
+    })
+    .then(function(res) { clearTimeout(tid); return res.json(); })
+    .then(function(rows) {
+      if (rows && rows.length > 0) {
+        var ad = rows[0].data || {};
+        var sh = ad._pinHash || '';
+        if (sh && sh !== pinH) {
+          errEl.textContent = 'PIN 碼錯誤'; errEl.style.display = 'block';
+          document.getElementById('loginPin').value = ''; document.getElementById('loginPin').focus();
+          btn.textContent = '登入'; btn.disabled = false; return;
+        }
+        // Success (pin matches or no pinHash = old account)
+        agentName = name; agentPIN = pin;
+        assignedManager = rows[0].manager || '';
+        assignedTeam = rows[0].team || '';
+        localStorage.setItem(AGENT_KEY, name);
+        localStorage.setItem(AGENT_PIN_KEY, pin);
+        localStorage.setItem('insurance_agent_name_locked', 'true');
+        localStorage.setItem('insurance_mgr_'+encodeURIComponent(name), assignedManager);
+        if (assignedTeam) localStorage.setItem('insurance_team_'+encodeURIComponent(name), assignedTeam);
+        DB = {clients:[],policies:[],commissions:[],expenses:[],goals:[],schedules:[],pcs:[],incomes:[]};
+        ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k) { if (ad[k]) DB[k] = ad[k]; });
+        saveDB();
+        document.getElementById('nameModalBg').classList.remove('show');
+        document.getElementById('agentNameDisplay').textContent = name;
+        document.getElementById('sidebarAgentInfo').textContent = name+' | 代理人'+(assignedManager?' | '+assignedManager:'');
+        renderDashboard(); renderCurrentTab(); afterLoginSync();
+        toast('登入成功！已從雲端載入數據');
+        btn.textContent = '登入'; btn.disabled = false;
+      } else {
+        loginViaGS(name, pin, pinH, errEl, btn);
+      }
+    })
+    .catch(function(e) { clearTimeout(tid); console.error('[doLogin] SA:', e); loginViaGS(name, pin, pinH, errEl, btn); });
+  } else {
+    loginViaGS(name, pin, pinH, errEl, btn);
+  }
+}
+
+function loginViaGS(name, pin, pinH, errEl, btn) {
+  if (!API_URL) {
+    errEl.textContent = '未設定雲端，無法驗證'; errEl.style.display = 'block';
+    btn.textContent = '登入'; btn.disabled = false; return;
+  }
+  var qs = 'action=verify_agent&agentId=' + encodeURIComponent(name) + '&pinHash=' + encodeURIComponent(pinH);
+  fetch(API_URL + '?' + qs)
+    .then(function(res) { return res.json(); })
+    .then(function(r) {
+      if (r.verified) {
+        agentName = name; agentPIN = pin;
+        assignedManager = r.managerName || '';
+        assignedTeam = r.team || '';
+        localStorage.setItem(AGENT_KEY, name);
+        localStorage.setItem(AGENT_PIN_KEY, pin);
+        localStorage.setItem('insurance_agent_name_locked', 'true');
+        localStorage.setItem('insurance_mgr_'+encodeURIComponent(name), assignedManager);
+        if (assignedTeam) localStorage.setItem('insurance_team_'+encodeURIComponent(name), assignedTeam);
+        loadDB();
+        loadFromCloud(function(ok) {
+          document.getElementById('nameModalBg').classList.remove('show');
+          document.getElementById('agentNameDisplay').textContent = name;
+          document.getElementById('sidebarAgentInfo').textContent = name+' | 代理人'+(assignedManager?' | '+assignedManager:'');
+          renderDashboard(); renderCurrentTab(); afterLoginSync();
+          toast('登入成功！' + (ok ? '已從雲端載入數據' : ''));
+        });
+        btn.textContent = '登入'; btn.disabled = false;
+      } else if (r.notFound) {
+        errEl.textContent = '此姓名未註冊，請用「註冊新帳戶」'; errEl.style.display = 'block';
+        btn.textContent = '登入'; btn.disabled = false;
+      } else if (r.found && !r.hasPin) {
+        // Old account without pinHash — allow login
+        agentName = name; agentPIN = pin;
+        assignedManager = r.managerName || ''; assignedTeam = r.team || '';
+        localStorage.setItem(AGENT_KEY, name); localStorage.setItem(AGENT_PIN_KEY, pin);
+        localStorage.setItem('insurance_agent_name_locked', 'true');
+        localStorage.setItem('insurance_mgr_'+encodeURIComponent(name), assignedManager);
+        if (assignedTeam) localStorage.setItem('insurance_team_'+encodeURIComponent(name), assignedTeam);
+        loadDB();
+        loadFromCloud(function(ok) {
+          document.getElementById('nameModalBg').classList.remove('show');
+          document.getElementById('agentNameDisplay').textContent = name;
+          document.getElementById('sidebarAgentInfo').textContent = name+' | 代理人'+(assignedManager?' | '+assignedManager:'');
+          renderDashboard(); renderCurrentTab(); afterLoginSync();
+          toast('登入成功！');
+        });
+        btn.textContent = '登入'; btn.disabled = false;
+      } else {
+        errEl.textContent = 'PIN 碼錯誤'; errEl.style.display = 'block';
+        document.getElementById('loginPin').value = ''; document.getElementById('loginPin').focus();
+        btn.textContent = '登入'; btn.disabled = false;
+      }
+    })
+    .catch(function(e) {
+      console.error('[doLogin] GS:', e);
+      errEl.textContent = '網路錯誤，請重試'; errEl.style.display = 'block';
+      btn.textContent = '登入'; btn.disabled = false;
+    });
+}
+
 function saveName() {
   var n = document.getElementById('nameInput').value.trim();
   var pin = document.getElementById('pinInput').value.trim();
@@ -728,27 +902,78 @@ function saveName() {
   var mgrSelect = document.getElementById('managerSelect').value;
   var customMgr = document.getElementById('customMgrName').value.trim();
   var team = document.getElementById('teamInput').value.trim();
-  if (!n) { alert('請輸入姓名'); return; }
-  if (!pin || pin.length < 4) { alert('請設定 4-6 位數字 PIN 碼'); return; }
-  if (!/^\d+$/.test(pin)) { alert('PIN 碼只能包含數字'); return; }
-  if (pin !== pin2) { alert('PIN 碼不一致，請重新輸入'); return; }
+  var errEl = document.getElementById('regErr');
+  errEl.style.display = 'none';
+  if (!n) { errEl.textContent = '請輸入姓名'; errEl.style.display = 'block'; return; }
+  if (!pin || pin.length < 4) { errEl.textContent = 'PIN 碼至少 4 位數字'; errEl.style.display = 'block'; return; }
+  if (!/^\d+$/.test(pin)) { errEl.textContent = 'PIN 碼只能含數字'; errEl.style.display = 'block'; return; }
+  if (pin !== pin2) { errEl.textContent = 'PIN 碼不一致'; errEl.style.display = 'block'; return; }
   var finalMgr = mgrSelect === '其他' ? customMgr : mgrSelect;
-  if (!finalMgr) { alert('請選擇所屬經理'); return; }
-  // Name confirmation — lock after setup
-  var nameConfirmMsg = '⚠️ 確認你嘅姓名係「' + n + '」？\n\n姓名確認後將不可更改，請確定無打錯。\n\n（如果打錯名字，經理端會出現重複代理人）';
-  if (!confirm(nameConfirmMsg)) return;
-  agentName = n; agentPIN = pin; assignedManager = finalMgr;
-  localStorage.setItem(AGENT_KEY, n);
-  localStorage.setItem(AGENT_PIN_KEY, pin);
-  localStorage.setItem('insurance_agent_name_locked', 'true'); // Lock name
-  localStorage.setItem('insurance_mgr_'+encodeURIComponent(n), finalMgr);
-  if (team) localStorage.setItem('insurance_team_'+encodeURIComponent(n), team);
-  document.getElementById('nameModalBg').classList.remove('show');
-  document.getElementById('agentNameDisplay').textContent = n;
-  document.getElementById('sidebarAgentInfo').textContent = n+' | 代理人版 | '+finalMgr;
-  loadDB(); loadSample(); renderDashboard();
-  afterLoginSync();
-  registerToCloudFetch(n, finalMgr, team);
+  if (!finalMgr) { errEl.textContent = '請選擇所屬經理'; errEl.style.display = 'block'; return; }
+  var btn = document.getElementById('regBtn');
+  btn.textContent = '檢查中...'; btn.disabled = true;
+  // Check cloud for duplicate
+  checkAgentExists(n, function(exists) {
+    if (exists) {
+      errEl.textContent = '此姓名已註冊，請用「登入已有帳戶」'; errEl.style.display = 'block';
+      btn.textContent = '註冊'; btn.disabled = false; return;
+    }
+    if (!confirm('確認姓名是「'+n+'」？\n\n姓名確認後不可更改。')) {
+      btn.textContent = '註冊'; btn.disabled = false; return;
+    }
+    agentName = n; agentPIN = pin; assignedManager = finalMgr;
+    localStorage.setItem(AGENT_KEY, n);
+    localStorage.setItem(AGENT_PIN_KEY, pin);
+    localStorage.setItem('insurance_agent_name_locked', 'true');
+    localStorage.setItem('insurance_mgr_'+encodeURIComponent(n), finalMgr);
+    if (team) localStorage.setItem('insurance_team_'+encodeURIComponent(n), team);
+    document.getElementById('nameModalBg').classList.remove('show');
+    document.getElementById('agentNameDisplay').textContent = n;
+    document.getElementById('sidebarAgentInfo').textContent = n+' | 代理人 | '+finalMgr;
+    loadDB(); loadSample(); renderDashboard();
+    afterLoginSync();
+    // Register to cloud with pinHash
+    registerToCloudWithPin(n, finalMgr, team, hashPin(pin));
+    btn.textContent = '註冊'; btn.disabled = false;
+  });
+}
+
+function checkAgentExists(name, callback) {
+  if (SUPA_URL && SUPA_KEY) {
+    var ctrl = new AbortController();
+    var tid = setTimeout(function(){ ctrl.abort(); }, 10000);
+    fetch(SUPA_URL + '/rest/v1/agents?name=eq.' + encodeURIComponent(name) + '&select=name', {
+      headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }, signal: ctrl.signal
+    })
+    .then(function(res) { clearTimeout(tid); return res.json(); })
+    .then(function(rows) { callback(rows && rows.length > 0); })
+    .catch(function() { clearTimeout(tid); checkAgentExistsGS(name, callback); });
+  } else {
+    checkAgentExistsGS(name, callback);
+  }
+}
+
+function checkAgentExistsGS(name, callback) {
+  if (!API_URL) { callback(false); return; }
+  fetch(API_URL + '?action=check_agent&agentId=' + encodeURIComponent(name))
+    .then(function(res) { return res.json(); })
+    .then(function(r) { callback(r.found === true); })
+    .catch(function() { callback(false); });
+}
+
+function registerToCloudWithPin(name, manager, team, pinH) {
+  if (API_URL) {
+    var qs = 'action=register_agent&agentId='+encodeURIComponent(name)+'&agentName='+encodeURIComponent(name)+'&managerName='+encodeURIComponent(manager||'')+'&team='+encodeURIComponent(team||'')+'&pinHash='+encodeURIComponent(pinH);
+    fetch(API_URL + '?' + qs).then(function(r){return r.json();}).then(function(r){console.log('[reg]',r);}).catch(function(e){console.error('[reg]',e);});
+  }
+  if (SUPA_URL && SUPA_KEY) {
+    var dwp = Object.assign({}, DB, {_pinHash: pinH});
+    fetch(SUPA_URL + '/rest/v1/agents', {
+      method:'POST',
+      headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
+      body:JSON.stringify({name:name,data:dwp,manager:manager,team:team})
+    }).then(function(r){console.log('[supa-reg]',r.ok);}).catch(function(e){console.error('[supa-reg]',e);});
+  }
 }
 
 function unlockAgent() {
@@ -770,35 +995,25 @@ function initAgent() {
   loadApiUrl();
   var saved = localStorage.getItem(AGENT_KEY);
   var savedPin = localStorage.getItem(AGENT_PIN_KEY);
-  var nameLocked = localStorage.getItem('insurance_agent_name_locked');
-  document.getElementById('setupMode').style.display = 'none';
-  document.getElementById('unlockMode').style.display = 'none';
-  document.getElementById('switchMode').style.display = 'none';
+  ['choiceMode','loginMode','registerMode','unlockMode','switchMode'].forEach(function(id) {
+    var el = document.getElementById(id); if (el) el.style.display = 'none';
+  });
   if (saved && savedPin) {
     agentName = saved; agentPIN = savedPin;
     document.getElementById('unlockGreeting').textContent = '歡迎回來，'+agentName;
     document.getElementById('unlockMode').style.display = 'block';
     document.getElementById('nameModalBg').classList.add('show');
     document.getElementById('unlockPin').focus();
-  } else if (saved && !savedPin) {
-    document.getElementById('nameInput').value = saved;
-    // If name is locked, show it as readonly hint
-    if (nameLocked === 'true') {
-      document.getElementById('nameInput').disabled = true;
-    }
-    document.getElementById('setupMode').style.display = 'block';
-    document.getElementById('nameModalBg').classList.add('show');
-    document.getElementById('pinInput').focus();
   } else {
-    document.getElementById('setupMode').style.display = 'block';
+    document.getElementById('choiceMode').style.display = 'block';
     document.getElementById('nameModalBg').classList.add('show');
-    document.getElementById('nameInput').focus();
   }
 }
 
 function switchAgent() {
-  document.getElementById('setupMode').style.display = 'none';
-  document.getElementById('unlockMode').style.display = 'none';
+  ['choiceMode','loginMode','registerMode','unlockMode','switchMode'].forEach(function(id) {
+    var el = document.getElementById(id); if (el) el.style.display = 'none';
+  });
   document.getElementById('switchMode').style.display = 'block';
   document.getElementById('switchAgentName').textContent = agentName;
   document.getElementById('nameModalBg').classList.add('show');
@@ -807,19 +1022,15 @@ function switchAgent() {
 
 function confirmSwitch() {
   var pin = document.getElementById('switchPin').value.trim();
-  if (pin !== agentPIN) { alert('❌ PIN 碼錯誤，無法切換'); document.getElementById('switchPin').value=''; document.getElementById('switchPin').focus(); return; }
+  if (pin !== agentPIN) { alert('PIN 碼錯誤，無法切換'); document.getElementById('switchPin').value=''; document.getElementById('switchPin').focus(); return; }
   document.getElementById('switchPin').value = '';
-  // After PIN confirmation, switch to new user setup (name will be locked per-user)
-  document.getElementById('setupMode').style.display = 'block';
-  document.getElementById('unlockMode').style.display = 'none';
-  document.getElementById('switchMode').style.display = 'none';
-  document.getElementById('nameInput').value = '';
-  document.getElementById('nameInput').disabled = false; // New agent can enter their own name
-  document.getElementById('pinInput').value = '';
-  document.getElementById('pinConfirm').value = '';
+  // After PIN confirmation, show choice mode for new user
+  ['choiceMode','loginMode','registerMode','unlockMode','switchMode'].forEach(function(id) {
+    var el = document.getElementById(id); if (el) el.style.display = 'none';
+  });
+  document.getElementById('choiceMode').style.display = 'block';
   document.getElementById('agentNameDisplay').textContent = '—';
   document.getElementById('sidebarAgentInfo').textContent = '代理人版';
-  document.getElementById('nameInput').focus();
   agentName = ''; agentPIN = '';
 }
 
@@ -828,21 +1039,18 @@ function cancelSwitch() {
 }
 
 function resetAgent() {
-  if (!confirm('⚠️ 將會清除 '+agentName+' 嘅所有本地數據，確定？\n\n（呢個操作無法還原）')) return;
+  if (!confirm('將會清除 '+agentName+' 嘅所有本地數據，確定？\n\n（雲端數據不受影響）')) return;
   localStorage.removeItem(AGENT_KEY);
   localStorage.removeItem(AGENT_PIN_KEY);
   localStorage.removeItem(getStoreKey());
   agentName = ''; agentPIN = '';
   DB = {clients:[],policies:[],commissions:[],expenses:[],goals:[],schedules:[],pcs:[],incomes:[]};
-  document.getElementById('setupMode').style.display = 'block';
-  document.getElementById('unlockMode').style.display = 'none';
-  document.getElementById('switchMode').style.display = 'none';
-  document.getElementById('nameInput').value = '';
-  document.getElementById('pinInput').value = '';
-  document.getElementById('pinConfirm').value = '';
+  ['choiceMode','loginMode','registerMode','unlockMode','switchMode'].forEach(function(id) {
+    var el = document.getElementById(id); if (el) el.style.display = 'none';
+  });
+  document.getElementById('choiceMode').style.display = 'block';
   document.getElementById('agentNameDisplay').textContent = '—';
   document.getElementById('sidebarAgentInfo').textContent = '代理人版';
-  document.getElementById('nameInput').focus();
 }
 
 // ===== CHANGE PIN =====
