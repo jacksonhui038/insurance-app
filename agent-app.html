@@ -237,8 +237,8 @@ tr:hover td{background:var(--blue50)}
     <div class="agent-info" id="sidebarAgentInfo">代理人版</div>
   </div>
   <nav class="sidebar-nav" id="sidebarNav">
-    <button class="nav-btn" onclick="switchTab('schedules',this)"><span class="nav-icon">📅</span> 行程表</button>
     <button class="nav-btn" onclick="switchTab('dashboard',this)"><span class="nav-icon">📋</span> 總覽</button>
+    <button class="nav-btn" onclick="switchTab('schedules',this)"><span class="nav-icon">📅</span> 行程表</button>
     <button class="nav-btn" onclick="switchTab('clients',this)"><span class="nav-icon">👥📄</span> 資料庫</button>
     <button class="nav-btn" onclick="switchTab('income',this)"><span class="nav-icon">💹</span> 收入記錄</button>
     <button class="nav-btn" onclick="switchTab('pcs',this)"><span class="nav-icon">📊</span> PC記錄</button>
@@ -250,7 +250,7 @@ tr:hover td{background:var(--blue50)}
 <!-- MAIN -->
 <main class="main">
   <div class="topbar">
-    <h2 id="pageTitle">行程表</h2>
+    <h2 id="pageTitle">總覽</h2>
     <div class="topbar-right">
       <div id="cloudStatus" style="display:none;align-items:center;gap:6px;font-size:12px;color:var(--gray500);margin-right:4px">
         <span style="color:var(--green500);font-size:14px">☁️</span>
@@ -273,8 +273,8 @@ tr:hover td{background:var(--blue50)}
     <span class="last-sync" id="lastSyncLabel"></span>
   </div>
   <div class="content" id="mainContent">
-    <!-- SCHEDULES (primary tab) -->
-    <div class="tab-panel active" id="panel-schedules">
+    <!-- SCHEDULES (secondary tab) -->
+    <div class="tab-panel" id="panel-schedules">
       <p style="font-size:12px;color:var(--gray400);margin-bottom:10px">📌 只有你可以看到自己的行程資料</p>
       <div style="margin-bottom:16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <button class="btn btn-primary" onclick="openForm('schedule')">+ 新增行程</button>
@@ -298,7 +298,7 @@ tr:hover td{background:var(--blue50)}
       </div>
     </div>
     <!-- DASHBOARD -->
-    <div class="tab-panel" id="panel-dashboard">
+    <div class="tab-panel active" id="panel-dashboard">
       <div class="cards-grid" id="dashCards"></div>
       <div class="charts-grid">
         <div class="chart-card"><h3>📊 佣金收入趨勢</h3><canvas id="chartCommission"></canvas></div>
@@ -845,7 +845,7 @@ function destroyChart(id){if(chartInstances[id]){chartInstances[id].destroy();de
 // ===================================================================
 // NAVIGATION
 // ===================================================================
-var currentTab = 'schedules';
+var currentTab = 'dashboard';
 var TYPES = {
   policy: ['人壽保險','醫療保險','危疾保險','意外保險','儲蓄保險','投資相連','旅遊保險','家居保險','汽車保險','其他'],
   commission: ['首年佣金','續年佣金','花紅','轉介費'],
@@ -1293,18 +1293,10 @@ function openForm(type, id) {
   else if (type === 'schedule') {
     var sc = id?findById('schedules',id):{};
     var timeSlots = generateTimeSlots();
-    // Add "+ 新增客戶" option in client dropdown
-    var clientOpts = DB.clients.map(function(c){return c.name;});
-    clientOpts.push('+ 新增客戶（inline）');
     h += fg('日期','date','date',sc.date||new Date().toISOString().slice(0,10))
       +fs('開始時間','startTime',timeSlots,sc.startTime||'10:00')
       +fs('結束時間','endTime',timeSlots,sc.endTime||'11:00')
-      +fs('客戶','clientName',clientOpts,sc.clientName||'')
-      +'<div id="inlineClientFields" style="display:none;background:var(--blue50);border-radius:8px;padding:14px;margin-bottom:14px;border:1px solid var(--blue100)">'
-      +'<div style="font-size:12px;color:var(--blue700);font-weight:600;margin-bottom:8px">📌 新增客戶（行程建立後自動加入資料庫）</div>'
-      +'<div class="form-row">'+fg('客戶姓名','inlineClientName','text','')+fg('電話','inlineClientPhone','text','')+'</div>'
-      +'<div class="form-row">'+fg('電郵','inlineClientEmail','email','')+fs('狀態','inlineClientStatus',['活躍','潛在','流失'],'活躍')+'</div>'
-      +'</div>'
+      +fClient('客戶','clientName',sc.clientName||'')
       +fs('會面目的','purpose',['講解保單','續保跟進','理財諮詢','索償處理','新客開發','售後服務','其他'],sc.purpose||'')
       +fg('地點','location','text',sc.location||'')
       +fs('狀態','status',['待處理','已確認','已完成','已取消'],sc.status||'待處理')
@@ -1330,13 +1322,17 @@ function openForm(type, id) {
   }
   h += '<div class="modal-actions"><button class="btn btn-primary" onclick="saveForm()">儲存</button><button class="btn btn-outline" onclick="closeModal()">取消</button></div>';
   document.getElementById('modalInner').innerHTML = h; document.getElementById('modalBg').classList.add('show');
-  // Inline client creation toggle for schedule form
+  // 行程表客戶欄：輸入時提示新客戶
   if (editType === 'schedule') {
-    var clientSel = document.getElementById('f_clientName');
-    if (clientSel) {
-      clientSel.addEventListener('change', function(){
-        var fields = document.getElementById('inlineClientFields');
-        if (fields) fields.style.display = this.value === '+ 新增客戶（inline）' ? 'block' : 'none';
+    var clientInput = document.getElementById('f_clientName');
+    if (clientInput) {
+      clientInput.addEventListener('input', function(){
+        var hint = document.getElementById('newClientHint_clientName');
+        if (!hint) return;
+        var v = (this.value||'').trim();
+        if (!v) { hint.style.display = 'none'; return; }
+        var exists = DB.clients.some(function(c){ return c.name === v; });
+        hint.style.display = exists ? 'none' : 'block';
       });
     }
   }
@@ -1351,6 +1347,18 @@ function fs(label, name, options, selected) {
     h += '<option value="'+esc(val)+'"'+(String(val)===String(selected)?' selected':'')+'>'+esc(lbl)+'</option>';
   });
   h += '</select></div>'; return h;
+}
+// 客戶欄：自由輸入 + 自動完成。輸入新名稱 = 自動新增客戶。
+function fClient(label, name, value) {
+  var listId = 'dl_'+name+'_'+Date.now();
+  var h = '<div class="form-group"><label>'+label+'</label>';
+  h += '<input type="text" id="f_'+name+'" value="'+esc(value||'')+'" list="'+listId+'" placeholder="輸入或選擇客戶名（輸入新名會自動加入）" autocomplete="off">';
+  h += '<datalist id="'+listId+'">';
+  DB.clients.forEach(function(c){ h += '<option value="'+esc(c.name)+'"></option>'; });
+  h += '</datalist>';
+  h += '<div id="newClientHint_'+name+'" style="font-size:11px;color:var(--blue600);margin-top:4px;display:none">💡 儲存後會自動新增此客戶到資料庫</div>';
+  h += '</div>';
+  return h;
 }
 
 function closeModal() { document.getElementById('modalBg').classList.remove('show'); }
@@ -1379,21 +1387,16 @@ function saveForm() {
     saveTo('goals',o);
   }
   else if (editType === 'schedule') {
-    var clientName = val('f_clientName');
-    // Handle inline client creation
-    if (clientName === '+ 新增客戶（inline）') {
-      var inlineName = val('f_inlineClientName');
-      if (!inlineName) { alert('請輸入新客戶姓名'); return; }
-      // Check if client already exists
-      var exists = DB.clients.some(function(c){ return c.name === inlineName; });
-      if (exists) {
-        clientName = inlineName;
-        toast('客戶「'+inlineName+'」已存在，自動連結');
-      } else {
-        var newClient = {id:uid(),name:inlineName,phone:val('f_inlineClientPhone')||'',email:val('f_inlineClientEmail')||'',status:val('f_inlineClientStatus')||'活躍',notes:'從行程表新增',createdAt:new Date().toISOString()};
+    var clientName = (val('f_clientName')||'').trim();
+    // 自動處理：若客戶不存在，自動新增到資料庫
+    if (clientName) {
+      var exists = DB.clients.some(function(c){ return c.name === clientName; });
+      if (!exists) {
+        var newClient = {id:uid(),name:clientName,phone:'',email:'',status:'活躍',notes:'從行程表自動新增 '+new Date().toISOString().slice(0,10),createdAt:new Date().toISOString()};
         DB.clients.push(newClient);
-        clientName = inlineName;
-        toast('✅ 已新增客戶「'+inlineName+'」到資料庫');
+        toast('✅ 已自動新增客戶「'+clientName+'」到資料庫');
+      } else {
+        toast('✓ 已連結客戶「'+clientName+'」');
       }
     }
     var o = {id:editId||uid(),date:val('f_date'),startTime:val('f_startTime'),endTime:val('f_endTime'),clientName:clientName,purpose:val('f_purpose'),location:val('f_location'),status:val('f_status'),notes:val('f_notes')};
