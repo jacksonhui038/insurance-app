@@ -329,7 +329,7 @@ tr:hover td{background:var(--blue50)}
     <div class="tab-panel" id="panel-income">
       <div class="table-wrap">
         <div class="table-head"><h3>💰 收入記錄</h3><button class="btn btn-primary" onclick="openForm('income')">+ 新增收入</button></div>
-        <table><thead><tr><th>日期</th><th>分類</th><th>金額</th><th>客戶</th><th>保單</th><th>備註</th><th>操作</th></tr></thead><tbody id="incomeTable"></tbody></table>
+        <table><thead><tr><th>日期</th><th>分類</th><th>金額</th><th>保單</th><th>備註</th><th>操作</th></tr></thead><tbody id="incomeTable"></tbody></table>
       </div>
     </div>
     <!-- 支出記錄 -->
@@ -978,9 +978,9 @@ function renderClientPolicies() {
 function renderIncomes() {
   var h = '';
   var incomeItems = DB.incomes.filter(function(item){ return INCOME_CATS.indexOf(item.category) >= 0; });
-  if (incomeItems.length === 0) h = '<tr><td colspan="7" class="empty">尚無收入記錄</td></tr>';
+  if (incomeItems.length === 0) h = '<tr><td colspan="6" class="empty">尚無收入記錄</td></tr>';
   else incomeItems.forEach(function(item){
-    h += '<tr><td>'+esc(dFmt(item.date))+'</td><td><span class="badge badge-gray">'+esc(item.category)+'</span></td><td class="amt-pos">'+money(item.amount)+'</td><td>'+esc(item.clientName||'—')+'</td><td>'+esc(item.policyNo||'—')+'</td><td>'+esc(item.notes||'—')+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'income\','+item.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'incomes\','+item.id+')">刪除</button></td></tr>';
+    h += '<tr><td>'+esc(dFmt(item.date))+'</td><td><span class="badge badge-gray">'+esc(item.category)+'</span></td><td class="amt-pos">'+money(item.amount)+'</td><td>'+esc(item.policyNo||'—')+'</td><td>'+esc(item.notes||'—')+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'income\','+item.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'incomes\','+item.id+')">刪除</button></td></tr>';
   });
   document.getElementById('incomeTable').innerHTML = h;
 }
@@ -1276,7 +1276,6 @@ function openForm(type, id) {
     h += fg('日期','date','date',inc.date||new Date().toISOString().slice(0,10))
       +fs('分類','category',INCOME_CATS,inc.category||'佣金收入')
       +fg('金額(HK$)','amount','number',inc.amount||0)
-      +fs('客戶','clientName',DB.clients.map(function(c){return c.name;}),inc.clientName||'')
       +fg('保單編號','policyNo','text',inc.policyNo||'')
       +fs('付款方式','payment',TYPES.payment,inc.payment||'')
       +fg('備註','notes','text',inc.notes||'');
