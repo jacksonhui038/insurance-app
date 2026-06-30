@@ -1345,8 +1345,8 @@ function openForm(type, id) {
     var sc = id?findById('schedules',id):{};
     var timeSlots = generateTimeSlots();
     h += fg('日期','date','date',sc.date||new Date().toISOString().slice(0,10))
-      +fs('開始時間','startTime',timeSlots,sc.startTime||'10:00')
-      +fs('結束時間','endTime',timeSlots,sc.endTime||'11:00')
+      +fTime('開始時間','startTime',timeSlots,sc.startTime||'10:00')
+      +fTime('結束時間','endTime',timeSlots,sc.endTime||'11:00')
       +fClient('客戶','clientName',sc.clientName||'')
       +fs('會面目的','purpose',['講解保單','續保跟進','理財諮詢','索償處理','新客開發','售後服務','其他'],sc.purpose||'')
       +fg('地點','location','text',sc.location||'')
@@ -1405,6 +1405,16 @@ function fs(label, name, options, selected) {
     h += '<option value="'+esc(val)+'"'+(String(val)===String(selected)?' selected':'')+'>'+esc(lbl)+'</option>';
   });
   h += '</select></div>'; return h;
+}
+// 時間欄：可從預設時間揀，亦可自由輸入
+function fTime(label, name, slots, selected) {
+  var listId = 'dl_'+name+'_'+Date.now();
+  var h = '<div class="form-group"><label>'+label+'</label>';
+  h += '<input type="text" id="f_'+name+'" value="'+esc(selected||'')+'" list="'+listId+'" placeholder="輸入或選擇時間 (HH:MM)" autocomplete="off" style="font-size:14px">';
+  h += '<datalist id="'+listId+'">';
+  slots.forEach(function(s){ h += '<option value="'+esc(s)+'">'; });
+  h += '</datalist></div>';
+  return h;
 }
 // 客戶欄：自由輸入 + 自動完成。輸入新名稱 = 自動新增客戶。
 function fClient(label, name, value) {
