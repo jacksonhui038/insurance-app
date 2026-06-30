@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>保經管家 - 代理人版</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2563eb">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="保經管家">
+<link rel="apple-touch-icon" href="icon-192.png">
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 :root{
@@ -139,7 +145,7 @@ tr:hover td{background:var(--blue50)}
     <div id="setupMode">
       <h3>👋 歡迎使用保經管家</h3>
       <p style="color:var(--gray500);margin-bottom:6px">請設定你嘅姓名同 PIN 碼</p>
-      <div class="form-group"><label>姓名</label><input type="text" id="nameInput" placeholder="例如：陳大文"></div>
+      <div class="form-group"><label>姓名 <span style="color:var(--red500)">*</span> <span style="font-size:11px;color:var(--gray400)">⚠️ 確認後不可更改</span></label><input type="text" id="nameInput" placeholder="例如：陳大文"></div>
       <div class="form-group"><label>PIN 碼（4-6 位數字）</label><input type="password" id="pinInput" placeholder="設定 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off"></div>
       <div class="form-group"><label>確認 PIN 碼</label><input type="password" id="pinConfirm" placeholder="再次輸入 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off"></div>
       <hr style="border:none;border-top:1px solid var(--gray200);margin:14px 0">
@@ -183,6 +189,20 @@ tr:hover td{background:var(--blue50)}
   </div>
 </div>
 
+<!-- CHANGE PIN MODAL -->
+<div class="modal-bg" id="changePinModalBg">
+  <div class="modal" style="max-width:400px">
+    <h3>🔑 修改 PIN 碼</h3>
+    <div class="form-group"><label>舊 PIN 碼</label><input type="password" id="oldPin" placeholder="輸入目前 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off"></div>
+    <div class="form-group"><label>新 PIN 碼</label><input type="password" id="newPin" placeholder="設定新 PIN 碼（4-6 位數字）" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off"></div>
+    <div class="form-group"><label>確認新 PIN 碼</label><input type="password" id="confirmNewPin" placeholder="再次輸入新 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off"></div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="changePin()">確認修改</button>
+      <button class="btn btn-outline" onclick="hideChangePin()">取消</button>
+    </div>
+  </div>
+</div>
+
 <!-- CLOUD SETUP MODAL -->
 <div class="modal-bg" id="cloudModalBg">
   <div class="modal" style="max-width:480px">
@@ -217,21 +237,20 @@ tr:hover td{background:var(--blue50)}
     <div class="agent-info" id="sidebarAgentInfo">代理人版</div>
   </div>
   <nav class="sidebar-nav" id="sidebarNav">
-    <button class="nav-btn active" onclick="switchTab('dashboard',this)"><span class="nav-icon">📋</span> 總覽</button>
-    <button class="nav-btn" onclick="switchTab('clients',this)"><span class="nav-icon">👥</span> 客戶管理</button>
-    <button class="nav-btn" onclick="switchTab('policies',this)"><span class="nav-icon">📄</span> 保單管理</button>
-    <button class="nav-btn" onclick="switchTab('commissions',this)"><span class="nav-icon">💰</span> 佣金收入</button>
-    <button class="nav-btn" onclick="switchTab('expenses',this)"><span class="nav-icon">💳</span> 開支記錄</button>
+    <button class="nav-btn" onclick="switchTab('schedules',this)"><span class="nav-icon">📅</span> 行程表</button>
+    <button class="nav-btn" onclick="switchTab('dashboard',this)"><span class="nav-icon">📋</span> 總覽</button>
+    <button class="nav-btn" onclick="switchTab('clients',this)"><span class="nav-icon">👥📄</span> 資料庫</button>
+    <button class="nav-btn" onclick="switchTab('income',this)"><span class="nav-icon">💹</span> 收入記錄</button>
+    <button class="nav-btn" onclick="switchTab('pcs',this)"><span class="nav-icon">📊</span> PC記錄</button>
     <button class="nav-btn" onclick="switchTab('reports',this)"><span class="nav-icon">📈</span> 業績報表</button>
     <button class="nav-btn" onclick="switchTab('goals',this)"><span class="nav-icon">🎯</span> 目標管理</button>
-    <button class="nav-btn" onclick="switchTab('schedules',this)"><span class="nav-icon">📅</span> 行程表</button>
   </nav>
 </aside>
 
 <!-- MAIN -->
 <main class="main">
   <div class="topbar">
-    <h2 id="pageTitle">總覽</h2>
+    <h2 id="pageTitle">行程表</h2>
     <div class="topbar-right">
       <div id="cloudStatus" style="display:none;align-items:center;gap:6px;font-size:12px;color:var(--gray500);margin-right:4px">
         <span style="color:var(--green500);font-size:14px">☁️</span>
@@ -242,6 +261,7 @@ tr:hover td{background:var(--blue50)}
         <span class="dot"></span> <span id="agentNameDisplay">—</span>
         <button onclick="switchAgent()" title="切換代理人">切換</button>
       </div>
+      <button class="btn btn-outline btn-sm" onclick="showChangePin()">🔑 改密碼</button>
       <button class="btn btn-outline btn-sm" onclick="exportForManager()">📤 匯給經理</button>
       <button class="btn btn-outline btn-sm" onclick="exportData()">📥 備份</button>
       <button class="btn btn-outline btn-sm" onclick="document.getElementById('importInput').click()">📤 匯入</button>
@@ -253,8 +273,32 @@ tr:hover td{background:var(--blue50)}
     <span class="last-sync" id="lastSyncLabel"></span>
   </div>
   <div class="content" id="mainContent">
+    <!-- SCHEDULES (primary tab) -->
+    <div class="tab-panel active" id="panel-schedules">
+      <p style="font-size:12px;color:var(--gray400);margin-bottom:10px">📌 只有你可以看到自己的行程資料</p>
+      <div style="margin-bottom:16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="openForm('schedule')">+ 新增行程</button>
+        <button class="btn btn-outline btn-sm" onclick="shiftWeek(-1)">◀ 上一週</button>
+        <span id="weekLabel" style="font-size:14px;font-weight:600;color:var(--gray600)"></span>
+        <button class="btn btn-outline btn-sm" onclick="shiftWeek(1)">下一週 ▶</button>
+        <button class="btn btn-outline btn-sm" onclick="goCurrentWeek()">本週</button>
+      </div>
+      <div id="scheduleWeekView"></div>
+      <!-- Linked data quick view -->
+      <div id="scheduleQuickView" style="display:none;background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;margin-top:20px;border-left:4px solid var(--blue500)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <h3 id="qvClientTitle" style="font-size:16px;font-weight:700">🔗</h3>
+          <button class="btn btn-outline btn-sm" onclick="hideQuickView()">✕ 關閉</button>
+        </div>
+        <div id="qvContent"></div>
+      </div>
+      <div class="table-wrap" style="margin-top:20px">
+        <div class="table-head"><h3>📋 全部行程</h3></div>
+        <table><thead><tr><th>日期</th><th>時間</th><th>客戶</th><th>目的</th><th>地點</th><th>狀態</th><th>操作</th></tr></thead><tbody id="scheduleTable"></tbody></table>
+      </div>
+    </div>
     <!-- DASHBOARD -->
-    <div class="tab-panel active" id="panel-dashboard">
+    <div class="tab-panel" id="panel-dashboard">
       <div class="cards-grid" id="dashCards"></div>
       <div class="charts-grid">
         <div class="chart-card"><h3>📊 佣金收入趨勢</h3><canvas id="chartCommission"></canvas></div>
@@ -262,39 +306,36 @@ tr:hover td{background:var(--blue50)}
       </div>
       <div class="charts-grid-2">
         <div class="chart-card"><h3>📋 保單類型分佈</h3><canvas id="chartPolicyType"></canvas></div>
-        <div class="chart-card"><h3>💳 本月開支分類</h3><canvas id="chartExpenseCat"></canvas></div>
+        <div class="chart-card"><h3>💹 收支分類</h3><canvas id="chartIncomeCat"></canvas></div>
       </div>
       <div class="table-wrap">
         <div class="table-head"><h3>📌 待跟進事項</h3></div>
-        <table><thead><tr><th>事項</th><th>客戶</th><th>類型</th><th>到期日</th><th>狀態</th></tr></thead><tbody id="todoTable"></tbody></table>
+        <table><thead><tr><th>事項</th><th>客戶</th><th>類型</th><th>投保日期</th><th>狀態</th></tr></thead><tbody id="todoTable"></tbody></table>
       </div>
     </div>
-    <!-- CLIENTS -->
+    <!-- CLIENTS & POLICIES (資料庫) -->
     <div class="tab-panel" id="panel-clients">
       <div class="table-wrap">
-        <div class="table-head"><h3>👥 客戶列表</h3><button class="btn btn-primary" onclick="openForm('client')">+ 新增客戶</button></div>
-        <table><thead><tr><th>姓名</th><th>電話</th><th>電郵</th><th>狀態</th><th>備註</th><th>操作</th></tr></thead><tbody id="clientTable"></tbody></table>
+        <div class="table-head"><h3>👥 客戶列表</h3><div><button class="btn btn-primary" onclick="openForm('client')">+ 新增客戶</button></div></div>
+        <table><thead><tr><th>姓名</th><th>電話</th><th>電郵</th><th>狀態</th><th>保單數</th><th>操作</th></tr></thead><tbody id="clientTable"></tbody></table>
       </div>
-    </div>
-    <!-- POLICIES -->
-    <div class="tab-panel" id="panel-policies">
-      <div class="table-wrap">
+      <div class="table-wrap" style="margin-top:20px">
         <div class="table-head"><h3>📄 保單列表</h3><button class="btn btn-primary" onclick="openForm('policy')">+ 新增保單</button></div>
-        <table><thead><tr><th>保單編號</th><th>客戶</th><th>類型</th><th>保費</th><th>佣金率</th><th>開始日</th><th>到期日</th><th>狀態</th><th>操作</th></tr></thead><tbody id="policyTable"></tbody></table>
+        <table><thead><tr><th>保單編號</th><th>客戶</th><th>類型</th><th>保費</th><th>佣金率</th><th>投保日期</th><th>狀態</th><th>操作</th></tr></thead><tbody id="policyTable"></tbody></table>
       </div>
     </div>
-    <!-- COMMISSIONS -->
-    <div class="tab-panel" id="panel-commissions">
+    <!-- INCOME (合併佣金+開支) -->
+    <div class="tab-panel" id="panel-income">
       <div class="table-wrap">
-        <div class="table-head"><h3>💰 佣金記錄</h3><button class="btn btn-primary" onclick="openForm('commission')">+ 新增佣金</button></div>
-        <table><thead><tr><th>日期</th><th>客戶</th><th>保單編號</th><th>類型</th><th>金額</th><th>備註</th><th>操作</th></tr></thead><tbody id="commissionTable"></tbody></table>
+        <div class="table-head"><h3>💹 收入記錄</h3><button class="btn btn-primary" onclick="openForm('income')">+ 新增記錄</button></div>
+        <table><thead><tr><th>日期</th><th>類型</th><th>分類</th><th>金額</th><th>客戶</th><th>保單</th><th>操作</th></tr></thead><tbody id="incomeTable"></tbody></table>
       </div>
     </div>
-    <!-- EXPENSES -->
-    <div class="tab-panel" id="panel-expenses">
+    <!-- PC 記錄 -->
+    <div class="tab-panel" id="panel-pcs">
       <div class="table-wrap">
-        <div class="table-head"><h3>💳 開支記錄</h3><button class="btn btn-primary" onclick="openForm('expense')">+ 新增開支</button></div>
-        <table><thead><tr><th>日期</th><th>分類</th><th>金額</th><th>付款方式</th><th>備註</th><th>操作</th></tr></thead><tbody id="expenseTable"></tbody></table>
+        <div class="table-head"><h3>📊 PC 記錄</h3><button class="btn btn-primary" onclick="openForm('pc')">+ 新增 PC</button></div>
+        <table><thead><tr><th>日期</th><th>客戶</th><th>保單編號</th><th>金額</th><th>備註</th><th>操作</th></tr></thead><tbody id="pcTable"></tbody></table>
       </div>
     </div>
     <!-- REPORTS -->
@@ -306,7 +347,7 @@ tr:hover td{background:var(--blue50)}
         <button class="period-btn" onclick="switchReport('year',this)">📈 本年</button>
       </div>
       <div class="report-cards" id="reportCards"></div>
-      <div class="charts-grid"><div class="chart-card"><h3>📊 佣金收入</h3><canvas id="chartRptComm"></canvas></div><div class="chart-card"><h3>💳 開支</h3><canvas id="chartRptExp"></canvas></div></div>
+      <div class="charts-grid"><div class="chart-card"><h3>📊 佣金收入</h3><canvas id="chartRptComm"></canvas></div><div class="chart-card"><h3>💹 收支</h3><canvas id="chartRptIncome"></canvas></div></div>
       <div class="table-wrap"><div class="table-head"><h3>📋 佣金明細</h3></div><table><thead><tr><th>日期</th><th>客戶</th><th>保單</th><th>類型</th><th>金額</th></tr></thead><tbody id="reportCommTable"></tbody></table></div>
       <div class="table-wrap"><div class="table-head"><h3>💳 開支明細</h3></div><table><thead><tr><th>日期</th><th>分類</th><th>金額</th><th>備註</th></tr></thead><tbody id="reportExpTable"></tbody></table></div>
     </div>
@@ -314,21 +355,6 @@ tr:hover td{background:var(--blue50)}
     <div class="tab-panel" id="panel-goals">
       <div style="margin-bottom:16px"><button class="btn btn-primary" onclick="openForm('goal')">+ 新增目標</button></div>
       <div id="goalList"></div>
-    </div>
-    <!-- SCHEDULES -->
-    <div class="tab-panel" id="panel-schedules">
-      <div style="margin-bottom:16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <button class="btn btn-primary" onclick="openForm('schedule')">+ 新增行程</button>
-        <button class="btn btn-outline btn-sm" onclick="shiftWeek(-1)">◀ 上一週</button>
-        <span id="weekLabel" style="font-size:14px;font-weight:600;color:var(--gray600)"></span>
-        <button class="btn btn-outline btn-sm" onclick="shiftWeek(1)">下一週 ▶</button>
-        <button class="btn btn-outline btn-sm" onclick="goCurrentWeek()">本週</button>
-      </div>
-      <div id="scheduleWeekView"></div>
-      <div class="table-wrap" style="margin-top:20px">
-        <div class="table-head"><h3>📋 全部行程</h3></div>
-        <table><thead><tr><th>日期</th><th>時間</th><th>客戶</th><th>目的</th><th>地點</th><th>狀態</th><th>操作</th></tr></thead><tbody id="scheduleTable"></tbody></table>
-      </div>
     </div>
   </div>
 </main>
@@ -346,23 +372,22 @@ tr:hover td{background:var(--blue50)}
 // ===================================================================
 var STORE_KEY = 'insurance_agent_data';
 var AGENT_KEY = 'insurance_agent_name';
-var DB = {clients:[],policies:[],commissions:[],expenses:[],goals:[],schedules:[]};
+var DB = {clients:[],policies:[],commissions:[],expenses:[],goals:[],schedules:[],pcs:[],incomes:[]};
 var chartLib = null;
 var chartInstances = {};
 var agentName = '';
-var assignedManager = '';  // 所屬經理
-var assignedTeam = '';      // 所屬團隊
+var assignedManager = '';
+var assignedTeam = '';
 var _id = 0;
 
-// ===== 雲端同步設定（已預設 Google Apps Script 網址）=====
+// ===== 雲端同步設定 =====
 var API_URL = 'https://script.google.com/macros/s/AKfycbxgU-gqY_oFNj03Us28bcs6PK9vH0wchjgzic5lww4uc5nu8byTGbmrLp8kBOZ0nSU6/exec';
-var CLOUD_ENABLED = Boolean(API_URL && API_URL.length > 0);  // 有網址就自動啟用
+var CLOUD_ENABLED = Boolean(API_URL && API_URL.length > 0);
 
 function setApiUrl(url) {
   API_URL = url;
   CLOUD_ENABLED = url.length > 0;
   localStorage.setItem('insurance_cloud_api', url);
-  // 更新存儲方式顯示
   if (url) {
     document.getElementById('cloudStatus').style.display = 'flex';
     document.getElementById('storageModeText').textContent = '雲端';
@@ -377,13 +402,10 @@ function setApiUrl(url) {
 }
 function loadApiUrl() {
   var saved = localStorage.getItem('insurance_cloud_api') || '';
-  // 優先用 localStorage 儲存的網址，否則用預設網址
   if (saved) { API_URL = saved; }
   if (API_URL && API_URL.length > 0) {
     CLOUD_ENABLED = true;
-    // 如果 localStorage 冇儲存，就自動儲存
     if (!saved) { localStorage.setItem('insurance_cloud_api', API_URL); }
-    // 更新 UI 顯示為雲端
     document.getElementById('cloudStatus').style.display = 'flex';
     document.getElementById('storageModeText').textContent = '雲端';
     document.getElementById('storageModeText').style.color = 'var(--blue500)';
@@ -392,93 +414,82 @@ function loadApiUrl() {
   }
 }
 
-// ===== 雲端同步函數 =====
-function saveToCloud(callback) {
+// ===== 雲端同步函數 (使用 fetch + AbortController) =====
+function saveToCloud(callback, retry) {
   if (!CLOUD_ENABLED || !agentName) { if (callback) callback(false); return; }
-  // 同步前先更新代理人資訊（經理、團隊）
   var mgr = assignedManager || localStorage.getItem('insurance_mgr_'+encodeURIComponent(agentName)) || '';
   var team = assignedTeam || localStorage.getItem('insurance_team_'+encodeURIComponent(agentName)) || '';
-  
-  // Bug 修復：如果未設定所屬經理，提示使用者
   if (!mgr) {
     toast('⚠️ 請先設定所屬經理（右上角 ☁️ 雲端）', 'error');
     if (callback) callback(false);
     return;
   }
-  
-  registerToCloud(agentName, mgr, team, function(regOk) {
-    // 再同步業務數據
-    var payload = {
-      action: 'sync',
-      agentId: agentName,
-      manager: mgr,
-      team: team,
-      data: JSON.stringify(DB)
-    };
-    var qs = Object.keys(payload).map(function(k) {
-      return encodeURIComponent(k) + '=' + encodeURIComponent(payload[k]);
-    }).join('&');
-  
-    var xhr = new XMLHttpRequest();
-    xhr.open('POST', API_URL);
-    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-    xhr.onload = function() {
-      try {
-        var r = JSON.parse(xhr.responseText);
-        if (r.success) {
-          setLastSyncTime();
-          if (callback) callback(true);
-          else toast('☁️ 已同步到雲端');
-        } else {
-          // 修復：顯示詳細錯誤訊息
-          var errMsg = r.error || '未知錯誤';
-          console.error('[saveToCloud] 同步失敗：', errMsg, r);
-          if (callback) callback(false);
-          else toast('同步失敗：' + errMsg, 'error');
-        }
-      } catch(e) {
-        // 修復：顯示服務器原始響應，方便調試
-        console.error('[saveToCloud] 解析響應失敗：', e, xhr.responseText);
-        if (callback) callback(false);
-        else toast('同步失敗，請檢查網絡', 'error');
-      }
-    };
-    xhr.onerror = function() {
-      console.error('[saveToCloud] 網絡錯誤');
-      if (callback) callback(false);
-      else toast('同步失敗，請檢查網絡', 'error');
-    };
-    xhr.send(qs);
+  registerToCloudFetch(agentName, mgr, team, function(regOk) {
+    var payload = {action:'sync',agentId:agentName,manager:mgr,team:team,data:JSON.stringify(DB)};
+    var controller = new AbortController();
+    var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
+    fetch(API_URL, {
+      method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body: Object.keys(payload).map(function(k){return encodeURIComponent(k)+'='+encodeURIComponent(payload[k]);}).join('&'),
+      signal: controller.signal
+    })
+    .then(function(res){ clearTimeout(timeoutId); return res.json(); })
+    .then(function(r){
+      if (r.success) { setLastSyncTime(); if (callback) callback(true); else toast('☁️ 已同步到雲端'); }
+      else { var errMsg = r.error||'未知錯誤'; console.error('[saveToCloud]',errMsg); if(!retry){setTimeout(function(){saveToCloud(callback,true);},3000);} else if(callback) callback(false); }
+    })
+    .catch(function(e){
+      clearTimeout(timeoutId);
+      console.error('[saveToCloud]',e);
+      if (!retry) { setTimeout(function(){ saveToCloud(callback, true); }, 3000); }
+      else { if (callback) callback(false); else toast('同步失敗，請檢查網絡','error'); }
+    });
   });
 }
 
-function loadFromCloud(callback) {
+function loadFromCloud(callback, retry) {
   if (!CLOUD_ENABLED || !agentName) { if (callback) callback(false); return; }
   var qs = 'action=load&agentId=' + encodeURIComponent(agentName);
-  var xhr = new XMLHttpRequest();
-  xhr.open('GET', API_URL + '?' + qs);
-  xhr.onload = function() {
-    try {
-      var r = JSON.parse(xhr.responseText);
+  var controller = new AbortController();
+  var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
+  fetch(API_URL + '?' + qs, {signal: controller.signal})
+    .then(function(res){ clearTimeout(timeoutId); return res.json(); })
+    .then(function(r){
       if (r.success && r.data) {
-        ['clients','policies','commissions','expenses','goals','schedules'].forEach(function(k) {
+        ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k){
           if (r.data[k]) DB[k] = r.data[k];
         });
-        saveDB();  // 保存到本地
-        setLastSyncTime();
+        saveDB(); setLastSyncTime();
         if (callback) callback(true);
         else { toast('☁️ 已從雲端載入'); renderDashboard(); renderCurrentTab(); }
       } else {
         if (callback) callback(false);
+        else if (!retry) { setTimeout(function(){ loadFromCloud(null, true); }, 3000); }
       }
-    } catch(e) {
+    })
+    .catch(function(e){
+      clearTimeout(timeoutId);
+      console.error('[loadFromCloud] 錯誤：', e);
       if (callback) callback(false);
-    }
-  };
-  xhr.onerror = function() {
-    if (callback) callback(false);
-  };
-  xhr.send();
+      else if (!retry) { setTimeout(function(){ loadFromCloud(null, true); }, 3000); }
+    });
+}
+
+function registerToCloudFetch(agentName, managerName, team, callback) {
+  if (!CLOUD_ENABLED || !API_URL) { if (callback) callback(false); return; }
+  var qs = 'action=register_agent&agentId='+encodeURIComponent(agentName)+'&agentName='+encodeURIComponent(agentName)+'&managerName='+encodeURIComponent(managerName||'')+'&team='+encodeURIComponent(team||'');
+  var controller = new AbortController();
+  var timeoutId = setTimeout(function(){ controller.abort(); }, 15000);
+  fetch(API_URL + '?' + qs, {signal: controller.signal})
+    .then(function(res){ clearTimeout(timeoutId); return res.json(); })
+    .then(function(r){ if (callback) callback(r.success===true); if (!r.success) console.error('[registerToCloud]',r.error); })
+    .catch(function(e){ clearTimeout(timeoutId); console.error('[registerToCloud]',e); if (callback) callback(false); });
+}
+
+// ===== 兼容舊版 registerToCloud =====
+function registerToCloud(agentName, managerName, team, callback) {
+  registerToCloudFetch(agentName, managerName, team, callback);
 }
 
 function setLastSyncTime() {
@@ -493,29 +504,43 @@ function getLastSyncTime() {
   return localStorage.getItem('insurance_last_sync') || '尚未同步';
 }
 
-// 裝飾 saveDB：每次儲存後自動同步（節流：最少隔 3 秒）
+// ===== saveDB/SaveDBAutoSync =====
 var _lastSyncPush = 0;
 var _pendingSync = false;
-function saveDBAndSync() {
-  saveDB();
-  var now = Date.now();
-  if (now - _lastSyncPush < 3000) {
-    if (!_pendingSync) { _pendingSync = true; setTimeout(function() { _pendingSync = false; saveToCloud(); }, 3000); }
-    return;
-  }
-  _lastSyncPush = now;
-  saveToCloud();
+
+function getStoreKey(){ return 'insurance_agent_'+encodeURIComponent(agentName); }
+
+function loadDB() {
+  STORE_KEY = getStoreKey();
+  try {
+    var raw = localStorage.getItem(STORE_KEY);
+    if (!raw) {
+      // fallback: 嘗試從 sessionStorage 讀取
+      try { raw = sessionStorage.getItem(STORE_KEY); } catch(se) {}
+    }
+    if (raw) {
+      var d = JSON.parse(raw);
+      DB = {clients:[],policies:[],commissions:[],expenses:[],goals:[],schedules:[],pcs:[],incomes:[]};
+      Object.assign(DB, d);
+    }
+  } catch(e) { console.warn('[loadDB] 解析失敗，使用預設空 DB', e); }
+  _id = 0;
+  ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k){
+    if (DB[k]) DB[k].forEach(function(x){ if (x.id > _id) _id = x.id; });
+  });
+  _id++;
 }
 
-function getStoreKey(){return'insurance_agent_'+encodeURIComponent(agentName);}
-function loadDB(){
-  STORE_KEY = getStoreKey();
-  try{var raw=localStorage.getItem(STORE_KEY);if(raw){var d=JSON.parse(raw);DB={clients:[],policies:[],commissions:[],expenses:[],goals:[],schedules:[]};Object.assign(DB,d);}}catch(e){}
-  _id=0;['clients','policies','commissions','expenses','goals','schedules'].forEach(function(k){DB[k].forEach(function(x){if(x.id>_id)_id=x.id;});});_id++;
+function saveDB() {
+  var storeKey = getStoreKey();
+  try {
+    localStorage.setItem(storeKey, JSON.stringify(DB));
+    // 同時備份到 sessionStorage
+    try { sessionStorage.setItem(storeKey, JSON.stringify(DB)); } catch(se) {}
+  } catch(e) { toast('儲存失敗，請檢查瀏覽器空間','error'); }
 }
-function saveDB(){localStorage.setItem(getStoreKey(),JSON.stringify(DB));}
-// 自動同步版：每次儲存後自動推上雲端（可選用）
-function saveDBAutoSync(){
+
+function saveDBAutoSync() {
   saveDB();
   if (CLOUD_ENABLED && agentName) {
     var now = Date.now();
@@ -531,201 +556,227 @@ function saveDBAutoSync(){
 var AGENT_PIN_KEY = 'insurance_agent_pin';
 var agentPIN = '';
 
-function saveName(){
-  var n=document.getElementById('nameInput').value.trim();
-  var pin=document.getElementById('pinInput').value.trim();
-  var pin2=document.getElementById('pinConfirm').value.trim();
-  var mgrSelect=document.getElementById('managerSelect').value;
-  var customMgr=document.getElementById('customMgrName').value.trim();
-  var team=document.getElementById('teamInput').value.trim();
-  if(!n){alert('請輸入姓名');return;}
-  if(!pin||pin.length<4){alert('請設定 4-6 位數字 PIN 碼');return;}
-  if(!/^\d+$/.test(pin)){alert('PIN 碼只能包含數字');return;}
-  if(pin!==pin2){alert('PIN 碼不一致，請重新輸入');return;}
-  // 所屬經理驗證
+// ===== PIN / AUTH =====
+function saveName() {
+  var n = document.getElementById('nameInput').value.trim();
+  var pin = document.getElementById('pinInput').value.trim();
+  var pin2 = document.getElementById('pinConfirm').value.trim();
+  var mgrSelect = document.getElementById('managerSelect').value;
+  var customMgr = document.getElementById('customMgrName').value.trim();
+  var team = document.getElementById('teamInput').value.trim();
+  if (!n) { alert('請輸入姓名'); return; }
+  if (!pin || pin.length < 4) { alert('請設定 4-6 位數字 PIN 碼'); return; }
+  if (!/^\d+$/.test(pin)) { alert('PIN 碼只能包含數字'); return; }
+  if (pin !== pin2) { alert('PIN 碼不一致，請重新輸入'); return; }
   var finalMgr = mgrSelect === '其他' ? customMgr : mgrSelect;
-  if(!finalMgr){alert('請選擇所屬經理');return;}
-  agentName=n;agentPIN=pin;assignedManager=finalMgr;
-  localStorage.setItem(AGENT_KEY,n);
-  localStorage.setItem(AGENT_PIN_KEY,pin);
-  localStorage.setItem('insurance_mgr_'+encodeURIComponent(n),finalMgr);
-  if(team) localStorage.setItem('insurance_team_'+encodeURIComponent(n),team);
+  if (!finalMgr) { alert('請選擇所屬經理'); return; }
+  // Name confirmation — lock after setup
+  var nameConfirmMsg = '⚠️ 確認你嘅姓名係「' + n + '」？\n\n姓名確認後將不可更改，請確定無打錯。\n\n（如果打錯名字，經理端會出現重複代理人）';
+  if (!confirm(nameConfirmMsg)) return;
+  agentName = n; agentPIN = pin; assignedManager = finalMgr;
+  localStorage.setItem(AGENT_KEY, n);
+  localStorage.setItem(AGENT_PIN_KEY, pin);
+  localStorage.setItem('insurance_agent_name_locked', 'true'); // Lock name
+  localStorage.setItem('insurance_mgr_'+encodeURIComponent(n), finalMgr);
+  if (team) localStorage.setItem('insurance_team_'+encodeURIComponent(n), team);
   document.getElementById('nameModalBg').classList.remove('show');
-  document.getElementById('agentNameDisplay').textContent=n;
-  document.getElementById('sidebarAgentInfo').textContent=n+' | 代理人版 | '+finalMgr;
-  loadDB();loadSample();renderDashboard();
-  afterLoginSync();  // 登入後自動從雲端載入
-  // 註冊代理人去雲端（含所屬經理）
-  registerToCloud(n, finalMgr, team);
+  document.getElementById('agentNameDisplay').textContent = n;
+  document.getElementById('sidebarAgentInfo').textContent = n+' | 代理人版 | '+finalMgr;
+  loadDB(); loadSample(); renderDashboard();
+  afterLoginSync();
+  registerToCloudFetch(n, finalMgr, team);
 }
 
-function unlockAgent(){
-  var pin=document.getElementById('unlockPin').value.trim();
-  if(pin!==localStorage.getItem(AGENT_PIN_KEY)){alert('❌ PIN 碼錯誤');document.getElementById('unlockPin').value='';document.getElementById('unlockPin').focus();return;}
-  agentPIN=pin;
-  // 載入所屬經理
+function unlockAgent() {
+  var pin = document.getElementById('unlockPin').value.trim();
+  if (pin !== localStorage.getItem(AGENT_PIN_KEY)) { alert('❌ PIN 碼錯誤'); document.getElementById('unlockPin').value=''; document.getElementById('unlockPin').focus(); return; }
+  agentPIN = pin;
   assignedManager = localStorage.getItem('insurance_mgr_'+encodeURIComponent(agentName)) || '';
   document.getElementById('nameModalBg').classList.remove('show');
-  document.getElementById('agentNameDisplay').textContent=agentName;
-  document.getElementById('sidebarAgentInfo').textContent=agentName+' | 代理人版'+(assignedManager?' | '+assignedManager:'');
-  loadDB();loadSample();renderDashboard();
-  afterLoginSync();  // 登入後自動從雲端載入
-  // 檢查是否已設定所屬經理
-  if(!assignedManager){
+  document.getElementById('agentNameDisplay').textContent = agentName;
+  document.getElementById('sidebarAgentInfo').textContent = agentName+' | 代理人版'+(assignedManager?' | '+assignedManager:'');
+  loadDB(); loadSample(); renderDashboard();
+  afterLoginSync();
+  if (!assignedManager) {
     toast('⚠️ 尚未設定所屬經理，請到「☁️ 雲端」設定', 'error');
   }
 }
 
-function initAgent(){
-  loadApiUrl();  // 載入已儲存的 API 網址
-  var saved=localStorage.getItem(AGENT_KEY);
-  var savedPin=localStorage.getItem(AGENT_PIN_KEY);
-  document.getElementById('setupMode').style.display='none';
-  document.getElementById('unlockMode').style.display='none';
-  document.getElementById('switchMode').style.display='none';
-  if(saved&&savedPin){
-    // 有姓名 + PIN → 解鎖畫面
-    agentName=saved;agentPIN=savedPin;
-    document.getElementById('unlockGreeting').textContent='歡迎回來，'+agentName;
-    document.getElementById('unlockMode').style.display='block';
+function initAgent() {
+  loadApiUrl();
+  var saved = localStorage.getItem(AGENT_KEY);
+  var savedPin = localStorage.getItem(AGENT_PIN_KEY);
+  var nameLocked = localStorage.getItem('insurance_agent_name_locked');
+  document.getElementById('setupMode').style.display = 'none';
+  document.getElementById('unlockMode').style.display = 'none';
+  document.getElementById('switchMode').style.display = 'none';
+  if (saved && savedPin) {
+    agentName = saved; agentPIN = savedPin;
+    document.getElementById('unlockGreeting').textContent = '歡迎回來，'+agentName;
+    document.getElementById('unlockMode').style.display = 'block';
     document.getElementById('nameModalBg').classList.add('show');
     document.getElementById('unlockPin').focus();
-  }else if(saved&&!savedPin){
-    // 舊用戶升級：有姓名但冇 PIN → 設定 PIN 畫面（預填姓名）
-    document.getElementById('nameInput').value=saved;
-    document.getElementById('setupMode').style.display='block';
+  } else if (saved && !savedPin) {
+    document.getElementById('nameInput').value = saved;
+    // If name is locked, show it as readonly hint
+    if (nameLocked === 'true') {
+      document.getElementById('nameInput').disabled = true;
+    }
+    document.getElementById('setupMode').style.display = 'block';
     document.getElementById('nameModalBg').classList.add('show');
     document.getElementById('pinInput').focus();
-  }else{
-    // 全新用戶
-    document.getElementById('setupMode').style.display='block';
+  } else {
+    document.getElementById('setupMode').style.display = 'block';
     document.getElementById('nameModalBg').classList.add('show');
     document.getElementById('nameInput').focus();
   }
 }
 
-function switchAgent(){
-  document.getElementById('setupMode').style.display='none';
-  document.getElementById('unlockMode').style.display='none';
-  document.getElementById('switchMode').style.display='block';
-  document.getElementById('switchAgentName').textContent=agentName;
+function switchAgent() {
+  document.getElementById('setupMode').style.display = 'none';
+  document.getElementById('unlockMode').style.display = 'none';
+  document.getElementById('switchMode').style.display = 'block';
+  document.getElementById('switchAgentName').textContent = agentName;
   document.getElementById('nameModalBg').classList.add('show');
   document.getElementById('switchPin').focus();
 }
 
-function confirmSwitch(){
-  var pin=document.getElementById('switchPin').value.trim();
-  if(pin!==agentPIN){alert('❌ PIN 碼錯誤，無法切換');document.getElementById('switchPin').value='';document.getElementById('switchPin').focus();return;}
-  document.getElementById('switchPin').value='';
-  document.getElementById('setupMode').style.display='block';
-  document.getElementById('unlockMode').style.display='none';
-  document.getElementById('switchMode').style.display='none';
-  document.getElementById('nameInput').value='';
-  document.getElementById('pinInput').value='';
-  document.getElementById('pinConfirm').value='';
-  document.getElementById('agentNameDisplay').textContent='—';
-  document.getElementById('sidebarAgentInfo').textContent='代理人版';
+function confirmSwitch() {
+  var pin = document.getElementById('switchPin').value.trim();
+  if (pin !== agentPIN) { alert('❌ PIN 碼錯誤，無法切換'); document.getElementById('switchPin').value=''; document.getElementById('switchPin').focus(); return; }
+  document.getElementById('switchPin').value = '';
+  // After PIN confirmation, switch to new user setup (name will be locked per-user)
+  document.getElementById('setupMode').style.display = 'block';
+  document.getElementById('unlockMode').style.display = 'none';
+  document.getElementById('switchMode').style.display = 'none';
+  document.getElementById('nameInput').value = '';
+  document.getElementById('nameInput').disabled = false; // New agent can enter their own name
+  document.getElementById('pinInput').value = '';
+  document.getElementById('pinConfirm').value = '';
+  document.getElementById('agentNameDisplay').textContent = '—';
+  document.getElementById('sidebarAgentInfo').textContent = '代理人版';
   document.getElementById('nameInput').focus();
-  agentName='';agentPIN='';
+  agentName = ''; agentPIN = '';
 }
 
-function cancelSwitch(){
+function cancelSwitch() {
   document.getElementById('nameModalBg').classList.remove('show');
 }
 
-function resetAgent(){
-  if(!confirm('⚠️ 將會清除 '+agentName+' 嘅所有本地數據，確定？\n\n（呢個操作無法還原）'))return;
+function resetAgent() {
+  if (!confirm('⚠️ 將會清除 '+agentName+' 嘅所有本地數據，確定？\n\n（呢個操作無法還原）')) return;
   localStorage.removeItem(AGENT_KEY);
   localStorage.removeItem(AGENT_PIN_KEY);
   localStorage.removeItem(getStoreKey());
-  agentName='';agentPIN='';
-  DB={clients:[],policies:[],commissions:[],expenses:[],goals:[],schedules:[]};
-  document.getElementById('setupMode').style.display='block';
-  document.getElementById('unlockMode').style.display='none';
-  document.getElementById('switchMode').style.display='none';
-  document.getElementById('nameInput').value='';
-  document.getElementById('pinInput').value='';
-  document.getElementById('pinConfirm').value='';
-  document.getElementById('agentNameDisplay').textContent='—';
-  document.getElementById('sidebarAgentInfo').textContent='代理人版';
+  agentName = ''; agentPIN = '';
+  DB = {clients:[],policies:[],commissions:[],expenses:[],goals:[],schedules:[],pcs:[],incomes:[]};
+  document.getElementById('setupMode').style.display = 'block';
+  document.getElementById('unlockMode').style.display = 'none';
+  document.getElementById('switchMode').style.display = 'none';
+  document.getElementById('nameInput').value = '';
+  document.getElementById('pinInput').value = '';
+  document.getElementById('pinConfirm').value = '';
+  document.getElementById('agentNameDisplay').textContent = '—';
+  document.getElementById('sidebarAgentInfo').textContent = '代理人版';
   document.getElementById('nameInput').focus();
+}
+
+// ===== CHANGE PIN =====
+function showChangePin() {
+  document.getElementById('changePinModalBg').classList.add('show');
+  document.getElementById('oldPin').value = '';
+  document.getElementById('newPin').value = '';
+  document.getElementById('confirmNewPin').value = '';
+  document.getElementById('oldPin').focus();
+}
+
+function hideChangePin() {
+  document.getElementById('changePinModalBg').classList.remove('show');
+  document.getElementById('oldPin').value = '';
+  document.getElementById('newPin').value = '';
+  document.getElementById('confirmNewPin').value = '';
+}
+
+function changePin() {
+  var old = document.getElementById('oldPin').value.trim();
+  var new1 = document.getElementById('newPin').value.trim();
+  var new2 = document.getElementById('confirmNewPin').value.trim();
+  if (old !== agentPIN) { alert('❌ 舊 PIN 碼錯誤'); document.getElementById('oldPin').focus(); return; }
+  if (!new1 || new1.length < 4) { alert('新 PIN 碼需要 4-6 位數字'); return; }
+  if (!/^\d+$/.test(new1)) { alert('PIN 碼只能包含數字'); return; }
+  if (new1 !== new2) { alert('新 PIN 碼不一致'); return; }
+  agentPIN = new1;
+  localStorage.setItem(AGENT_PIN_KEY, new1);
+  hideChangePin();
+  toast('✅ PIN 碼已更新');
 }
 
 // ===================================================================
 // UID, MONEY, DATE, TOAST, ESC
 // ===================================================================
-function uid(){return _id++;}
-function money(n){return'HK$ '+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
-function dFmt(s){if(!s)return'';var d=new Date(s);return isNaN(d)?'':d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
-function toast(msg,type){type=type||'success';var el=document.createElement('div');el.className='toast toast-'+type;el.textContent=msg;document.getElementById('toastBox').appendChild(el);setTimeout(function(){el.remove()},2600);}
-function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function uid() { return _id++; }
+function money(n) { return 'HK$ '+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function dFmt(s) { if (!s) return ''; var d = new Date(s); return isNaN(d) ? '' : d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function toast(msg, type) { type = type||'success'; var el = document.createElement('div'); el.className = 'toast toast-'+type; el.textContent = msg; document.getElementById('toastBox').appendChild(el); setTimeout(function(){ el.remove(); }, 2600); }
+function esc(s) { if (!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 // ===== 雲端同步 UI =====
-function manualSync(){
-  if(!CLOUD_ENABLED){toast('請先設定 API 網址','error');showCloudSetup();return;}
+function manualSync() {
+  if (!CLOUD_ENABLED) { toast('請先設定 API 網址','error'); showCloudSetup(); return; }
   toast('☁️ 同步中...');
   saveToCloud(function(success){
-    if(success) toast('☁️ 同步成功！');
+    if (success) toast('☁️ 同步成功！');
     else toast('同步失敗，請重試','error');
   });
 }
 
-function loadFromCloudManual(){
-  if(!CLOUD_ENABLED){toast('請先設定 API 網址','error');showCloudSetup();return;}
+function loadFromCloudManual() {
+  if (!CLOUD_ENABLED) { toast('請先設定 API 網址','error'); showCloudSetup(); return; }
   toast('☁️ 載入中...');
   loadFromCloud(function(success){
-    if(success) toast('☁️ 已從雲端載入最新數據！');
+    if (success) toast('☁️ 已從雲端載入最新數據！');
     else toast('載入失敗','error');
   });
 }
 
-function showCloudSetup(){
+function showCloudSetup() {
   document.getElementById('cloudModalBg').classList.add('show');
   document.getElementById('apiUrlInput').value = API_URL;
-  // 載入目前所屬經理
   var mgr = assignedManager || '';
   document.getElementById('mgrInputSetting').value = mgr;
   document.getElementById('currentMgrDisplay').textContent = mgr || '尚未設定';
 }
 
-function hideCloudSetup(){
+function hideCloudSetup() {
   document.getElementById('cloudModalBg').classList.remove('show');
 }
 
-function saveCloudSetup(){
+function saveCloudSetup() {
   var url = document.getElementById('apiUrlInput').value.trim();
   var mgr = document.getElementById('mgrInputSetting').value.trim();
-  
-  // 儲存所屬經理（如果有輸入）— 唔再彈額外 toast
   if (mgr && mgr !== assignedManager) {
     assignedManager = mgr;
     localStorage.setItem('insurance_mgr_'+encodeURIComponent(agentName), mgr);
     document.getElementById('sidebarAgentInfo').textContent = agentName+' | 代理人版 | '+mgr;
     document.getElementById('currentMgrDisplay').textContent = mgr;
-    // 註冊到雲端（等連線成功後再做）
   }
-  
-  if(!url) {
+  if (!url) {
     setApiUrl('');
     hideCloudSetup();
     toast('已關閉雲端同步');
     return;
   }
-  
-  // 測試連接（只顯示一個 loading toast）
   setApiUrl(url);
   toast('☁️ 測試連接中...');
-  var xhr = new XMLHttpRequest();
-  xhr.open('GET', API_URL + '?action=init');
-  xhr.onload = function(){
-    try {
-      var r = JSON.parse(xhr.responseText);
-      if(r.success||r.message){
+  var controller = new AbortController();
+  var timeoutId = setTimeout(function(){ controller.abort(); }, 15000);
+  fetch(API_URL + '?action=init', {signal: controller.signal})
+    .then(function(res){ clearTimeout(timeoutId); return res.json(); })
+    .then(function(r){
+      if (r.success || r.message) {
         hideCloudSetup();
-        // 先註冊代理人到雲端，再載入數據
         if (mgr) {
-          registerToCloud(agentName, mgr, localStorage.getItem('insurance_team_'+encodeURIComponent(agentName))||'', function(){
-            // 只顯示一個成功 toast
+          registerToCloudFetch(agentName, mgr, localStorage.getItem('insurance_team_'+encodeURIComponent(agentName))||'', function(){
             toast('✅ 連線成功！已設定所屬經理：' + mgr);
           });
         } else {
@@ -733,80 +784,56 @@ function saveCloudSetup(){
         }
         document.getElementById('cloudStatus').style.display = 'flex';
         document.getElementById('lastSyncTime').textContent = getLastSyncTime();
-        // 載入雲端數據（靜默，唔彈額外 toast）
         setTimeout(function(){ loadFromCloudManual(); }, 500);
       } else {
         setApiUrl('');
         toast('連接失敗：' + (r.error||'未知錯誤'),'error');
       }
-    } catch(e) {
+    })
+    .catch(function(e){
+      clearTimeout(timeoutId);
       setApiUrl('');
-      toast('連接失敗，請檢查網址','error');
-    }
-  };
-  xhr.onerror = function(){
-    setApiUrl('');
-    toast('連接失敗，請檢查網址同網絡','error');
-  };
-  xhr.send();
+      toast('連接失敗，請檢查網址同網絡','error');
+    });
 }
 
 // 登入後自動從雲端載入
-// 註冊代理人去雲端（含所屬經理）
-function registerToCloud(agentName, managerName, team, callback){
-  if(!CLOUD_ENABLED || !API_URL) { if(callback) callback(false); return; }
-  try{
-    var xhr=new XMLHttpRequest();
-    var qs='action=register_agent&agentId='+encodeURIComponent(agentName)
-      +'&agentName='+encodeURIComponent(agentName)
-      +'&managerName='+encodeURIComponent(managerName || '')
-      +'&team='+encodeURIComponent(team || '');
-    xhr.open('GET', API_URL + '?' + qs);
-    xhr.onload=function(){
-      try {
-        var r = JSON.parse(xhr.responseText);
-        // 修復：檢查業務邏輯成功與否，而唔係淨係檢查 HTTP 狀態碼
-        if (callback) callback(r.success === true);
-        if (!r.success) {
-          console.error('[registerToCloud] 註冊失敗：', r.error);
-        }
-      } catch(e) {
-        console.error('[registerToCloud] 解析響應失敗：', e, xhr.responseText);
-        if(callback) callback(false);
-      }
-    };
-    xhr.onerror=function(){ 
-      console.error('[registerToCloud] 網絡錯誤');
-      if(callback) callback(false); 
-    };
-    xhr.send();
-  }catch(e){ 
-    console.error('[registerToCloud] 例外錯誤：', e);
-    if(callback) callback(false); 
+function afterLoginSync() {
+  loadApiUrl();
+  if (CLOUD_ENABLED && agentName) {
+    document.getElementById('cloudStatus').style.display = 'flex';
+    document.getElementById('lastSyncTime').textContent = getLastSyncTime();
+    loadFromCloud();
   }
 }
 
-// 經理揀選「其他」時顯示自訂輸入框
 document.addEventListener('DOMContentLoaded',function(){
-  var mgrSel=document.getElementById('managerSelect');
-  if(mgrSel){
+  var mgrSel = document.getElementById('managerSelect');
+  if (mgrSel) {
     mgrSel.addEventListener('change',function(){
-      document.getElementById('customMgrGroup').style.display=
-        this.value==='其他'?'block':'none';
-      if(this.value==='其他'){
-        setTimeout(function(){document.getElementById('customMgrName').focus();},100);
-      }
+      document.getElementById('customMgrGroup').style.display = this.value==='其他'?'block':'none';
+      if (this.value==='其他') { setTimeout(function(){ document.getElementById('customMgrName').focus(); },100); }
     });
   }
 });
 
-function afterLoginSync(){
-  loadApiUrl();
-  if(CLOUD_ENABLED && agentName){
-    document.getElementById('cloudStatus').style.display = 'flex';
-    document.getElementById('lastSyncTime').textContent = getLastSyncTime();
-    loadFromCloud();  // 背景載入，唔彈 toast
+// ===================================================================
+// INCOME/EXPENSE CATEGORIES
+// ===================================================================
+var INCOME_CATS = ['佣金收入','轉介費','花紅','其他收入'];
+var EXPENSE_CATS = ['餐飲','交通','娛樂','購物','家居','醫療','教育','通訊','保險','其他支出'];
+
+// ===================================================================
+// TIME SLOTS (每15分鐘)
+// ===================================================================
+function generateTimeSlots() {
+  var slots = [];
+  for (var h = 0; h < 24; h++) {
+    for (var m = 0; m < 60; m += 15) {
+      slots.push(String(h).padStart(2,'0')+':'+String(m).padStart(2,'0'));
+    }
   }
+  return slots;
 }
 
 // ===================================================================
@@ -818,298 +845,647 @@ function destroyChart(id){if(chartInstances[id]){chartInstances[id].destroy();de
 // ===================================================================
 // NAVIGATION
 // ===================================================================
-var currentTab='dashboard';
-function switchTab(tab,btnEl){
-  var btns=document.querySelectorAll('#sidebarNav .nav-btn');
-  for(var i=0;i<btns.length;i++)btns[i].classList.remove('active');
-  if(btnEl)btnEl.classList.add('active');
-  var panels=document.querySelectorAll('.tab-panel');
-  for(var j=0;j<panels.length;j++)panels[j].classList.remove('active');
-  var target=document.getElementById('panel-'+tab);
-  if(target)target.classList.add('active');
-  if(btnEl)document.getElementById('pageTitle').textContent=btnEl.textContent.replace(/^.{2}/,'').trim();
-  currentTab=tab;
-  if(tab==='dashboard')renderDashboard();
-  if(tab==='clients')renderClients();
-  if(tab==='policies')renderPolicies();
-  if(tab==='commissions')renderCommissions();
-  if(tab==='expenses')renderExpenses();
-  if(tab==='reports'){reportPeriod='month';renderReports();}
-  if(tab==='goals')renderGoals();
-  if(tab==='schedules')renderSchedules();
+var currentTab = 'schedules';
+var TYPES = {
+  policy: ['人壽保險','醫療保險','危疾保險','意外保險','儲蓄保險','投資相連','旅遊保險','家居保險','汽車保險','其他'],
+  commission: ['首年佣金','續年佣金','花紅','轉介費'],
+  incomeCat: ['佣金收入','轉介費','花紅','其他收入','餐飲','交通','娛樂','購物','家居','醫療','教育','通訊','保險','其他支出'],
+  expenseCat: ['餐飲','交通','娛樂','購物','家居','醫療','教育','通訊','保險','其他'],
+  payment: ['現金','信用卡','銀行轉帳','電子錢包','其他']
+};
+
+function switchTab(tab, btnEl) {
+  var btns = document.querySelectorAll('#sidebarNav .nav-btn');
+  for (var i = 0; i < btns.length; i++) btns[i].classList.remove('active');
+  if (btnEl) btnEl.classList.add('active');
+  var panels = document.querySelectorAll('.tab-panel');
+  for (var j = 0; j < panels.length; j++) panels[j].classList.remove('active');
+  var target = document.getElementById('panel-'+tab);
+  if (target) target.classList.add('active');
+  if (btnEl) document.getElementById('pageTitle').textContent = btnEl.textContent.replace(/^.{2}/,'').trim();
+  currentTab = tab;
+  if (tab === 'dashboard') renderDashboard();
+  if (tab === 'schedules') renderSchedules();
+  if (tab === 'clients') renderClientPolicies();
+  if (tab === 'income') renderIncomes();
+  if (tab === 'pcs') renderPCs();
+  if (tab === 'reports') { reportPeriod = 'month'; renderReports(); }
+  if (tab === 'goals') renderGoals();
+}
+
+function renderCurrentTab() {
+  if (currentTab === 'dashboard') renderDashboard();
+  if (currentTab === 'schedules') renderSchedules();
+  if (currentTab === 'clients') renderClientPolicies();
+  if (currentTab === 'income') renderIncomes();
+  if (currentTab === 'pcs') renderPCs();
+  if (currentTab === 'reports') { reportPeriod = 'month'; renderReports(); }
+  if (currentTab === 'goals') renderGoals();
 }
 
 // ===================================================================
 // SAMPLE DATA
 // ===================================================================
-function loadSample(){
-  if(DB.clients.length>0)return;
-  var y=new Date().getFullYear();
-  DB.clients=[{id:uid(),name:'陳大文',phone:'9123 4567',email:'chan@example.com',status:'活躍',notes:'已購買醫療+人壽',createdAt:y+'-01-15'},{id:uid(),name:'李小美',phone:'9345 6789',email:'lee@example.com',status:'活躍',notes:'對儲蓄有興趣',createdAt:y+'-02-20'},{id:uid(),name:'王先生',phone:'9567 8901',email:'wong@example.com',status:'潛在',notes:'考慮旅遊保險',createdAt:y+'-03-10'},{id:uid(),name:'張太',phone:'9789 0123',email:'cheung@example.com',status:'活躍',notes:'已投保危疾+意外',createdAt:y+'-01-28'}];
-  DB.policies=[{id:uid(),policyNo:'POL-001',clientId:DB.clients[0].id,clientName:'陳大文',type:'醫療保險',premium:12000,commissionRate:15,startDate:y+'-02-01',endDate:(y+1)+'-01-31',status:'生效'},{id:uid(),policyNo:'POL-002',clientId:DB.clients[0].id,clientName:'陳大文',type:'人壽保險',premium:24000,commissionRate:20,startDate:y+'-02-01',endDate:(y+10)+'-01-31',status:'生效'},{id:uid(),policyNo:'POL-003',clientId:DB.clients[1].id,clientName:'李小美',type:'儲蓄保險',premium:60000,commissionRate:10,startDate:y+'-03-01',endDate:(y+10)+'-02-28',status:'生效'},{id:uid(),policyNo:'POL-004',clientId:DB.clients[3].id,clientName:'張太',type:'危疾保險',premium:18000,commissionRate:18,startDate:y+'-02-15',endDate:(y+10)+'-02-14',status:'生效'},{id:uid(),policyNo:'POL-005',clientId:DB.clients[3].id,clientName:'張太',type:'意外保險',premium:800,commissionRate:12,startDate:y+'-02-15',endDate:(y+1)+'-02-14',status:'待生效'}];
-  DB.commissions=[{id:uid(),date:y+'-01-20',clientName:'陳大文',policyNo:'POL-001',type:'首年佣金',amount:1800,notes:'醫療首期'},{id:uid(),date:y+'-02-05',clientName:'陳大文',policyNo:'POL-002',type:'首年佣金',amount:4800,notes:'人壽首期'},{id:uid(),date:y+'-02-18',clientName:'張太',policyNo:'POL-004',type:'首年佣金',amount:3240,notes:'危疾'},{id:uid(),date:y+'-03-10',clientName:'李小美',policyNo:'POL-003',type:'首年佣金',amount:6000,notes:'儲蓄'},{id:uid(),date:y+'-04-15',clientName:'陳大文',policyNo:'POL-001',type:'續年佣金',amount:900,notes:''},{id:uid(),date:y+'-05-20',clientName:'張太',policyNo:'POL-004',type:'續年佣金',amount:1620,notes:''},{id:uid(),date:y+'-06-10',clientName:'陳大文',policyNo:'POL-002',type:'續年佣金',amount:2400,notes:''}];
-  DB.expenses=[{id:uid(),date:y+'-01-25',category:'交通',amount:350,payment:'信用卡',notes:'的士費'},{id:uid(),date:y+'-02-10',category:'餐飲',amount:680,payment:'信用卡',notes:'客戶午餐'},{id:uid(),date:y+'-03-05',category:'交通',amount:1200,payment:'電子錢包',notes:'港鐵月票'},{id:uid(),date:y+'-04-08',category:'教育',amount:2800,payment:'信用卡',notes:'進修課程'},{id:uid(),date:y+'-06-01',category:'家居',amount:1200,payment:'銀行轉帳',notes:'辦公室攤分'}];
-  var m=new Date().getMonth()+1;
-  DB.goals=[{id:uid(),type:'佣金',period:'monthly',year:y,month:m,quarter:0,target:20000,desc:y+'年'+m+'月目標'},{id:uid(),type:'佣金',period:'yearly',year:y,month:0,quarter:0,target:200000,desc:y+'年度目標'}];
-  // 示範行程（本週）
-  var today=new Date(),dayOfWeek=today.getDay()||7,monday=new Date(today);monday.setDate(today.getDate()-dayOfWeek+1);
+function loadSample() {
+  if (DB.clients.length > 0) return;
+  var y = new Date().getFullYear();
+  DB.clients = [
+    {id:uid(),name:'陳大文',phone:'9123 4567',email:'chan@example.com',status:'活躍',notes:'已購買醫療+人壽',createdAt:y+'-01-15'},
+    {id:uid(),name:'李小美',phone:'9345 6789',email:'lee@example.com',status:'活躍',notes:'對儲蓄有興趣',createdAt:y+'-02-20'},
+    {id:uid(),name:'王先生',phone:'9567 8901',email:'wong@example.com',status:'潛在',notes:'考慮旅遊保險',createdAt:y+'-03-10'},
+    {id:uid(),name:'張太',phone:'9789 0123',email:'cheung@example.com',status:'活躍',notes:'已投保危疾+意外',createdAt:y+'-01-28'}
+  ];
+  DB.policies = [
+    {id:uid(),policyNo:'POL-001',clientId:DB.clients[0].id,clientName:'陳大文',type:'醫療保險',premium:12000,commissionRate:15,insureDate:y+'-02-01',status:'生效'},
+    {id:uid(),policyNo:'POL-002',clientId:DB.clients[0].id,clientName:'陳大文',type:'人壽保險',premium:24000,commissionRate:20,insureDate:y+'-02-01',status:'生效'},
+    {id:uid(),policyNo:'POL-003',clientId:DB.clients[1].id,clientName:'李小美',type:'儲蓄保險',premium:60000,commissionRate:10,insureDate:y+'-03-01',status:'生效'},
+    {id:uid(),policyNo:'POL-004',clientId:DB.clients[3].id,clientName:'張太',type:'危疾保險',premium:18000,commissionRate:18,insureDate:y+'-02-15',status:'生效'},
+    {id:uid(),policyNo:'POL-005',clientId:DB.clients[3].id,clientName:'張太',type:'意外保險',premium:800,commissionRate:12,insureDate:y+'-02-15',status:'待生效'}
+  ];
+  DB.commissions = [
+    {id:uid(),date:y+'-01-20',clientName:'陳大文',policyNo:'POL-001',type:'首年佣金',amount:1800,notes:'醫療首期'},
+    {id:uid(),date:y+'-02-05',clientName:'陳大文',policyNo:'POL-002',type:'首年佣金',amount:4800,notes:'人壽首期'},
+    {id:uid(),date:y+'-02-18',clientName:'張太',policyNo:'POL-004',type:'首年佣金',amount:3240,notes:'危疾'},
+    {id:uid(),date:y+'-03-10',clientName:'李小美',policyNo:'POL-003',type:'首年佣金',amount:6000,notes:'儲蓄'},
+    {id:uid(),date:y+'-04-15',clientName:'陳大文',policyNo:'POL-001',type:'續年佣金',amount:900,notes:''},
+    {id:uid(),date:y+'-05-20',clientName:'張太',policyNo:'POL-004',type:'續年佣金',amount:1620,notes:''},
+    {id:uid(),date:y+'-06-10',clientName:'陳大文',policyNo:'POL-002',type:'續年佣金',amount:2400,notes:''}
+  ];
+  DB.expenses = [
+    {id:uid(),date:y+'-01-25',category:'交通',amount:350,payment:'信用卡',notes:'的士費'},
+    {id:uid(),date:y+'-02-10',category:'餐飲',amount:680,payment:'信用卡',notes:'客戶午餐'},
+    {id:uid(),date:y+'-03-05',category:'交通',amount:1200,payment:'電子錢包',notes:'港鐵月票'},
+    {id:uid(),date:y+'-04-08',category:'教育',amount:2800,payment:'信用卡',notes:'進修課程'},
+    {id:uid(),date:y+'-06-01',category:'家居',amount:1200,payment:'銀行轉帳',notes:'辦公室攤分'}
+  ];
+  DB.incomes = [
+    {id:uid(),date:y+'-01-20',category:'佣金收入',amount:1800,clientName:'陳大文',policyNo:'POL-001',payment:'',notes:'醫療首期佣金'},
+    {id:uid(),date:y+'-02-05',category:'佣金收入',amount:4800,clientName:'陳大文',policyNo:'POL-002',payment:'',notes:'人壽首期佣金'},
+    {id:uid(),date:y+'-02-10',category:'餐飲',amount:680,clientName:'',policyNo:'',payment:'信用卡',notes:'客戶午餐'},
+    {id:uid(),date:y+'-03-05',category:'交通',amount:1200,clientName:'',policyNo:'',payment:'電子錢包',notes:'港鐵月票'},
+    {id:uid(),date:y+'-02-18',category:'佣金收入',amount:3240,clientName:'張太',policyNo:'POL-004',payment:'',notes:'危疾佣金'},
+    {id:uid(),date:y+'-04-08',category:'教育',amount:2800,clientName:'',policyNo:'',payment:'信用卡',notes:'進修課程'}
+  ];
+  DB.pcs = [
+    {id:uid(),date:y+'-02-05',clientName:'陳大文',policyNo:'POL-001',amount:12000,notes:'醫療保費收取'},
+    {id:uid(),date:y+'-03-01',clientName:'李小美',policyNo:'POL-003',amount:60000,notes:'儲蓄保費收取'},
+    {id:uid(),date:y+'-04-15',clientName:'張太',policyNo:'POL-004',amount:18000,notes:'危疾保費收取'}
+  ];
+  var m = new Date().getMonth()+1;
+  DB.goals = [
+    {id:uid(),type:'佣金',period:'monthly',year:y,month:m,quarter:0,target:20000,desc:y+'年'+m+'月目標'},
+    {id:uid(),type:'佣金',period:'yearly',year:y,month:0,quarter:0,target:200000,desc:y+'年度目標'}
+  ];
+  var today=new Date(), dayOfWeek = today.getDay()||7, monday=new Date(today); monday.setDate(today.getDate()-dayOfWeek+1);
   function fmtD(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
-  var tue=new Date(monday);tue.setDate(monday.getDate()+1);
-  var thu=new Date(monday);thu.setDate(monday.getDate()+3);
-  var fri=new Date(monday);fri.setDate(monday.getDate()+4);
-  DB.schedules=[
+  var tue = new Date(monday); tue.setDate(monday.getDate()+1);
+  var thu = new Date(monday); thu.setDate(monday.getDate()+3);
+  var fri = new Date(monday); fri.setDate(monday.getDate()+4);
+  DB.schedules = [
     {id:uid(),date:fmtD(tue),startTime:'10:00',endTime:'11:00',clientName:'陳大文',purpose:'講解保單',location:'中環辦公室',status:'已確認',notes:'醫療+人壽組合'},
     {id:uid(),date:fmtD(thu),startTime:'14:00',endTime:'15:30',clientName:'李小美',purpose:'理財諮詢',location:'金鐘咖啡室',status:'待處理',notes:'儲蓄方案'},
     {id:uid(),date:fmtD(fri),startTime:'11:00',endTime:'12:00',clientName:'張太',purpose:'續保跟進',location:'客戶家中',status:'已確認',notes:'危疾續保'}
   ];
-  saveDB();renderDashboard();toast('已載入示範數據，開始管理你嘅業務吧！');
+  saveDB(); renderDashboard(); toast('已載入示範數據，開始管理你嘅業務吧！');
 }
 
 // ===================================================================
 // DASHBOARD
 // ===================================================================
-function renderDashboard(){
-  var now=new Date(),mth=now.getMonth(),yr=now.getFullYear();
-  var monthComms=DB.commissions.filter(function(c){var d=new Date(c.date);return d.getMonth()===mth&&d.getFullYear()===yr;});
-  var monthTotal=0;monthComms.forEach(function(c){monthTotal+=Number(c.amount)||0;});
-  var newClients=DB.clients.filter(function(c){var d=c.createdAt?new Date(c.createdAt):null;return d&&d.getMonth()===mth&&d.getFullYear()===yr;}).length;
-  var newPolicies=DB.policies.filter(function(p){var d=new Date(p.startDate);return d.getMonth()===mth&&d.getFullYear()===yr;}).length;
-  var pending=DB.policies.filter(function(p){return p.status==='待生效'||p.status==='審核中';}).length;
-  var monthExp=0;DB.expenses.filter(function(e){var d=new Date(e.date);return d.getMonth()===mth&&d.getFullYear()===yr;}).forEach(function(e){monthExp+=Number(e.amount)||0;});
-  document.getElementById('dashCards').innerHTML='<div class="stat-card" style="border-left-color:var(--blue500)"><div class="label">本月佣金總額</div><div class="value">'+money(monthTotal)+'</div><div class="sub">'+monthComms.length+' 筆記錄</div></div><div class="stat-card" style="border-left-color:var(--green500)"><div class="label">本月新增客戶</div><div class="value">'+newClients+'</div><div class="sub">共 '+DB.clients.length+' 位客戶</div></div><div class="stat-card" style="border-left-color:var(--yellow500)"><div class="label">本月新增保單</div><div class="value">'+newPolicies+'</div><div class="sub">共 '+DB.policies.length+' 份保單</div></div><div class="stat-card" style="border-left-color:var(--purple500)"><div class="label">待跟進保單</div><div class="value">'+pending+'</div><div class="sub">需儘快處理</div></div><div class="stat-card" style="border-left-color:var(--red500)"><div class="label">本月總開支</div><div class="value">'+money(monthExp)+'</div><div class="sub">淨收入 '+money(monthTotal-monthExp)+'</div></div>';
+function renderDashboard() {
+  var now = new Date(), mth = now.getMonth(), yr = now.getFullYear();
+  var monthComms = DB.commissions.filter(function(c){ var d=new Date(c.date); return d.getMonth()===mth&&d.getFullYear()===yr; });
+  var monthTotal = 0; monthComms.forEach(function(c){ monthTotal += Number(c.amount)||0; });
+  var newClients = DB.clients.filter(function(c){ var d=c.createdAt?new Date(c.createdAt):null; return d&&d.getMonth()===mth&&d.getFullYear()===yr; }).length;
+  var newPolicies = DB.policies.filter(function(p){ var d=new Date(p.insureDate); return d.getMonth()===mth&&d.getFullYear()===yr; }).length;
+  var pending = DB.policies.filter(function(p){ return p.status==='待生效'||p.status==='審核中'; }).length;
+  var monthExp = 0; DB.expenses.filter(function(e){ var d=new Date(e.date); return d.getMonth()===mth&&d.getFullYear()===yr; }).forEach(function(e){ monthExp += Number(e.amount)||0; });
+  var monthPC = 0; DB.pcs.filter(function(pc){ var d=new Date(pc.date); return d.getMonth()===mth&&d.getFullYear()===yr; }).forEach(function(pc){ monthPC += Number(pc.amount)||0; });
+  document.getElementById('dashCards').innerHTML =
+    '<div class="stat-card" style="border-left-color:var(--blue500)"><div class="label">本月佣金總額</div><div class="value">'+money(monthTotal)+'</div><div class="sub">'+monthComms.length+' 筆記錄</div></div>'+
+    '<div class="stat-card" style="border-left-color:var(--green500)"><div class="label">本月新增客戶</div><div class="value">'+newClients+'</div><div class="sub">共 '+DB.clients.length+' 位客戶</div></div>'+
+    '<div class="stat-card" style="border-left-color:var(--yellow500)"><div class="label">本月新增保單</div><div class="value">'+newPolicies+'</div><div class="sub">共 '+DB.policies.length+' 份保單</div></div>'+
+    '<div class="stat-card" style="border-left-color:var(--purple500)"><div class="label">待跟進保單</div><div class="value">'+pending+'</div><div class="sub">需儘快處理</div></div>'+
+    '<div class="stat-card" style="border-left-color:var(--red500)"><div class="label">本月 PC 收取</div><div class="value">'+money(monthPC)+'</div><div class="sub">共 '+DB.pcs.filter(function(pc){var d=new Date(pc.date);return d.getMonth()===mth&&d.getFullYear()===yr;}).length+' 筆</div></div>';
   // Todo
-  var todos=[];DB.policies.forEach(function(p){if(p.status==='待生效'||p.status==='審核中')todos.push({txt:'保單待跟進',client:p.clientName,type:'保單',date:p.endDate,status:p.status});});
-  var th='';if(todos.length===0)th='<tr><td colspan="5" class="empty">暫無待跟進事項 ✓</td></tr>';
-  else todos.forEach(function(t){th+='<tr><td>'+t.txt+'</td><td>'+esc(t.client)+'</td><td><span class="badge badge-blue">'+esc(t.type)+'</span></td><td>'+esc(dFmt(t.date))+'</td><td><span class="badge '+(t.status==='審核中'?'badge-yellow':'badge-red')+'">'+esc(t.status)+'</span></td></tr>';});
-  document.getElementById('todoTable').innerHTML=th;
+  var todos = []; DB.policies.forEach(function(p){ if (p.status==='待生效'||p.status==='審核中') todos.push({txt:'保單待跟進',client:p.clientName,type:'保單',date:p.insureDate,status:p.status}); });
+  var th = ''; if (todos.length===0) th='<tr><td colspan="5" class="empty">暫無待跟進事項 ✓</td></tr>';
+  else todos.forEach(function(t){ th+='<tr><td>'+t.txt+'</td><td>'+esc(t.client)+'</td><td><span class="badge badge-blue">'+esc(t.type)+'</span></td><td>'+esc(dFmt(t.date))+'</td><td><span class="badge '+(t.status==='審核中'?'badge-yellow':'badge-red')+'">'+esc(t.status)+'</span></td></tr>'; });
+  document.getElementById('todoTable').innerHTML = th;
   renderDashboardCharts();
 }
-function renderDashboardCharts(){
-  if(!chartLib)return;var now=new Date(),m=now.getMonth(),y=now.getFullYear();
+
+function renderDashboardCharts() {
+  if (!chartLib) return;
+  var now=new Date(), m=now.getMonth(), y=now.getFullYear();
   destroyChart('chartCommission');
-  var labels=[],d12=[];
-  for(var i=11;i>=0;i--){var dm=new Date(y,m-i,1);labels.push(dm.getFullYear()+'/'+(dm.getMonth()+1));var s=0;DB.commissions.filter(function(c){var d=new Date(c.date);return d.getMonth()===dm.getMonth()&&d.getFullYear()===dm.getFullYear();}).forEach(function(c){s+=Number(c.amount)||0;});d12.push(s);}
-  chartInstances['chartCommission']=new chartLib(document.getElementById('chartCommission'),{type:'line',data:{labels:labels,datasets:[{data:d12,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.1)',fill:true,tension:0.4,pointRadius:2}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:function(v){return'HK$'+v.toLocaleString()}}}}}});
+  var labels=[], d12=[];
+  for (var i=11; i>=0; i--) { var dm=new Date(y,m-i,1); labels.push(dm.getFullYear()+'/'+(dm.getMonth()+1)); var s=0; DB.commissions.filter(function(c){var d=new Date(c.date);return d.getMonth()===dm.getMonth()&&d.getFullYear()===dm.getFullYear();}).forEach(function(c){s+=Number(c.amount)||0;}); d12.push(s); }
+  chartInstances['chartCommission'] = new chartLib(document.getElementById('chartCommission'),{type:'line',data:{labels:labels,datasets:[{data:d12,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.1)',fill:true,tension:0.4,pointRadius:2}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:function(v){return'HK$'+v.toLocaleString();}}}}}});
   destroyChart('chartGoal');
-  var ag=null;for(var i=0;i<DB.goals.length;i++){if(DB.goals[i].period==='monthly'&&DB.goals[i].year===y&&DB.goals[i].month===m+1){ag=DB.goals[i];break;}}
+  var ag=null; for (var i=0;i<DB.goals.length;i++){if(DB.goals[i].period==='monthly'&&DB.goals[i].year===y&&DB.goals[i].month===m+1){ag=DB.goals[i];break;}}
   var r=ag?Math.min(100,Math.round(DB.commissions.filter(function(c){var d=new Date(c.date);return d.getMonth()===m&&d.getFullYear()===y;}).reduce(function(s,c){return s+(Number(c.amount)||0);},0)/ag.target*100)):0;
-  chartInstances['chartGoal']=new chartLib(document.getElementById('chartGoal'),{type:'doughnut',data:{labels:['已完成','剩餘'],datasets:[{data:[r,100-r],backgroundColor:r>=100?['#22c55e','#e5e7eb']:['#3b82f6','#e5e7eb'],borderWidth:0}]},options:{responsive:true,cutout:'75%',plugins:{legend:{display:false},tooltip:{enabled:false}}}});
-  destroyChart('chartPolicyType');var tc={};DB.policies.forEach(function(p){tc[p.type]=(tc[p.type]||0)+1;});var pt=Object.keys(tc),pn=pt.map(function(k){return tc[k];});
-  chartInstances['chartPolicyType']=new chartLib(document.getElementById('chartPolicyType'),{type:'doughnut',data:{labels:pt,datasets:[{data:pn,backgroundColor:['#3b82f6','#22c55e','#eab308','#ef4444','#a855f7','#06b6d4','#f97316','#64748b'],borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,plugins:{legend:{position:'bottom'}}}});
-  destroyChart('chartExpenseCat');var cc={};DB.expenses.filter(function(e){var d=new Date(e.date);return d.getMonth()===m&&d.getFullYear()===y;}).forEach(function(e){cc[e.category]=(cc[e.category]||0)+Number(e.amount);});var cats=Object.keys(cc),cv=cats.map(function(k){return cc[k];});
-  chartInstances['chartExpenseCat']=new chartLib(document.getElementById('chartExpenseCat'),{type:'bar',data:{labels:cats,datasets:[{data:cv,backgroundColor:'#60a5fa',borderRadius:4}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:function(v){return'HK$'+v.toLocaleString()}}}}}});
+  chartInstances['chartGoal'] = new chartLib(document.getElementById('chartGoal'),{type:'doughnut',data:{labels:['已完成','剩餘'],datasets:[{data:[r,100-r],backgroundColor:r>=100?['#22c55e','#e5e7eb']:['#3b82f6','#e5e7eb'],borderWidth:0}]},options:{responsive:true,cutout:'75%',plugins:{legend:{display:false},tooltip:{enabled:false}}}});
+  destroyChart('chartPolicyType'); var tc={}; DB.policies.forEach(function(p){tc[p.type]=(tc[p.type]||0)+1;}); var pt=Object.keys(tc), pn=pt.map(function(k){return tc[k];});
+  chartInstances['chartPolicyType'] = new chartLib(document.getElementById('chartPolicyType'),{type:'doughnut',data:{labels:pt,datasets:[{data:pn,backgroundColor:['#3b82f6','#22c55e','#eab308','#ef4444','#a855f7','#06b6d4','#f97316','#64748b'],borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,plugins:{legend:{position:'bottom'}}}});
+  // 收支分類圖表 (使用 incomes 數據)
+  destroyChart('chartIncomeCat');
+  var ic = {}, totalIncome = 0;
+  DB.incomes.filter(function(item){ var d=new Date(item.date); return d.getMonth()===m&&d.getFullYear()===y; }).forEach(function(item){ ic[item.category] = (ic[item.category]||0) + Number(item.amount||0); totalIncome += Number(item.amount||0); });
+  var cats = Object.keys(ic), cv = cats.map(function(k){ return ic[k]; });
+  var bgColors = cats.map(function(k){ return INCOME_CATS.indexOf(k) >= 0 ? '#22c55e' : '#ef4444'; });
+  chartInstances['chartIncomeCat'] = new chartLib(document.getElementById('chartIncomeCat'),{type:'bar',data:{labels:cats,datasets:[{data:cv,backgroundColor:bgColors,borderRadius:4}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:function(v){return'HK$'+v.toLocaleString();}}}}}});
 }
 
 // ===================================================================
-// CLIENTS
+// CLIENTS & POLICIES (合併)
 // ===================================================================
-function renderClients(){
-  var h='';if(DB.clients.length===0)h='<tr><td colspan="6" class="empty">尚無客戶，點擊「+ 新增客戶」開始</td></tr>';
-  else DB.clients.forEach(function(c){var sc=c.status==='活躍'?'badge-green':c.status==='潛在'?'badge-yellow':'badge-red';h+='<tr><td>'+esc(c.name)+'</td><td>'+esc(c.phone||'—')+'</td><td>'+esc(c.email||'—')+'</td><td><span class="badge '+sc+'">'+esc(c.status)+'</span></td><td>'+esc((c.notes||'').substring(0,30))+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'client\','+c.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'clients\','+c.id+')">刪除</button></td></tr>';});
-  document.getElementById('clientTable').innerHTML=h;
+function renderClientPolicies() {
+  // 客戶列表
+  var ch = '';
+  if (DB.clients.length === 0) ch = '<tr><td colspan="6" class="empty">尚無客戶，點擊「+ 新增客戶」開始</td></tr>';
+  else DB.clients.forEach(function(c){
+    var policyCount = DB.policies.filter(function(p){ return String(p.clientId)===String(c.id); }).length;
+    var sc = c.status==='活躍'?'badge-green':c.status==='潛在'?'badge-yellow':'badge-red';
+    ch += '<tr><td>'+esc(c.name)+'</td><td>'+esc(c.phone||'—')+'</td><td>'+esc(c.email||'—')+'</td><td><span class="badge '+sc+'">'+esc(c.status)+'</span></td><td>'+policyCount+' 份</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'client\','+c.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'clients\','+c.id+')">刪除</button></td></tr>';
+  });
+  document.getElementById('clientTable').innerHTML = ch;
+  // 保單列表
+  var ph = '';
+  if (DB.policies.length === 0) ph = '<tr><td colspan="8" class="empty">尚無保單記錄</td></tr>';
+  else DB.policies.forEach(function(p){
+    var sc = p.status==='生效'?'badge-green':p.status==='待生效'?'badge-yellow':p.status==='審核中'?'badge-blue':'badge-red';
+    ph += '<tr><td>'+esc(p.policyNo||'—')+'</td><td>'+esc(p.clientName)+'</td><td>'+esc(p.type)+'</td><td>'+money(p.premium)+'</td><td>'+esc(p.commissionRate)+'%</td><td>'+esc(dFmt(p.insureDate))+'</td><td><span class="badge '+sc+'">'+esc(p.status)+'</span></td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'policy\','+p.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'policies\','+p.id+')">刪除</button></td></tr>';
+  });
+  document.getElementById('policyTable').innerHTML = ph;
 }
 
 // ===================================================================
-// POLICIES
+// INCOMES (合併佣金+開支)
 // ===================================================================
-function renderPolicies(){
-  var h='';if(DB.policies.length===0)h='<tr><td colspan="9" class="empty">尚無保單記錄</td></tr>';
-  else DB.policies.forEach(function(p){var sc=p.status==='生效'?'badge-green':p.status==='待生效'?'badge-yellow':p.status==='審核中'?'badge-blue':'badge-red';h+='<tr><td>'+esc(p.policyNo||'—')+'</td><td>'+esc(p.clientName)+'</td><td>'+esc(p.type)+'</td><td>'+money(p.premium)+'</td><td>'+esc(p.commissionRate)+'%</td><td>'+esc(dFmt(p.startDate))+'</td><td>'+esc(dFmt(p.endDate))+'</td><td><span class="badge '+sc+'">'+esc(p.status)+'</span></td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'policy\','+p.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'policies\','+p.id+')">刪除</button></td></tr>';});
-  document.getElementById('policyTable').innerHTML=h;
+function renderIncomes() {
+  var h = '';
+  if (DB.incomes.length === 0) h = '<tr><td colspan="7" class="empty">尚無收入/支出記錄</td></tr>';
+  else DB.incomes.forEach(function(item){
+    var isIncome = INCOME_CATS.indexOf(item.category) >= 0;
+    var typeBadge = isIncome ? '<span class="badge badge-green">收入</span>' : '<span class="badge badge-red">支出</span>';
+    var amtClass = isIncome ? 'amt-pos' : 'amt-neg';
+    h += '<tr><td>'+esc(dFmt(item.date))+'</td><td>'+typeBadge+'</td><td><span class="badge badge-gray">'+esc(item.category)+'</span></td><td class="'+amtClass+'">'+money(item.amount)+'</td><td>'+esc(item.clientName||'—')+'</td><td>'+esc(item.policyNo||'—')+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'income\','+item.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'incomes\','+item.id+')">刪除</button></td></tr>';
+  });
+  document.getElementById('incomeTable').innerHTML = h;
 }
 
 // ===================================================================
-// COMMISSIONS
+// PC RECORDS
 // ===================================================================
-function renderCommissions(){
-  var h='';if(DB.commissions.length===0)h='<tr><td colspan="7" class="empty">尚無佣金記錄</td></tr>';
-  else DB.commissions.forEach(function(c){h+='<tr><td>'+esc(dFmt(c.date))+'</td><td>'+esc(c.clientName)+'</td><td>'+esc(c.policyNo||'—')+'</td><td><span class="badge badge-blue">'+esc(c.type)+'</span></td><td class="amt-pos">'+money(c.amount)+'</td><td>'+(c.notes?esc(c.notes):'—')+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'commission\','+c.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'commissions\','+c.id+')">刪除</button></td></tr>';});
-  document.getElementById('commissionTable').innerHTML=h;
-}
-
-// ===================================================================
-// EXPENSES
-// ===================================================================
-function renderExpenses(){
-  var h='';if(DB.expenses.length===0)h='<tr><td colspan="6" class="empty">尚無開支記錄</td></tr>';
-  else DB.expenses.forEach(function(e){h+='<tr><td>'+esc(dFmt(e.date))+'</td><td><span class="badge badge-gray">'+esc(e.category)+'</span></td><td class="amt-neg">'+money(e.amount)+'</td><td>'+esc(e.payment||'—')+'</td><td>'+(e.notes?esc(e.notes):'—')+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'expense\','+e.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'expenses\','+e.id+')">刪除</button></td></tr>';});
-  document.getElementById('expenseTable').innerHTML=h;
+function renderPCs() {
+  var h = '';
+  if (DB.pcs.length === 0) h = '<tr><td colspan="6" class="empty">尚無 PC 記錄</td></tr>';
+  else DB.pcs.forEach(function(pc){
+    h += '<tr><td>'+esc(dFmt(pc.date))+'</td><td>'+esc(pc.clientName||'—')+'</td><td>'+esc(pc.policyNo||'—')+'</td><td class="amt-pos">'+money(pc.amount)+'</td><td>'+esc(pc.notes||'—')+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'pc\','+pc.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'pcs\','+pc.id+')">刪除</button></td></tr>';
+  });
+  document.getElementById('pcTable').innerHTML = h;
 }
 
 // ===================================================================
 // REPORTS
 // ===================================================================
-var reportPeriod='month';
-function switchReport(p,btnEl){reportPeriod=p;var btns=document.querySelectorAll('#reportPeriodBtns .period-btn');for(var i=0;i<btns.length;i++)btns[i].classList.remove('active');if(btnEl)btnEl.classList.add('active');renderReports();}
-function getPeriod(period){
-  var now=new Date(),y=now.getFullYear(),m=now.getMonth();
-  if(period==='month')return[new Date(y,m,1),new Date(y,m+1,0)];
-  if(period==='quarter'){var q=Math.floor(m/3)*3;return[new Date(y,q,1),new Date(y,q+3,0)];}
-  if(period==='half'){var h=m<6?0:6;return[new Date(y,h,1),new Date(y,h+6,0)];}
-  return[new Date(y,0,1),new Date(y,11,31)];
+var reportPeriod = 'month';
+function switchReport(p, btnEl) { reportPeriod = p; var btns=document.querySelectorAll('#reportPeriodBtns .period-btn'); for (var i=0;i<btns.length;i++) btns[i].classList.remove('active'); if (btnEl) btnEl.classList.add('active'); renderReports(); }
+function getPeriod(period) {
+  var now = new Date(), y = now.getFullYear(), m = now.getMonth();
+  if (period === 'month') return [new Date(y,m,1), new Date(y,m+1,0)];
+  if (period === 'quarter') { var q = Math.floor(m/3)*3; return [new Date(y,q,1), new Date(y,q+3,0)]; }
+  if (period === 'half') { var h = m<6?0:6; return [new Date(y,h,1), new Date(y,h+6,0)]; }
+  return [new Date(y,0,1), new Date(y,11,31)];
 }
-function renderReports(){
-  var r=getPeriod(reportPeriod),s=r[0],e=r[1];
-  var cm=DB.commissions.filter(function(c){var d=new Date(c.date);return d>=s&&d<=e;});
-  var ex=DB.expenses.filter(function(x){var d=new Date(x.date);return d>=s&&d<=e;});
-  var tc=0,te=0;cm.forEach(function(c){tc+=Number(c.amount)||0;});ex.forEach(function(x){te+=Number(x.amount)||0;});
-  var pn={month:'本月',quarter:'本季',half:'本半年',year:'本年'};
-  document.getElementById('reportCards').innerHTML='<div class="report-card"><div class="rc-label">'+pn[reportPeriod]+'佣金</div><div class="rc-value" style="color:var(--green500)">'+money(tc)+'</div></div><div class="report-card"><div class="rc-label">'+pn[reportPeriod]+'開支</div><div class="rc-value" style="color:var(--red500)">'+money(te)+'</div></div><div class="report-card"><div class="rc-label">淨收入</div><div class="rc-value" style="color:var(--blue700)">'+money(tc-te)+'</div></div><div class="report-card"><div class="rc-label">佣金筆數</div><div class="rc-value">'+cm.length+'</div></div>';
-  var ch='';if(cm.length===0)ch='<tr><td colspan="5" class="empty">此期間無佣金記錄</td></tr>';
-  else cm.forEach(function(c){ch+='<tr><td>'+esc(dFmt(c.date))+'</td><td>'+esc(c.clientName)+'</td><td>'+esc(c.policyNo||'—')+'</td><td><span class="badge badge-blue">'+esc(c.type)+'</span></td><td class="amt-pos">'+money(c.amount)+'</td></tr>';});
-  document.getElementById('reportCommTable').innerHTML=ch;
-  var eh='';if(ex.length===0)eh='<tr><td colspan="4" class="empty">此期間無開支記錄</td></tr>';
-  else ex.forEach(function(x){eh+='<tr><td>'+esc(dFmt(x.date))+'</td><td><span class="badge badge-gray">'+esc(x.category)+'</span></td><td class="amt-neg">'+money(x.amount)+'</td><td>'+(x.notes?esc(x.notes):'—')+'</td></tr>';});
-  document.getElementById('reportExpTable').innerHTML=eh;
-  if(chartLib)renderReportCharts(s,e);
+function renderReports() {
+  var r = getPeriod(reportPeriod), s = r[0], e = r[1];
+  var cm = DB.commissions.filter(function(c){ var d=new Date(c.date); return d>=s&&d<=e; });
+  var ex = DB.expenses.filter(function(x){ var d=new Date(x.date); return d>=s&&d<=e; });
+  var pc = DB.pcs.filter(function(pc){ var d=new Date(pc.date); return d>=s&&d<=e; });
+  var tc = 0, te = 0, tpc = 0;
+  cm.forEach(function(c){ tc += Number(c.amount)||0; });
+  ex.forEach(function(x){ te += Number(x.amount)||0; });
+  pc.forEach(function(pc){ tpc += Number(pc.amount)||0; });
+  var pn = {month:'本月',quarter:'本季',half:'本半年',year:'本年'};
+  document.getElementById('reportCards').innerHTML =
+    '<div class="report-card"><div class="rc-label">'+pn[reportPeriod]+'佣金</div><div class="rc-value" style="color:var(--green500)">'+money(tc)+'</div></div>'+
+    '<div class="report-card"><div class="rc-label">'+pn[reportPeriod]+'開支</div><div class="rc-value" style="color:var(--red500)">'+money(te)+'</div></div>'+
+    '<div class="report-card"><div class="rc-label">'+pn[reportPeriod]+' PC</div><div class="rc-value" style="color:var(--purple500)">'+money(tpc)+'</div></div>'+
+    '<div class="report-card"><div class="rc-label">淨收入</div><div class="rc-value" style="color:var(--blue700)">'+money(tc-te)+'</div></div>'+
+    '<div class="report-card"><div class="rc-label">佣金筆數</div><div class="rc-value">'+cm.length+'</div></div>';
+  var ch = ''; if (cm.length===0) ch='<tr><td colspan="5" class="empty">此期間無佣金記錄</td></tr>';
+  else cm.forEach(function(c){ ch+='<tr><td>'+esc(dFmt(c.date))+'</td><td>'+esc(c.clientName)+'</td><td>'+esc(c.policyNo||'—')+'</td><td><span class="badge badge-blue">'+esc(c.type)+'</span></td><td class="amt-pos">'+money(c.amount)+'</td></tr>'; });
+  document.getElementById('reportCommTable').innerHTML = ch;
+  var eh = ''; if (ex.length===0) eh='<tr><td colspan="4" class="empty">此期間無開支記錄</td></tr>';
+  else ex.forEach(function(x){ eh+='<tr><td>'+esc(dFmt(x.date))+'</td><td><span class="badge badge-gray">'+esc(x.category)+'</span></td><td class="amt-neg">'+money(x.amount)+'</td><td>'+(x.notes?esc(x.notes):'—')+'</td></tr>'; });
+  document.getElementById('reportExpTable').innerHTML = eh;
+  if (chartLib) renderReportCharts(s, e);
 }
-function renderReportCharts(s,e){
-  destroyChart('chartRptComm');destroyChart('chartRptExp');
-  var months=[],d=new Date(s.getFullYear(),s.getMonth(),1);
-  while(d<=e){months.push({y:d.getFullYear(),m:d.getMonth()});d=new Date(d.getFullYear(),d.getMonth()+1,1);}
-  var cd=[],ed=[];months.forEach(function(mo){var sc=0;DB.commissions.filter(function(c){var d=new Date(c.date);return d.getMonth()===mo.m&&d.getFullYear()===mo.y;}).forEach(function(c){sc+=Number(c.amount)||0;});cd.push(sc);var se=0;DB.expenses.filter(function(x){var d=new Date(x.date);return d.getMonth()===mo.m&&d.getFullYear()===mo.y;}).forEach(function(x){se+=Number(x.amount)||0;});ed.push(se);});
-  var l=months.map(function(mo){return mo.y+'/'+(mo.m+1);});
-  chartInstances['chartRptComm']=new chartLib(document.getElementById('chartRptComm'),{type:'bar',data:{labels:l,datasets:[{label:'佣金',data:cd,backgroundColor:'#3b82f6',borderRadius:4}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:function(v){return'HK$'+v.toLocaleString()}}}}}});
-  chartInstances['chartRptExp']=new chartLib(document.getElementById('chartRptExp'),{type:'bar',data:{labels:l,datasets:[{label:'開支',data:ed,backgroundColor:'#ef4444',borderRadius:4}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:function(v){return'HK$'+v.toLocaleString()}}}}}});
+function renderReportCharts(s, e) {
+  destroyChart('chartRptComm'); destroyChart('chartRptIncome');
+  var months=[], d=new Date(s.getFullYear(),s.getMonth(),1);
+  while (d <= e) { months.push({y:d.getFullYear(),m:d.getMonth()}); d=new Date(d.getFullYear(),d.getMonth()+1,1); }
+  var cd=[], idata=[], edata=[];
+  months.forEach(function(mo){
+    var sc=0; DB.commissions.filter(function(c){var d=new Date(c.date);return d.getMonth()===mo.m&&d.getFullYear()===mo.y;}).forEach(function(c){sc+=Number(c.amount)||0;}); cd.push(sc);
+    var sIncome=0,sExpense=0; DB.incomes.filter(function(item){var d=new Date(item.date);return d.getMonth()===mo.m&&d.getFullYear()===mo.y;}).forEach(function(item){if(INCOME_CATS.indexOf(item.category)>=0)sIncome+=Number(item.amount)||0;else sExpense+=Number(item.amount)||0;});
+    idata.push(sIncome); edata.push(sExpense);
+  });
+  var l = months.map(function(mo){ return mo.y+'/'+(mo.m+1); });
+  chartInstances['chartRptComm'] = new chartLib(document.getElementById('chartRptComm'),{type:'bar',data:{labels:l,datasets:[{label:'佣金',data:cd,backgroundColor:'#3b82f6',borderRadius:4}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:function(v){return'HK$'+v.toLocaleString();}}}}}});
+  chartInstances['chartRptIncome'] = new chartLib(document.getElementById('chartRptIncome'),{type:'bar',data:{labels:l,datasets:[{label:'收入',data:idata,backgroundColor:'#22c55e',borderRadius:4},{label:'支出',data:edata,backgroundColor:'#ef4444',borderRadius:4}]},options:{responsive:true,plugins:{legend:{position:'bottom'}},scales:{y:{beginAtZero:true,ticks:{callback:function(v){return'HK$'+v.toLocaleString();}}}}}});
 }
 
 // ===================================================================
 // GOALS
 // ===================================================================
-function renderGoals(){
-  var now=new Date(),y=now.getFullYear(),m=now.getMonth();
-  var h='';if(DB.goals.length===0)h='<div class="empty"><div class="icon">🎯</div>尚無目標，點擊新增開始設定</div>';
+function renderGoals() {
+  var now = new Date(), y = now.getFullYear(), m = now.getMonth();
+  var h = ''; if (DB.goals.length===0) h='<div class="empty"><div class="icon">🎯</div>尚無目標，點擊新增開始設定</div>';
   else DB.goals.forEach(function(g){
     var mn=['','1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
-    var pl=g.period==='monthly'?g.year+'年'+mn[g.month]:g.period==='quarterly'?g.year+'年Q'+g.quarter:g.year+'年度目標';
-    var actual=0;if(g.period==='monthly'){actual=DB.commissions.filter(function(c){var d=new Date(c.date);return d.getMonth()===(g.month-1)&&d.getFullYear()===g.year;}).reduce(function(s,c){return s+(Number(c.amount)||0);},0);}else{var s2,e2;if(g.period==='quarterly'){s2=new Date(g.year,(g.quarter-1)*3,1);e2=new Date(g.year,(g.quarter-1)*3+3,0);}else{s2=new Date(g.year,0,1);e2=new Date(g.year,11,31);}actual=DB.commissions.filter(function(c){var d=new Date(c.date);return d>=s2&&d<=e2;}).reduce(function(s,c){return s+(Number(c.amount)||0);},0);}
-    var pct=Math.round(actual/g.target*100);if(pct>100)pct=100;
-    var bc=pct>=100?'var(--green500)':pct>=70?'var(--blue500)':'var(--yellow500)';
-    h+='<div class="goal-card"><div class="goal-header"><div class="goal-title">'+(g.type||'佣金')+' — '+esc(pl)+'</div><span class="badge '+(pct>=100?'badge-green':'badge-blue')+'">'+pct+'%</span></div><div class="goal-meta">目標: '+money(g.target)+' | 已達成: '+money(actual)+' | 差距: '+money(g.target-actual)+'</div><div class="progress-bar"><div class="progress-fill" style="width:'+pct+'%;background:'+bc+'"></div></div><div style="margin-top:8px"><button class="btn btn-sm btn-outline" onclick="openForm(\'goal\','+g.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'goals\','+g.id+')">刪除</button></div></div>';
+    var pl = g.period==='monthly'?g.year+'年'+mn[g.month]:g.period==='quarterly'?g.year+'年Q'+g.quarter:g.year+'年度目標';
+    var actual = 0;
+    if (g.period==='monthly') { actual = DB.commissions.filter(function(c){var d=new Date(c.date);return d.getMonth()===(g.month-1)&&d.getFullYear()===g.year;}).reduce(function(s,c){return s+(Number(c.amount)||0);},0); }
+    else { var s2,e2; if (g.period==='quarterly') { s2=new Date(g.year,(g.quarter-1)*3,1); e2=new Date(g.year,(g.quarter-1)*3+3,0); } else { s2=new Date(g.year,0,1); e2=new Date(g.year,11,31); } actual=DB.commissions.filter(function(c){var d=new Date(c.date);return d>=s2&&d<=e2;}).reduce(function(s,c){return s+(Number(c.amount)||0);},0); }
+    var pct = Math.round(actual/g.target*100); if (pct>100) pct=100;
+    var bc = pct>=100?'var(--green500)':pct>=70?'var(--blue500)':'var(--yellow500)';
+    h += '<div class="goal-card"><div class="goal-header"><div class="goal-title">'+(g.type||'佣金')+' — '+esc(pl)+'</div><span class="badge '+(pct>=100?'badge-green':'badge-blue')+'">'+pct+'%</span></div><div class="goal-meta">目標: '+money(g.target)+' | 已達成: '+money(actual)+' | 差距: '+money(g.target-actual)+'</div><div class="progress-bar"><div class="progress-fill" style="width:'+pct+'%;background:'+bc+'"></div></div><div style="margin-top:8px"><button class="btn btn-sm btn-outline" onclick="openForm(\'goal\','+g.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'goals\','+g.id+')">刪除</button></div></div>';
   });
-  document.getElementById('goalList').innerHTML=h;
+  document.getElementById('goalList').innerHTML = h;
+}
+
+// ===================================================================
+// SCHEDULES (行程表)
+// ===================================================================
+var weekOffset = 0;
+function shiftWeek(n) { weekOffset += n; renderSchedules(); }
+function goCurrentWeek() { weekOffset = 0; renderSchedules(); }
+
+function renderSchedules() {
+  var today = new Date();
+  var dayOfWeek = today.getDay()||7;
+  var monday = new Date(today); monday.setDate(today.getDate()-dayOfWeek+1+(weekOffset*7));
+  var sunday = new Date(monday); sunday.setDate(monday.getDate()+6);
+  function fmtD(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+  function fmtL(d){ var wd=['日','一','二','三','四','五','六']; return (d.getMonth()+1)+'/'+d.getDate()+' ('+wd[d.getDay()]+')'; }
+  var lbl = document.getElementById('weekLabel');
+  if (lbl) lbl.textContent = fmtD(monday)+' ~ '+fmtD(sunday)+(weekOffset===0?' (本週)':'');
+  var days = ['一','二','三','四','五','六','日'];
+  var html = '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:20px">';
+  for (var d=0; d<7; d++) {
+    var dt = new Date(monday); dt.setDate(monday.getDate()+d);
+    var ds = fmtD(dt);
+    var daySchedules = DB.schedules.filter(function(s){ return s.date===ds; });
+    daySchedules.sort(function(a,b){ return (a.startTime||'').localeCompare(b.startTime||''); });
+    var isToday = fmtD(today)===ds;
+    html += '<div style="background:var(--white);border-radius:8px;padding:10px;min-height:120px;box-shadow:var(--shadow);border-top:3px solid '+(isToday?'var(--blue500)':'var(--gray200)')+'">';
+    html += '<div style="font-size:12px;font-weight:600;color:'+(isToday?'var(--blue500)':'var(--gray500)')+';margin-bottom:6px">'+days[d]+' '+fmtL(dt)+'</div>';
+    if (daySchedules.length===0) {
+      html += '<div style="font-size:11px;color:var(--gray300);padding:8px 0;text-align:center">—</div>';
+    } else {
+      daySchedules.forEach(function(s){
+        var sc = s.status==='已完成'?'badge-green':s.status==='已確認'?'badge-blue':s.status==='已取消'?'badge-red':'badge-yellow';
+        html += '<div style="background:var(--blue50);border-radius:6px;padding:6px 8px;margin-bottom:4px;font-size:11px;cursor:pointer" onclick="openForm(\'schedule\','+s.id+')">';
+        html += '<div style="font-weight:600;color:var(--blue700)">'+esc(s.startTime||'')+' - '+esc(s.endTime||'')+'</div>';
+        html += '<div style="color:var(--blue500);margin-top:2px;cursor:pointer;text-decoration:underline" onclick="event.stopPropagation();showQuickView(\''+esc(s.clientName||'')+'\')">'+esc(s.clientName||'')+'</div>';
+        html += '<div style="color:var(--gray400)">'+esc(s.purpose||'')+'</div>';
+        html += '<span class="badge '+sc+'" style="margin-top:2px">'+esc(s.status)+'</span>';
+        html += '</div>';
+      });
+    }
+    html += '</div>';
+  }
+  html += '</div>';
+  document.getElementById('scheduleWeekView').innerHTML = html;
+  // Full table
+  var h = ''; if (DB.schedules.length===0) h='<tr><td colspan="7" class="empty">尚無行程記錄</td></tr>';
+  else {
+    var sorted = DB.schedules.slice().sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
+    sorted.forEach(function(s){
+      var sc = s.status==='已完成'?'badge-green':s.status==='已確認'?'badge-blue':s.status==='已取消'?'badge-red':'badge-yellow';
+      h += '<tr><td>'+esc(dFmt(s.date))+'</td><td>'+esc(s.startTime||'')+'-'+esc(s.endTime||'')+'</td><td><a style="color:var(--blue500);cursor:pointer;text-decoration:underline" onclick="showQuickView(\''+esc(s.clientName||'')+'\')">'+esc(s.clientName||'—')+'</a></td><td>'+esc(s.purpose||'—')+'</td><td>'+esc(s.location||'—')+'</td><td><span class="badge '+sc+'">'+esc(s.status)+'</span></td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'schedule\','+s.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'schedules\','+s.id+')">刪除</button></td></tr>';
+    });
+  }
+  document.getElementById('scheduleTable').innerHTML = h;
+}
+
+// ===== Quick View: linked data for a schedule's client =====
+function showQuickView(clientName) {
+  if (!clientName || clientName === '—') return;
+  var client = DB.clients.find(function(c){ return c.name === clientName; });
+  var qv = document.getElementById('scheduleQuickView');
+  var title = document.getElementById('qvClientTitle');
+  var content = document.getElementById('qvContent');
+  title.innerHTML = '🔗 ' + esc(clientName) + ' — 相關資料';
+  var html = '';
+  if (client) {
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px">';
+    html += '<div style="background:var(--blue50);border-radius:8px;padding:10px;text-align:center"><div style="font-size:12px;color:var(--gray400)">狀態</div><div style="font-weight:600;color:var(--blue700)">'+esc(client.status||'—')+'</div></div>';
+    html += '<div style="background:var(--blue50);border-radius:8px;padding:10px;text-align:center"><div style="font-size:12px;color:var(--gray400)">電話</div><div style="font-weight:600">'+esc(client.phone||'—')+'</div></div>';
+    html += '<div style="background:var(--blue50);border-radius:8px;padding:10px;text-align:center"><div style="font-size:12px;color:var(--gray400)">電郵</div><div style="font-weight:600">'+esc(client.email||'—')+'</div></div>';
+    html += '</div>';
+  } else {
+    html += '<div style="font-size:13px;color:var(--gray400);margin-bottom:12px">⚠️ 此客戶尚未在資料庫中登記</div>';
+  }
+  // Policies for this client
+  var policies = DB.policies.filter(function(p){ return p.clientName === clientName; });
+  if (policies.length > 0) {
+    html += '<div style="font-size:13px;font-weight:600;color:var(--gray600);margin-bottom:6px">📄 保單 ('+policies.length+')</div>';
+    html += '<table style="font-size:12px"><thead><tr><th>保單號</th><th>類型</th><th>保費</th><th>投保日期</th><th>狀態</th></tr></thead><tbody>';
+    policies.forEach(function(p){
+      var sc = p.status==='生效'?'badge-green':p.status==='待生效'?'badge-yellow':'badge-red';
+      html += '<tr><td>'+esc(p.policyNo||'—')+'</td><td>'+esc(p.type)+'</td><td>'+money(p.premium)+'</td><td>'+esc(dFmt(p.insureDate))+'</td><td><span class="badge '+sc+'">'+esc(p.status)+'</span></td></tr>';
+    });
+    html += '</tbody></table>';
+  }
+  // PC records for this client
+  var pcs = DB.pcs.filter(function(pc){ return pc.clientName === clientName; });
+  if (pcs.length > 0) {
+    html += '<div style="font-size:13px;font-weight:600;color:var(--gray600);margin:10px 0 6px">📊 PC ('+pcs.length+')</div>';
+    html += '<table style="font-size:12px"><thead><tr><th>日期</th><th>保單</th><th>金額</th></tr></thead><tbody>';
+    pcs.forEach(function(pc){ html += '<tr><td>'+esc(dFmt(pc.date))+'</td><td>'+esc(pc.policyNo||'—')+'</td><td class="amt-pos">'+money(pc.amount)+'</td></tr>'; });
+    html += '</tbody></table>';
+  }
+  // Recent income for this client
+  var incomes = DB.incomes.filter(function(item){ return item.clientName === clientName; }).slice(0, 5);
+  if (incomes.length > 0) {
+    html += '<div style="font-size:13px;font-weight:600;color:var(--gray600);margin:10px 0 6px">💹 近期收入 ('+incomes.length+')</div>';
+    html += '<table style="font-size:12px"><thead><tr><th>日期</th><th>分類</th><th>金額</th></tr></thead><tbody>';
+    incomes.forEach(function(item){
+      var isInc = INCOME_CATS.indexOf(item.category) >= 0;
+      html += '<tr><td>'+esc(dFmt(item.date))+'</td><td>'+esc(item.category)+'</td><td class="'+(isInc?'amt-pos':'amt-neg')+'">'+money(item.amount)+'</td></tr>';
+    });
+    html += '</tbody></table>';
+  }
+  // Upcoming schedules for this client
+  var scheds = DB.schedules.filter(function(s){ return s.clientName === clientName && s.date >= new Date().toISOString().slice(0,10); });
+  if (scheds.length > 0) {
+    html += '<div style="font-size:13px;font-weight:600;color:var(--gray600);margin:10px 0 6px">📅 近期行程 ('+scheds.length+')</div>';
+    html += '<table style="font-size:12px"><thead><tr><th>日期</th><th>時間</th><th>目的</th><th>狀態</th></tr></thead><tbody>';
+    scheds.forEach(function(s){
+      var sc = s.status==='已完成'?'badge-green':s.status==='已確認'?'badge-blue':'badge-yellow';
+      html += '<tr><td>'+esc(dFmt(s.date))+'</td><td>'+esc(s.startTime)+'-'+esc(s.endTime)+'</td><td>'+esc(s.purpose)+'</td><td><span class="badge '+sc+'">'+esc(s.status)+'</span></td></tr>';
+    });
+    html += '</tbody></table>';
+  }
+  if (!html) html = '<div class="empty">無相關資料</div>';
+  content.innerHTML = html;
+  qv.style.display = 'block';
+}
+
+function hideQuickView() {
+  document.getElementById('scheduleQuickView').style.display = 'none';
 }
 
 // ===================================================================
 // FORMS / MODAL
 // ===================================================================
-var editId=null,editType=null;
-var TYPES={policy:['人壽保險','醫療保險','危疾保險','意外保險','儲蓄保險','投資相連','旅遊保險','家居保險','汽車保險','其他'],commission:['首年佣金','續年佣金','花紅','轉介費'],expenseCat:['餐飲','交通','娛樂','購物','家居','醫療','教育','通訊','保險','其他'],payment:['現金','信用卡','銀行轉帳','電子錢包','其他']};
+var editId = null, editType = null;
 
-// ===================================================================
-// SCHEDULES (行程表)
-// ===================================================================
-var weekOffset=0;
-function shiftWeek(n){weekOffset+=n;renderSchedules();}
-function goCurrentWeek(){weekOffset=0;renderSchedules();}
-function renderSchedules(){
-  var today=new Date();
-  var dayOfWeek=today.getDay()||7;
-  var monday=new Date(today);monday.setDate(today.getDate()-dayOfWeek+1+(weekOffset*7));
-  var sunday=new Date(monday);sunday.setDate(monday.getDate()+6);
-  function fmtD(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
-  function fmtL(d){var wd=['日','一','二','三','四','五','六'];return (d.getMonth()+1)+'/'+d.getDate()+' ('+wd[d.getDay()]+')';}
-  // Week label
-  var lbl=document.getElementById('weekLabel');
-  if(lbl) lbl.textContent=fmtD(monday)+' ~ '+fmtD(sunday)+(weekOffset===0?' (本週)':'');
-  // Week view
-  var days=['一','二','三','四','五','六','日'];
-  var html='<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:20px">';
-  for(var d=0;d<7;d++){
-    var dt=new Date(monday);dt.setDate(monday.getDate()+d);
-    var ds=fmtD(dt);
-    var daySchedules=DB.schedules.filter(function(s){return s.date===ds;});
-    daySchedules.sort(function(a,b){return (a.startTime||'').localeCompare(b.startTime||'');});
-    var isToday=fmtD(today)===ds;
-    html+='<div style="background:var(--white);border-radius:8px;padding:10px;min-height:120px;box-shadow:var(--shadow);border-top:3px solid '+(isToday?'var(--blue500)':'var(--gray200)')+'">';
-    html+='<div style="font-size:12px;font-weight:600;color:'+(isToday?'var(--blue500)':'var(--gray500)')+';margin-bottom:6px">'+days[d]+' '+fmtL(dt)+'</div>';
-    if(daySchedules.length===0){
-      html+='<div style="font-size:11px;color:var(--gray300);padding:8px 0;text-align:center">—</div>';
-    } else {
-      daySchedules.forEach(function(s){
-        var sc=s.status==='已完成'?'badge-green':s.status==='已確認'?'badge-blue':s.status==='已取消'?'badge-red':'badge-yellow';
-        html+='<div style="background:var(--blue50);border-radius:6px;padding:6px 8px;margin-bottom:4px;font-size:11px;cursor:pointer" onclick="openForm(\'schedule\','+s.id+')">';
-        html+='<div style="font-weight:600;color:var(--blue700)">'+esc(s.startTime||'')+' - '+esc(s.endTime||'')+'</div>';
-        html+='<div style="color:var(--gray600);margin-top:2px">'+esc(s.clientName||'')+'</div>';
-        html+='<div style="color:var(--gray400)">'+esc(s.purpose||'')+'</div>';
-        html+='<span class="badge '+sc+'" style="margin-top:2px">'+esc(s.status)+'</span>';
-        html+='</div>';
+function openForm(type, id) {
+  editType = type; editId = id||null;
+  var title = id?'編輯':'新增', t = {client:'客戶',policy:'保單',commission:'佣金記錄',expense:'開支記錄',goal:'目標',schedule:'行程',income:'收入記錄',pc:'PC 記錄'};
+  var h = '<h3>'+title+t[type]+'</h3>';
+  if (type === 'client') {
+    var c = id?findById('clients',id):{};
+    h += fg('姓名','name','text',c.name||'')+fg('電話','phone','text',c.phone||'')+fg('電郵','email','email',c.email||'')+fs('狀態','status',['活躍','潛在','流失'],c.status||'活躍')+fg('備註','notes','text',c.notes||'');
+  }
+  else if (type === 'policy') {
+    var p = id?findById('policies',id):{};
+    h += fg('保單編號','policyNo','text',p.policyNo||'')
+      +fs('客戶','clientId',DB.clients.map(function(c){return{val:c.id,label:c.name};}),p.clientId||'')
+      +fs('保險類型','type',TYPES.policy,p.type||'')
+      +fg('保費(HK$)','premium','number',p.premium||'')
+      +fg('佣金率(%)','commissionRate','number',p.commissionRate||'')
+      +fg('投保日期','insureDate','date',p.insureDate||'')
+      +fs('狀態','status',['生效','待生效','審核中','已到期'],p.status||'生效');
+  }
+  else if (type === 'commission') {
+    var c2 = id?findById('commissions',id):{};
+    h += fg('日期','date','date',c2.date||new Date().toISOString().slice(0,10))
+      +fs('客戶','clientName',DB.clients.map(function(c){return c.name;}),c2.clientName||'')
+      +fg('保單編號','policyNo','text',c2.policyNo||'')
+      +fs('佣金類型','type',TYPES.commission,c2.type||'')
+      +fg('金額(HK$)','amount','number',c2.amount||'')
+      +fg('備註','notes','text',c2.notes||'');
+  }
+  else if (type === 'expense') {
+    var e = id?findById('expenses',id):{};
+    h += fg('日期','date','date',e.date||new Date().toISOString().slice(0,10))
+      +fs('分類','category',TYPES.expenseCat,e.category||'')
+      +fg('金額(HK$)','amount','number',e.amount||'')
+      +fs('付款方式','payment',TYPES.payment,e.payment||'')
+      +fg('備註','notes','text',e.notes||'');
+  }
+  else if (type === 'goal') {
+    var g = id?findById('goals',id):{};
+    h += fs('類型','type',['佣金'],g.type||'佣金')
+      +fs('週期','period',['monthly','quarterly','yearly'],g.period||'monthly')
+      +fg('年份','year','number',g.year||new Date().getFullYear())
+      +fg('月份(月目標)','month','number',g.month||new Date().getMonth()+1)
+      +fg('季度(季目標)','quarter','number',g.quarter||Math.ceil((new Date().getMonth()+1)/3))
+      +fg('目標金額(HK$)','target','number',g.target||'')
+      +fg('描述','desc','text',g.desc||'');
+  }
+  else if (type === 'schedule') {
+    var sc = id?findById('schedules',id):{};
+    var timeSlots = generateTimeSlots();
+    // Add "+ 新增客戶" option in client dropdown
+    var clientOpts = DB.clients.map(function(c){return c.name;});
+    clientOpts.push('+ 新增客戶（inline）');
+    h += fg('日期','date','date',sc.date||new Date().toISOString().slice(0,10))
+      +fs('開始時間','startTime',timeSlots,sc.startTime||'10:00')
+      +fs('結束時間','endTime',timeSlots,sc.endTime||'11:00')
+      +fs('客戶','clientName',clientOpts,sc.clientName||'')
+      +'<div id="inlineClientFields" style="display:none;background:var(--blue50);border-radius:8px;padding:14px;margin-bottom:14px;border:1px solid var(--blue100)">'
+      +'<div style="font-size:12px;color:var(--blue700);font-weight:600;margin-bottom:8px">📌 新增客戶（行程建立後自動加入資料庫）</div>'
+      +'<div class="form-row">'+fg('客戶姓名','inlineClientName','text','')+fg('電話','inlineClientPhone','text','')+'</div>'
+      +'<div class="form-row">'+fg('電郵','inlineClientEmail','email','')+fs('狀態','inlineClientStatus',['活躍','潛在','流失'],'活躍')+'</div>'
+      +'</div>'
+      +fs('會面目的','purpose',['講解保單','續保跟進','理財諮詢','索償處理','新客開發','售後服務','其他'],sc.purpose||'')
+      +fg('地點','location','text',sc.location||'')
+      +fs('狀態','status',['待處理','已確認','已完成','已取消'],sc.status||'待處理')
+      +fg('備註','notes','text',sc.notes||'');
+  }
+  else if (type === 'income') {
+    var inc = id?findById('incomes',id):{};
+    h += fg('日期','date','date',inc.date||new Date().toISOString().slice(0,10))
+      +fs('分類','category',TYPES.incomeCat,inc.category||'')
+      +fg('金額(HK$)','amount','number',inc.amount||0)
+      +fs('客戶','clientName',DB.clients.map(function(c){return c.name;}),inc.clientName||'')
+      +fg('保單編號','policyNo','text',inc.policyNo||'')
+      +fs('付款方式','payment',TYPES.payment,inc.payment||'')
+      +fg('備註','notes','text',inc.notes||'');
+  }
+  else if (type === 'pc') {
+    var pc = id?findById('pcs',id):{};
+    h += fg('日期','date','date',pc.date||new Date().toISOString().slice(0,10))
+      +fs('客戶','clientName',DB.clients.map(function(c){return c.name;}),pc.clientName||'')
+      +fg('保單編號','policyNo','text',pc.policyNo||'')
+      +fg('金額(HK$)','amount','number',pc.amount||0)
+      +fg('備註','notes','text',pc.notes||'');
+  }
+  h += '<div class="modal-actions"><button class="btn btn-primary" onclick="saveForm()">儲存</button><button class="btn btn-outline" onclick="closeModal()">取消</button></div>';
+  document.getElementById('modalInner').innerHTML = h; document.getElementById('modalBg').classList.add('show');
+  // Inline client creation toggle for schedule form
+  if (editType === 'schedule') {
+    var clientSel = document.getElementById('f_clientName');
+    if (clientSel) {
+      clientSel.addEventListener('change', function(){
+        var fields = document.getElementById('inlineClientFields');
+        if (fields) fields.style.display = this.value === '+ 新增客戶（inline）' ? 'block' : 'none';
       });
     }
-    html+='</div>';
   }
-  html+='</div>';
-  document.getElementById('scheduleWeekView').innerHTML=html;
-  // Full table
-  var h='';if(DB.schedules.length===0)h='<tr><td colspan="7" class="empty">尚無行程記錄</td></tr>';
-  else{
-    var sorted=DB.schedules.slice().sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
-    sorted.forEach(function(s){
-      var sc=s.status==='已完成'?'badge-green':s.status==='已確認'?'badge-blue':s.status==='已取消'?'badge-red':'badge-yellow';
-      h+='<tr><td>'+esc(dFmt(s.date))+'</td><td>'+esc(s.startTime||'')+'-'+esc(s.endTime||'')+'</td><td>'+esc(s.clientName||'—')+'</td><td>'+esc(s.purpose||'—')+'</td><td>'+esc(s.location||'—')+'</td><td><span class="badge '+sc+'">'+esc(s.status)+'</span></td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'schedule\','+s.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'schedules\','+s.id+')">刪除</button></td></tr>';
-    });
+}
+
+function fg(label, name, type, value) { return '<div class="form-group"><label>'+label+'</label><input type="'+type+'" id="f_'+name+'" value="'+(value||'')+'"></div>'; }
+function fs(label, name, options, selected) {
+  var isObj = options.length>0 && typeof options[0]==='object';
+  var h = '<div class="form-group"><label>'+label+'</label><select id="f_'+name+'">';
+  options.forEach(function(opt){
+    var val = isObj?opt.val:opt, lbl = isObj?opt.label:opt;
+    h += '<option value="'+esc(val)+'"'+(String(val)===String(selected)?' selected':'')+'>'+esc(lbl)+'</option>';
+  });
+  h += '</select></div>'; return h;
+}
+
+function closeModal() { document.getElementById('modalBg').classList.remove('show'); }
+
+function saveForm() {
+  if (editType === 'client') {
+    var o = {id:editId||uid(),name:val('f_name'),phone:val('f_phone'),email:val('f_email'),status:val('f_status'),notes:val('f_notes'),createdAt:editId?findById('clients',editId).createdAt:new Date().toISOString()};
+    saveTo('clients',o);
   }
-  document.getElementById('scheduleTable').innerHTML=h;
+  else if (editType === 'policy') {
+    var cid = val('f_clientId'), cn = '';
+    DB.clients.forEach(function(c){ if (String(c.id)===String(cid)) cn = c.name; });
+    var o = {id:editId||uid(),policyNo:val('f_policyNo'),clientId:cid,clientName:cn,type:val('f_type'),premium:val('f_premium'),commissionRate:val('f_commissionRate'),insureDate:val('f_insureDate'),status:val('f_status')};
+    saveTo('policies',o);
+  }
+  else if (editType === 'commission') {
+    var o = {id:editId||uid(),date:val('f_date'),clientName:val('f_clientName'),policyNo:val('f_policyNo'),type:val('f_type'),amount:val('f_amount'),notes:val('f_notes')};
+    saveTo('commissions',o);
+  }
+  else if (editType === 'expense') {
+    var o = {id:editId||uid(),date:val('f_date'),category:val('f_category'),amount:val('f_amount'),payment:val('f_payment'),notes:val('f_notes')};
+    saveTo('expenses',o);
+  }
+  else if (editType === 'goal') {
+    var o = {id:editId||uid(),type:val('f_type'),period:val('f_period'),year:Number(val('f_year')),month:Number(val('f_month')),quarter:Number(val('f_quarter')),target:Number(val('f_target')),desc:val('f_desc')};
+    saveTo('goals',o);
+  }
+  else if (editType === 'schedule') {
+    var clientName = val('f_clientName');
+    // Handle inline client creation
+    if (clientName === '+ 新增客戶（inline）') {
+      var inlineName = val('f_inlineClientName');
+      if (!inlineName) { alert('請輸入新客戶姓名'); return; }
+      // Check if client already exists
+      var exists = DB.clients.some(function(c){ return c.name === inlineName; });
+      if (exists) {
+        clientName = inlineName;
+        toast('客戶「'+inlineName+'」已存在，自動連結');
+      } else {
+        var newClient = {id:uid(),name:inlineName,phone:val('f_inlineClientPhone')||'',email:val('f_inlineClientEmail')||'',status:val('f_inlineClientStatus')||'活躍',notes:'從行程表新增',createdAt:new Date().toISOString()};
+        DB.clients.push(newClient);
+        clientName = inlineName;
+        toast('✅ 已新增客戶「'+inlineName+'」到資料庫');
+      }
+    }
+    var o = {id:editId||uid(),date:val('f_date'),startTime:val('f_startTime'),endTime:val('f_endTime'),clientName:clientName,purpose:val('f_purpose'),location:val('f_location'),status:val('f_status'),notes:val('f_notes')};
+    saveTo('schedules',o);
+  }
+  else if (editType === 'income') {
+    var cat = val('f_category');
+    var isIncome = INCOME_CATS.indexOf(cat) >= 0;
+    var o = {id:editId||uid(),date:val('f_date'),category:cat,amount:val('f_amount'),clientName:val('f_clientName'),policyNo:val('f_policyNo'),payment:val('f_payment'),notes:val('f_notes')};
+    saveTo('incomes',o);
+    // 雲端兼容：同步寫入 commissions 或 expenses
+    if (isIncome) {
+      var commObj = {id:o.id,date:o.date,clientName:o.clientName,policyNo:o.policyNo,type:cat,amount:o.amount,notes:o.notes};
+      saveTo('commissions',commObj);
+    } else {
+      var expObj = {id:o.id,date:o.date,category:o.category,amount:o.amount,payment:o.payment,notes:o.notes};
+      saveTo('expenses',expObj);
+    }
+  }
+  else if (editType === 'pc') {
+    var o = {id:editId||uid(),date:val('f_date'),clientName:val('f_clientName'),policyNo:val('f_policyNo'),amount:val('f_amount'),notes:val('f_notes')};
+    saveTo('pcs',o);
+  }
+  closeModal(); saveDB(); toast(editId?'已更新':'已新增');
+  if (CLOUD_ENABLED && agentName) saveDBAutoSync();
+  renderCurrentTab();
 }
-function openForm(type,id){
-  editType=type;editId=id||null;
-  var title=id?'編輯':'新增',t={client:'客戶',policy:'保單',commission:'佣金記錄',expense:'開支記錄',goal:'目標',schedule:'行程'};
-  var h='<h3>'+title+t[type]+'</h3>';
-  if(type==='client'){var c=id?findById('clients',id):{};h+=fg('姓名','name','text',c.name||'')+fg('電話','phone','text',c.phone||'')+fg('電郵','email','email',c.email||'')+fs('狀態','status',['活躍','潛在','流失'],c.status||'活躍')+fg('備註','notes','text',c.notes||'');}
-  else if(type==='policy'){var p=id?findById('policies',id):{};h+=fg('保單編號','policyNo','text',p.policyNo||'')+fs('客戶','clientId',DB.clients.map(function(c){return{val:c.id,label:c.name};}),p.clientId||'')+fs('保險類型','type',TYPES.policy,p.type||'')+fg('保費(HK$)','premium','number',p.premium||'')+fg('佣金率(%)','commissionRate','number',p.commissionRate||'')+fg('開始日','startDate','date',p.startDate||'')+fg('到期日','endDate','date',p.endDate||'')+fs('狀態','status',['生效','待生效','審核中','已到期'],p.status||'生效');}
-  else if(type==='commission'){var c2=id?findById('commissions',id):{};h+=fg('日期','date','date',c2.date||new Date().toISOString().slice(0,10))+fs('客戶','clientName',DB.clients.map(function(c){return c.name;}),c2.clientName||'')+fg('保單編號','policyNo','text',c2.policyNo||'')+fs('佣金類型','type',TYPES.commission,c2.type||'')+fg('金額(HK$)','amount','number',c2.amount||'')+fg('備註','notes','text',c2.notes||'');}
-  else if(type==='expense'){var e=id?findById('expenses',id):{};h+=fg('日期','date','date',e.date||new Date().toISOString().slice(0,10))+fs('分類','category',TYPES.expenseCat,e.category||'')+fg('金額(HK$)','amount','number',e.amount||'')+fs('付款方式','payment',TYPES.payment,e.payment||'')+fg('備註','notes','text',e.notes||'');}
-  else if(type==='goal'){var g=id?findById('goals',id):{};h+=fs('類型','type',['佣金'],g.type||'佣金')+fs('週期','period',['monthly','quarterly','yearly'],g.period||'monthly')+fg('年份','year','number',g.year||new Date().getFullYear())+fg('月份(月目標)','month','number',g.month||new Date().getMonth()+1)+fg('季度(季目標)','quarter','number',g.quarter||Math.ceil((new Date().getMonth()+1)/3))+fg('目標金額(HK$)','target','number',g.target||'')+fg('描述','desc','text',g.desc||'');}
-  else if(type==='schedule'){var sc=id?findById('schedules',id):{};h+=fg('日期','date','date',sc.date||new Date().toISOString().slice(0,10))+fg('開始時間','startTime','time',sc.startTime||'10:00')+fg('結束時間','endTime','time',sc.endTime||'11:00')+fs('客戶','clientName',DB.clients.map(function(c){return c.name;}),sc.clientName||'')+fs('會面目的','purpose',['講解保單','續保跟進','理財諮詢','索償處理','新客開發','售後服務','其他'],sc.purpose||'')+fg('地點','location','text',sc.location||'')+fs('狀態','status',['待處理','已確認','已完成','已取消'],sc.status||'待處理')+fg('備註','notes','text',sc.notes||'');}
-  h+='<div class="modal-actions"><button class="btn btn-primary" onclick="saveForm()">儲存</button><button class="btn btn-outline" onclick="closeModal()">取消</button></div>';
-  document.getElementById('modalInner').innerHTML=h;document.getElementById('modalBg').classList.add('show');
+
+function saveTo(key, obj) {
+  if (editId) { for (var i=0;i<DB[key].length;i++) if (DB[key][i].id===editId) { DB[key][i]=obj; return; } }
+  DB[key].push(obj);
 }
-function fg(label,name,type,value){return'<div class="form-group"><label>'+label+'</label><input type="'+type+'" id="f_'+name+'" value="'+(value||'')+'"></div>';}
-function fs(label,name,options,selected){var isObj=options.length>0&&typeof options[0]==='object';var h='<div class="form-group"><label>'+label+'</label><select id="f_'+name+'">';options.forEach(function(opt){var val=isObj?opt.val:opt,lbl=isObj?opt.label:opt;h+='<option value="'+esc(val)+'"'+(String(val)===String(selected)?' selected':'')+'>'+esc(lbl)+'</option>';});h+='</select></div>';return h;}
-function closeModal(){document.getElementById('modalBg').classList.remove('show');}
-function saveForm(){
-  if(editType==='client'){var o={id:editId||uid(),name:val('f_name'),phone:val('f_phone'),email:val('f_email'),status:val('f_status'),notes:val('f_notes'),createdAt:editId?findById('clients',editId).createdAt:new Date().toISOString()};saveTo('clients',o);}
-  else if(editType==='policy'){var cid=val('f_clientId'),cn='';DB.clients.forEach(function(c){if(String(c.id)===String(cid))cn=c.name;});var o={id:editId||uid(),policyNo:val('f_policyNo'),clientId:cid,clientName:cn,type:val('f_type'),premium:val('f_premium'),commissionRate:val('f_commissionRate'),startDate:val('f_startDate'),endDate:val('f_endDate'),status:val('f_status')};saveTo('policies',o);}
-  else if(editType==='commission'){var o={id:editId||uid(),date:val('f_date'),clientName:val('f_clientName'),policyNo:val('f_policyNo'),type:val('f_type'),amount:val('f_amount'),notes:val('f_notes')};saveTo('commissions',o);}
-  else if(editType==='expense'){var o={id:editId||uid(),date:val('f_date'),category:val('f_category'),amount:val('f_amount'),payment:val('f_payment'),notes:val('f_notes')};saveTo('expenses',o);}
-  else if(editType==='goal'){var o={id:editId||uid(),type:val('f_type'),period:val('f_period'),year:Number(val('f_year')),month:Number(val('f_month')),quarter:Number(val('f_quarter')),target:Number(val('f_target')),desc:val('f_desc')};saveTo('goals',o);}
-  else if(editType==='schedule'){var o={id:editId||uid(),date:val('f_date'),startTime:val('f_startTime'),endTime:val('f_endTime'),clientName:val('f_clientName'),purpose:val('f_purpose'),location:val('f_location'),status:val('f_status'),notes:val('f_notes')};saveTo('schedules',o);}
-  closeModal();saveDB();toast(editId?'已更新':'已新增');
-  if(currentTab==='dashboard')renderDashboard();if(currentTab==='clients')renderClients();if(currentTab==='policies')renderPolicies();if(currentTab==='commissions')renderCommissions();if(currentTab==='expenses')renderExpenses();if(currentTab==='goals')renderGoals();if(currentTab==='schedules')renderSchedules();
+
+function del(key, id) {
+  if (!confirm('確定刪除？')) return;
+  DB[key] = DB[key].filter(function(x){ return x.id!==id; });
+  // 如果刪除 incomes，同步刪除對應的 commissions/expenses
+  if (key === 'incomes') {
+    DB.commissions = DB.commissions.filter(function(x){ return x.id!==id; });
+    DB.expenses = DB.expenses.filter(function(x){ return x.id!==id; });
+  }
+  saveDB(); toast('已刪除','error');
+  if (CLOUD_ENABLED && agentName) saveDBAutoSync();
+  renderCurrentTab();
 }
-function saveTo(key,obj){if(editId){for(var i=0;i<DB[key].length;i++)if(DB[key][i].id===editId){DB[key][i]=obj;return;}}DB[key].push(obj);}
-function del(key,id){if(!confirm('確定刪除？'))return;DB[key]=DB[key].filter(function(x){return x.id!==id;});saveDB();toast('已刪除','error');if(currentTab==='dashboard')renderDashboard();if(currentTab==='clients')renderClients();if(currentTab==='policies')renderPolicies();if(currentTab==='commissions')renderCommissions();if(currentTab==='expenses')renderExpenses();if(currentTab==='goals')renderGoals();if(currentTab==='schedules')renderSchedules();}
-function findById(key,id){for(var i=0;i<DB[key].length;i++)if(DB[key][i].id===id)return DB[key][i];return {};}
-function val(id){return(document.getElementById(id)||{}).value||'';}
+
+function findById(key, id) { for (var i=0;i<DB[key].length;i++) if (DB[key][i].id===id) return DB[key][i]; return {}; }
+function val(id) { return (document.getElementById(id)||{}).value||''; }
 
 // ===================================================================
 // EXPORT / IMPORT
 // ===================================================================
-function exportData(){
-  var payload={agent:agentName,exportedAt:new Date().toISOString(),data:DB};
-  var blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
-  var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+function exportData() {
+  var payload = {agent:agentName,exportedAt:new Date().toISOString(),data:DB};
+  var blob = new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  var a = document.createElement('a'); a.href=URL.createObjectURL(blob);
   a.download='backup_'+encodeURIComponent(agentName)+'_'+new Date().toISOString().slice(0,10)+'.json';
-  a.click();toast('已匯出備份');
+  a.click(); toast('已匯出備份');
 }
-function exportForManager(){
-  var payload={agent:agentName,exportedAt:new Date().toISOString(),data:DB};
-  var blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
-  var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+
+function exportForManager() {
+  // 建立匯出數據，行程 purpose 保持原樣（經理版自行處理顯示）
+  var exportDB = JSON.parse(JSON.stringify(DB));
+  exportDB.schedules.forEach(function(s){
+    s.purpose = s.purpose || '—';
+  });
+  var payload = {agent:agentName,exportedAt:new Date().toISOString(),data:exportDB};
+  var blob = new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  var a = document.createElement('a'); a.href=URL.createObjectURL(blob);
   a.download='report_'+encodeURIComponent(agentName)+'_'+new Date().toISOString().slice(0,10)+'.json';
   a.click();
-  // Also copy to clipboard
   var summary='代理人: '+agentName+'\n客戶: '+DB.clients.length+' 位\n保單: '+DB.policies.length+' 份\n本月佣金: '+money(DB.commissions.filter(function(c){var d=new Date(c.date);return d.getMonth()===new Date().getMonth()&&d.getFullYear()===new Date().getFullYear();}).reduce(function(s,c){return s+(Number(c.amount)||0);},0));
-  try{navigator.clipboard.writeText(summary);}catch(e){}
-  document.getElementById('lastSyncLabel').textContent='上次匯出: '+new Date().toLocaleString('zh-HK');
+  try { navigator.clipboard.writeText(summary); } catch(e) {}
+  document.getElementById('lastSyncLabel').textContent = '上次匯出: '+new Date().toLocaleString('zh-HK');
   toast('已匯出給經理的報告檔 📄\n經理可用「經理總覽頁」匯入多份報告');
 }
-function doImport(evt){
-  var file=evt.target.files[0];if(!file)return;
-  var reader=new FileReader();
-  reader.onload=function(){
-    try{var d=JSON.parse(reader.result);if(d.data){DB={clients:[],policies:[],commissions:[],expenses:[],goals:[],schedules:[]};Object.assign(DB,d.data);if(d.agent&&d.agent!==agentName){agentName=d.agent;localStorage.setItem(AGENT_KEY,agentName);document.getElementById('agentNameDisplay').textContent=agentName;document.getElementById('sidebarAgentInfo').textContent=agentName+' | 代理人版';}_id=0;['clients','policies','commissions','expenses','goals','schedules'].forEach(function(k){DB[k].forEach(function(x){if(x.id>_id)_id=x.id;});});_id++;saveDB();renderDashboard();toast('已匯入資料');}else{DB=d;saveDB();renderDashboard();toast('已匯入舊格式資料');}}catch(ex){toast('匯入失敗：格式錯誤','error');}
-  };reader.readAsText(file);evt.target.value='';
+
+function doImport(evt) {
+  var file = evt.target.files[0]; if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(){
+    try {
+      var d = JSON.parse(reader.result);
+      if (d.data) {
+        DB = {clients:[],policies:[],commissions:[],expenses:[],goals:[],schedules:[],pcs:[],incomes:[]};
+        Object.assign(DB, d.data);
+        if (d.agent && d.agent!==agentName) { agentName=d.agent; localStorage.setItem(AGENT_KEY,agentName); document.getElementById('agentNameDisplay').textContent=agentName; document.getElementById('sidebarAgentInfo').textContent=agentName+' | 代理人版'; }
+        _id=0; ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k){ DB[k].forEach(function(x){ if (x.id>_id) _id=x.id; }); }); _id++;
+        saveDB(); renderDashboard(); toast('已匯入資料');
+      } else { DB=d; saveDB(); renderDashboard(); toast('已匯入舊格式資料'); }
+    } catch(ex) { toast('匯入失敗：格式錯誤','error'); }
+  }; reader.readAsText(file); evt.target.value='';
 }
 
 // ===================================================================
@@ -1119,10 +1495,13 @@ initAgent();
 
 // 自動同步：每 30 秒推送一次（如果有連接雲端）
 setInterval(function(){
-  if(CLOUD_ENABLED && agentName && API_URL){
-    saveToCloud();  // 背景同步，唔彈 toast
+  if (CLOUD_ENABLED && agentName && API_URL) {
+    saveToCloud();
   }
 }, 30000);
+</script>
+<script>
+if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(function(r){console.log('[PWA] Service Worker 已註冊:',r.scope);}).catch(function(e){console.warn('[PWA] SW 註冊失敗:',e);});}
 </script>
 </body>
 </html>
