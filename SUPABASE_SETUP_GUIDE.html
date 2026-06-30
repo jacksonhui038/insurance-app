@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Supabase 設定指南 — 保經管家</title>
+<style>
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:720px;margin:0 auto;padding:30px 20px;line-height:1.7;color:#333}
+  h1{color:#1c1c1c;font-size:24px;border-bottom:2px solid #3ecf8e;padding-bottom:12px}
+  h2{color:#333;font-size:18px;margin-top:32px}
+  .step{background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:20px;margin:16px 0}
+  .step h3{color:#3ecf8e;margin-top:0;font-size:16px}
+  code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:13px;word-break:break-all}
+  pre{background:#1e293b;color:#e2e8f0;padding:16px;border-radius:8px;overflow-x:auto;font-size:13px;line-height:1.5}
+  .note{background:#fef3c7;border-left:4px solid #f59e0b;padding:12px 16px;border-radius:0 8px 8px 0;margin:16px 0;font-size:14px}
+  .tip{background:#d1fae5;border-left:4px solid #10b981;padding:12px 16px;border-radius:0 8px 8px 0;margin:16px 0;font-size:14px}
+  .btn{display:inline-block;background:#3ecf8e;color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px}
+  img{max-width:100%;border-radius:8px;border:1px solid #e5e7eb}
+  table{width:100%;border-collapse:collapse;margin:16px 0}
+  th,td{border:1px solid #e5e7eb;padding:10px 14px;text-align:left;font-size:14px}
+  th{background:#f9fafb;font-weight:600}
+</style>
+</head>
+<body>
+
+<h1>Supabase 設定指南 — 保經管家</h1>
+
+<p>呢份指南會帶你一步一步建立 Supabase 數據庫，同埋將保經管家嘅數據安全遷移過去。</p>
+
+<p><strong>預計時間：</strong> 15 分鐘 <strong>難度：</strong> 簡單（跟住做就得）<strong>費用：</strong> 免費（500MB 額度）</p>
+
+<hr>
+
+<h2>第一步：開 Supabase 帳戶</h2>
+
+<div class="step">
+<h3>1️⃣ 註冊</h3>
+<ol>
+  <li>去 <a href="https://supabase.com" target="_blank">https://supabase.com</a></li>
+  <li>撳右上角 <strong>"Start your project"</strong></li>
+  <li>用 <strong>GitHub 帳號</strong>登入（最簡單，唔使填表）</li>
+</ol>
+<p>或者直接用 Google 帳號登入都得。</p>
+</div>
+
+<div class="step">
+<h3>2️⃣ 建立新專案</h3>
+<ol>
+  <li>登入後撳 <strong>"New project"</strong></li>
+  <li>填寫以下資料：
+    <table>
+      <tr><th>欄位</th><th>填咩</th></tr>
+      <tr><td>Name</td><td><code>insurance-manager</code>（或任何名）</td></tr>
+      <tr><td>Database Password</td><td>設定一個密碼（記低佢！）</td></tr>
+      <tr><td>Region</td><td><strong>Northeast Asia (Tokyo)</strong> — 最近香港</td></tr>
+      <tr><td>Pricing Plan</td><td><strong>Free</strong>（免費 500MB）</td></tr>
+    </table>
+  </li>
+  <li>撳 <strong>"Create new project"</strong></li>
+  <li>等 1-2 分鐘建立完成</li>
+</ol>
+</div>
+
+<hr>
+
+<h2>第二步：建立資料表</h2>
+
+<div class="step">
+<h3>3️⃣ 開啟 SQL Editor</h3>
+<p>喺左邊 sidebar 撳 <strong>SQL Editor</strong>（第二個 icon）→ 撳 <strong>"New query"</strong></p>
+</div>
+
+<div class="step">
+<h3>4️⃣ 貼上 SQL 並執行</h3>
+<p>複製下面全部 SQL，貼入 SQL Editor，撳右下角綠色 <strong>"Run"</strong> 掣：</p>
+<pre>-- 代理人數據表
+CREATE TABLE IF NOT EXISTS agents (
+  id        BIGSERIAL PRIMARY KEY,
+  name      TEXT NOT NULL,
+  data      JSONB NOT NULL DEFAULT '{}',
+  manager   TEXT DEFAULT '',
+  team      TEXT DEFAULT '',
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_agents_name ON agents(name);
+CREATE INDEX IF NOT EXISTS idx_agents_updated ON agents(updated_at DESC);
+
+-- 自動更新時間
+CREATE OR REPLACE FUNCTION update_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_agents_updated_at
+  BEFORE UPDATE ON agents
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at();
+
+-- 啟用 RLS
+ALTER TABLE agents ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow all for anon" ON agents
+  FOR ALL USING (true) WITH CHECK (true);</pre>
+<div class="tip">見到 "Success. No rows returned" 就代表成功！</div>
+</div>
+
+<hr>
+
+<h2>第三步：攞 API Key</h2>
+
+<div class="step">
+<h3>5️⃣ 複製網址同 Key</h3>
+<ol>
+  <li>左邊 sidebar 撳 <strong>Settings</strong>（齒輪 icon，最底）</li>
+  <li>撳 <strong>API</strong>（喺左邊子選單）</li>
+  <li>你會見到兩個重要資料：
+    <table>
+      <tr><th>欄位</th><th>喺邊搵</th></tr>
+      <tr><td>Project URL</td><td><code>https://xxxxxxxxxxxx.supabase.co</code></td></tr>
+      <tr><td>anon public key</td><td>好長一串，以 <code>eyJhbGciOi...</code> 開頭</td></tr>
+    </table>
+  </li>
+</ol>
+<div class="note">⚠️ <strong>記得用 anon/public key</strong>，唔好用 secret key！Secret key 係俾 server 用嘅，放喺前端會好危險。</div>
+</div>
+
+<hr>
+
+<h2>第四步：設定保經管家</h2>
+
+<div class="step">
+<h3>6️⃣ 喺代理 App 設定</h3>
+<ol>
+  <li>打開<a href="https://jacksonhui038.github.io/insurance-app/agent-app.html" target="_blank">代理人版</a></li>
+  <li>登入後撳右上角 <strong>☁️ 雲端</strong></li>
+  <li>喺 "Supabase（推薦）" 區域：
+    <ul>
+      <li><strong>專案網址：</strong>貼上 Project URL（例如 <code>https://abc123.supabase.co</code>）</li>
+      <li><strong>anon key：</strong>貼上 anon public key</li>
+    </ul>
+  </li>
+  <li>撳 <strong>"儲存設定"</strong></li>
+  <li>系統會自動同步現有數據到 Supabase ✅</li>
+</ol>
+</div>
+
+<div class="step">
+<h3>7️⃣ 喺經理版設定</h3>
+<ol>
+  <li>打開<a href="https://jacksonhui038.github.io/insurance-app/manager-dashboard.html" target="_blank">經理版</a></li>
+  <li>登入後撳 <strong>⚙️ 設定</strong></li>
+  <li>貼上同樣嘅 Project URL + anon key</li>
+  <li>撳 <strong>"儲存並載入"</strong> → 會自動讀取團隊數據</li>
+</ol>
+</div>
+
+<hr>
+
+<h2>雙寫安全機制（已經內建）</h2>
+
+<div class="tip">
+<strong>✅ Google Sheets 同 Supabase 可以同時用！</strong><br><br>
+你唔需要即刻放棄 Google Sheets。系統已經內建「雙寫」機制：
+<ul>
+  <li>每次同步會同時寫入 <strong>Supabase + Google Sheets</strong></li>
+  <li>載入數據優先 Supabase、fallback Google Sheets</li>
+  <li>任何一邊出事，另一邊繼續運作</li>
+  <li>確認 Supabase 穩定後，可以喺設定入面清空 Google Sheets 網址</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>常見問題</h2>
+
+<div class="step">
+<h3>Q: 換返 Google Sheets 會唔會好麻煩？</h3>
+<p><strong>A: 完全唔麻煩。</strong> 去雲端設定清空 Supabase 欄位，留返 Google Sheets 網址就得。所有代理人手機 localStorage 嘅數據唔會消失，撳「同步」就推返上去。</p>
+</div>
+
+<div class="step">
+<h3>Q: 免費 500MB 夠幾多個代理人用？</h3>
+<p><strong>A: 好夠。</strong> 每個代理人嘅全部數據（客戶 + 保單 + 佣金 + 行程 + 收入 + 支出 + PC）大約 50-200KB。即係 500MB 夠 2,500-10,000 個代理人用。</p>
+</div>
+
+<div class="step">
+<h3>Q: 數據安唔安全？</h3>
+<p><strong>A: 好安全。</strong> Supabase 有 SOC2 + GDPR 認證，傳輸加密（HTTPS），靜態加密（encryption at rest），Row-Level Security。比 Google Sheets API URL 安全好多。</p>
+</div>
+
+<div class="step">
+<h3>Q: 需要信用卡嗎？</h3>
+<p><strong>A: 唔需要。</strong> Free plan 唔使信用卡，永久免費。超額先會問你升級。</p>
+</div>
+
+<hr>
+
+<div style="text-align:center;padding:30px 0">
+  <p style="font-size:16px;color:#666">設定有問題？可以隨時問返 WorkBuddy 幫手。</p>
+  <a href="https://supabase.com/dashboard" class="btn" target="_blank">去 Supabase Dashboard</a>
+</div>
+
+</body>
+</html>
