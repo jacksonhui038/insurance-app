@@ -887,66 +887,8 @@ function renderCurrentTab() {
 // SAMPLE DATA
 // ===================================================================
 function loadSample() {
-  if (DB.clients.length > 0) return;
-  var y = new Date().getFullYear();
-  DB.clients = [
-    {id:uid(),name:'陳大文',phone:'9123 4567',email:'chan@example.com',status:'活躍',notes:'已購買醫療+人壽',createdAt:y+'-01-15'},
-    {id:uid(),name:'李小美',phone:'9345 6789',email:'lee@example.com',status:'活躍',notes:'對儲蓄有興趣',createdAt:y+'-02-20'},
-    {id:uid(),name:'王先生',phone:'9567 8901',email:'wong@example.com',status:'潛在',notes:'考慮旅遊保險',createdAt:y+'-03-10'},
-    {id:uid(),name:'張太',phone:'9789 0123',email:'cheung@example.com',status:'活躍',notes:'已投保危疾+意外',createdAt:y+'-01-28'}
-  ];
-  DB.policies = [
-    {id:uid(),policyNo:'POL-001',clientId:DB.clients[0].id,clientName:'陳大文',type:'醫療保險',premium:12000,commissionRate:15,insureDate:y+'-02-01',status:'生效'},
-    {id:uid(),policyNo:'POL-002',clientId:DB.clients[0].id,clientName:'陳大文',type:'人壽保險',premium:24000,commissionRate:20,insureDate:y+'-02-01',status:'生效'},
-    {id:uid(),policyNo:'POL-003',clientId:DB.clients[1].id,clientName:'李小美',type:'儲蓄保險',premium:60000,commissionRate:10,insureDate:y+'-03-01',status:'生效'},
-    {id:uid(),policyNo:'POL-004',clientId:DB.clients[3].id,clientName:'張太',type:'危疾保險',premium:18000,commissionRate:18,insureDate:y+'-02-15',status:'生效'},
-    {id:uid(),policyNo:'POL-005',clientId:DB.clients[3].id,clientName:'張太',type:'意外保險',premium:800,commissionRate:12,insureDate:y+'-02-15',status:'待生效'}
-  ];
-  DB.commissions = [
-    {id:uid(),date:y+'-01-20',clientName:'陳大文',policyNo:'POL-001',type:'首年佣金',amount:1800,notes:'醫療首期'},
-    {id:uid(),date:y+'-02-05',clientName:'陳大文',policyNo:'POL-002',type:'首年佣金',amount:4800,notes:'人壽首期'},
-    {id:uid(),date:y+'-02-18',clientName:'張太',policyNo:'POL-004',type:'首年佣金',amount:3240,notes:'危疾'},
-    {id:uid(),date:y+'-03-10',clientName:'李小美',policyNo:'POL-003',type:'首年佣金',amount:6000,notes:'儲蓄'},
-    {id:uid(),date:y+'-04-15',clientName:'陳大文',policyNo:'POL-001',type:'續年佣金',amount:900,notes:''},
-    {id:uid(),date:y+'-05-20',clientName:'張太',policyNo:'POL-004',type:'續年佣金',amount:1620,notes:''},
-    {id:uid(),date:y+'-06-10',clientName:'陳大文',policyNo:'POL-002',type:'續年佣金',amount:2400,notes:''}
-  ];
-  DB.expenses = [
-    {id:uid(),date:y+'-01-25',category:'交通',amount:350,payment:'信用卡',notes:'的士費'},
-    {id:uid(),date:y+'-02-10',category:'餐飲',amount:680,payment:'信用卡',notes:'客戶午餐'},
-    {id:uid(),date:y+'-03-05',category:'交通',amount:1200,payment:'電子錢包',notes:'港鐵月票'},
-    {id:uid(),date:y+'-04-08',category:'教育',amount:2800,payment:'信用卡',notes:'進修課程'},
-    {id:uid(),date:y+'-06-01',category:'家居',amount:1200,payment:'銀行轉帳',notes:'辦公室攤分'}
-  ];
-  DB.incomes = [
-    {id:uid(),date:y+'-01-20',category:'佣金收入',amount:1800,clientName:'陳大文',policyNo:'POL-001',payment:'',notes:'醫療首期佣金'},
-    {id:uid(),date:y+'-02-05',category:'佣金收入',amount:4800,clientName:'陳大文',policyNo:'POL-002',payment:'',notes:'人壽首期佣金'},
-    {id:uid(),date:y+'-02-10',category:'餐飲',amount:680,clientName:'',policyNo:'',payment:'信用卡',notes:'客戶午餐'},
-    {id:uid(),date:y+'-03-05',category:'交通',amount:1200,clientName:'',policyNo:'',payment:'電子錢包',notes:'港鐵月票'},
-    {id:uid(),date:y+'-02-18',category:'佣金收入',amount:3240,clientName:'張太',policyNo:'POL-004',payment:'',notes:'危疾佣金'},
-    {id:uid(),date:y+'-04-08',category:'教育',amount:2800,clientName:'',policyNo:'',payment:'信用卡',notes:'進修課程'}
-  ];
-  DB.pcs = [
-    {id:uid(),date:y+'-02-05',clientName:'陳大文',policyNo:'POL-001',amount:12000,notes:'醫療保費收取'},
-    {id:uid(),date:y+'-03-01',clientName:'李小美',policyNo:'POL-003',amount:60000,notes:'儲蓄保費收取'},
-    {id:uid(),date:y+'-04-15',clientName:'張太',policyNo:'POL-004',amount:18000,notes:'危疾保費收取'}
-  ];
-  var m = new Date().getMonth()+1;
-  DB.goals = [
-    {id:uid(),type:'佣金',period:'monthly',year:y,month:m,quarter:0,target:20000,desc:y+'年'+m+'月目標'},
-    {id:uid(),type:'佣金',period:'yearly',year:y,month:0,quarter:0,target:200000,desc:y+'年度目標'}
-  ];
-  var today=new Date(), dayOfWeek = today.getDay()||7, monday=new Date(today); monday.setDate(today.getDate()-dayOfWeek+1);
-  function fmtD(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
-  var tue = new Date(monday); tue.setDate(monday.getDate()+1);
-  var thu = new Date(monday); thu.setDate(monday.getDate()+3);
-  var fri = new Date(monday); fri.setDate(monday.getDate()+4);
-  DB.schedules = [
-    {id:uid(),date:fmtD(tue),startTime:'10:00',endTime:'11:00',clientName:'陳大文',purpose:'講解保單',location:'中環辦公室',status:'已確認',notes:'醫療+人壽組合'},
-    {id:uid(),date:fmtD(thu),startTime:'14:00',endTime:'15:30',clientName:'李小美',purpose:'理財諮詢',location:'金鐘咖啡室',status:'待處理',notes:'儲蓄方案'},
-    {id:uid(),date:fmtD(fri),startTime:'11:00',endTime:'12:00',clientName:'張太',purpose:'續保跟進',location:'客戶家中',status:'已確認',notes:'危疾續保'}
-  ];
-  saveDB(); renderDashboard(); toast('已載入示範數據，開始管理你嘅業務吧！');
+  // 不載入示範數據，新代理人以空白狀態開始
+  saveDB(); renderDashboard();
 }
 
 // ===================================================================
