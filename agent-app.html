@@ -92,6 +92,8 @@ tr:hover td{background:var(--blue50)}
 .modal{background:var(--white);border-radius:var(--radius);padding:24px;width:92%;max-width:520px;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.2)}
 .modal h3{font-size:16px;font-weight:700;margin-bottom:18px}
 .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
+.acct-section{border-bottom:1px solid var(--gray200);padding-bottom:14px;margin-bottom:14px}
+.acct-section:last-child{border-bottom:none;padding-bottom:0;margin-bottom:0}
 /* PERIOD */
 .period-btns{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap}
 .period-btn{padding:6px 16px;border-radius:20px;font-size:12px;cursor:pointer;border:1px solid var(--gray300);background:var(--white);color:var(--gray500);transition:all .15s;font-weight:500}
@@ -220,27 +222,45 @@ tr:hover td{background:var(--blue50)}
 
 <!-- CLOUD SETUP MODAL -->
 <div class="modal-bg" id="cloudModalBg">
-  <div class="modal" style="max-width:480px">
+  <div class="modal" style="max-width:520px">
     <h3>☁️ 雲端同步設定</h3>
     <p style="color:var(--gray500);font-size:13px;margin-bottom:14px">
-      填入 Google Apps Script 網址，即可跨設備同步數據。<br>
-      <a href="#" onclick="alert('部署教學：\n1. 開一個新 Google Sheet\n2. 擴充功能 → Apps Script\n3. 貼上 code.gs\n4. 部署 → 網頁應用程式\n5. 存取權：任何人\n6. 複製網址填下面');return false" style="color:var(--blue500)">點樣取得網址？睇教學</a>
+      可同時設定 Google Sheets（兼容模式）同 Supabase（推薦）。兩個同時用最安全。
     </p>
-    <div class="form-group">
-      <label>Google Apps Script 網址</label>
-      <input type="url" id="apiUrlInput" placeholder="https://script.google.com/macros/s/..." style="font-size:12px">
+    <!-- Google Sheets 區塊 -->
+    <div class="acct-section">
+      <h4 style="font-size:13px;color:var(--gray600);margin-bottom:8px">📊 Google Sheets（兼容模式）</h4>
+      <div class="form-group">
+        <label>Google Apps Script 網址</label>
+        <input type="url" id="apiUrlInput" placeholder="https://script.google.com/macros/s/..." style="font-size:12px">
+      </div>
+    </div>
+    <!-- Supabase 區塊 -->
+    <div class="acct-section">
+      <h4 style="font-size:13px;color:var(--green600);margin-bottom:8px">🚀 Supabase（推薦，更安全）</h4>
+      <div class="form-group">
+        <label>Supabase 專案網址</label>
+        <input type="url" id="supaUrlInput" placeholder="https://xxxxxxxxxxxx.supabase.co" style="font-size:12px">
+      </div>
+      <div class="form-group">
+        <label>Supabase anon/public key</label>
+        <input type="text" id="supaKeyInput" placeholder="eyJhbGciOi..." style="font-size:12px">
+      </div>
+      <div style="font-size:11px;color:var(--gray400);margin-top:-8px;margin-bottom:8px">
+        喺 Supabase → Project Settings → Data API 搵到
+      </div>
     </div>
     <div class="form-group">
-      <label>所屬經理（更新後同步到雲端）</label>
+      <label>所屬經理</label>
       <input type="text" id="mgrInputSetting" placeholder="例如：張經理" style="letter-spacing:normal;font-size:15px;text-align:left">
       <div style="font-size:12px;color:var(--gray400);margin-top:4px">目前：「<span id="currentMgrDisplay">尚未設定</span>」— 留空即不更改</div>
     </div>
     <div style="font-size:12px;color:var(--gray400);margin-bottom:14px">
-      💡 留空網址並按「儲存」即可關閉雲端同步
+      💡 兩個都留空即可關閉雲端同步
     </div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="hideCloudSetup()">取消</button>
-      <button class="btn btn-primary" onclick="saveCloudSetup()">測試並儲存</button>
+      <button class="btn btn-primary" onclick="saveCloudSetup()">儲存設定</button>
     </div>
   </div>
 </div>
@@ -407,73 +427,138 @@ var _id = 0;
 // ===== 雲端同步設定 =====
 var API_URL = 'https://script.google.com/macros/s/AKfycbxgU-gqY_oFNj03Us28bcs6PK9vH0wchjgzic5lww4uc5nu8byTGbmrLp8kBOZ0nSU6/exec';
 var CLOUD_ENABLED = Boolean(API_URL && API_URL.length > 0);
+var SUPA_URL = '';
+var SUPA_KEY = '';
 
 function setApiUrl(url) {
   API_URL = url;
-  CLOUD_ENABLED = url.length > 0;
+  CLOUD_ENABLED = url.length > 0 || (SUPA_URL && SUPA_URL.length > 0);
   localStorage.setItem('insurance_cloud_api', url);
-  if (url) {
-    document.getElementById('cloudStatus').style.display = 'flex';
-    document.getElementById('storageModeText').textContent = '雲端';
-    document.getElementById('storageModeText').style.color = 'var(--blue500)';
-    document.getElementById('storageModeHint').textContent = '（數據已同步至 Google Sheets）';
+  updateCloudUI();
+}
+function setSupaConfig(url, key) {
+  SUPA_URL = url;
+  SUPA_KEY = key;
+  CLOUD_ENABLED = url.length > 0 || (API_URL && API_URL.length > 0);
+  localStorage.setItem('insurance_supa_url', url);
+  localStorage.setItem('insurance_supa_key', key);
+  updateCloudUI();
+}
+function updateCloudUI() {
+  var hasCloud = CLOUD_ENABLED;
+  var modeEl = document.getElementById('storageModeText');
+  var hintEl = document.getElementById('storageModeHint');
+  var statusEl = document.getElementById('cloudStatus');
+  if (hasCloud) {
+    if (statusEl) statusEl.style.display = 'flex';
+    if (modeEl) { modeEl.textContent = '雲端'; modeEl.style.color = 'var(--blue500)'; }
+    if (hintEl) {
+      if (SUPA_URL) hintEl.textContent = '（數據同步至 Supabase）';
+      else hintEl.textContent = '（數據已同步至 Google Sheets）';
+    }
   } else {
-    document.getElementById('cloudStatus').style.display = 'none';
-    document.getElementById('storageModeText').textContent = '本地';
-    document.getElementById('storageModeText').style.color = '';
-    document.getElementById('storageModeHint').textContent = '（可匯出俾經理整合）';
+    if (statusEl) statusEl.style.display = 'none';
+    if (modeEl) { modeEl.textContent = '本地'; modeEl.style.color = ''; }
+    if (hintEl) hintEl.textContent = '（可匯出俾經理整合）';
   }
 }
 function loadApiUrl() {
   var saved = localStorage.getItem('insurance_cloud_api') || '';
   if (saved) { API_URL = saved; }
-  if (API_URL && API_URL.length > 0) {
-    CLOUD_ENABLED = true;
-    if (!saved) { localStorage.setItem('insurance_cloud_api', API_URL); }
+  var savedSupaUrl = localStorage.getItem('insurance_supa_url') || '';
+  var savedSupaKey = localStorage.getItem('insurance_supa_key') || '';
+  if (savedSupaUrl) { SUPA_URL = savedSupaUrl; SUPA_KEY = savedSupaKey; }
+  CLOUD_ENABLED = (API_URL && API_URL.length > 0) || (SUPA_URL && SUPA_URL.length > 0);
+  if (CLOUD_ENABLED) {
     document.getElementById('cloudStatus').style.display = 'flex';
-    document.getElementById('storageModeText').textContent = '雲端';
-    document.getElementById('storageModeText').style.color = 'var(--blue500)';
-    document.getElementById('storageModeHint').textContent = '（數據已同步至 Google Sheets）';
+    updateCloudUI();
     document.getElementById('lastSyncTime').textContent = getLastSyncTime();
   }
 }
 
-// ===== 雲端同步函數 (使用 fetch + AbortController) =====
+// ===== 雲端同步函數（雙寫：Supabase + Google Sheets）=====
 function saveToCloud(callback, retry) {
   if (!CLOUD_ENABLED || !agentName) { if (callback) callback(false); return; }
   var mgr = assignedManager || localStorage.getItem('insurance_mgr_'+encodeURIComponent(agentName)) || '';
   var team = assignedTeam || localStorage.getItem('insurance_team_'+encodeURIComponent(agentName)) || '';
-  if (!mgr) {
-    toast('⚠️ 請先設定所屬經理（右上角 ☁️ 雲端）', 'error');
-    if (callback) callback(false);
-    return;
+
+  var done = false;
+  var supaOk = false, gsOk = false;
+  function checkDone() {
+    if (done) return;
+    if (supaOk || gsOk) {
+      done = true; setLastSyncTime();
+      if (callback) callback(true);
+      else toast('☁️ 已同步到雲端');
+    }
   }
-  registerToCloudFetch(agentName, mgr, team, function(regOk) {
-    var payload = {action:'sync',agentId:agentName,manager:mgr,team:team,data:JSON.stringify(DB)};
-    var controller = new AbortController();
-    var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
-    fetch(API_URL, {
-      method:'POST',
-      headers:{'Content-Type':'application/x-www-form-urlencoded'},
-      body: Object.keys(payload).map(function(k){return encodeURIComponent(k)+'='+encodeURIComponent(payload[k]);}).join('&'),
-      signal: controller.signal
-    })
-    .then(function(res){ clearTimeout(timeoutId); return res.json(); })
-    .then(function(r){
-      if (r.success) { setLastSyncTime(); if (callback) callback(true); else toast('☁️ 已同步到雲端'); }
-      else { var errMsg = r.error||'未知錯誤'; console.error('[saveToCloud]',errMsg); if(!retry){setTimeout(function(){saveToCloud(callback,true);},3000);} else if(callback) callback(false); }
-    })
-    .catch(function(e){
-      clearTimeout(timeoutId);
-      console.error('[saveToCloud]',e);
-      if (!retry) { setTimeout(function(){ saveToCloud(callback, true); }, 3000); }
-      else { if (callback) callback(false); else toast('同步失敗，請檢查網絡','error'); }
+
+  // 寫入 Supabase
+  if (SUPA_URL && SUPA_KEY) {
+    saveToSupabase(function(ok){ supaOk=ok; checkDone(); });
+  }
+
+  // 寫入 Google Sheets
+  if (API_URL) {
+    if (!mgr) {
+      // 如果冇經理但有 Supabase，跳過 Google Sheets
+      if (!SUPA_URL) { toast('⚠️ 請先設定所屬經理（右上角 ☁️ 雲端）', 'error'); if (callback) callback(false); }
+      return;
+    }
+    registerToCloudFetch(agentName, mgr, team, function(regOk) {
+      var payload = {action:'sync',agentId:agentName,manager:mgr,team:team,data:JSON.stringify(DB)};
+      var controller = new AbortController();
+      var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
+      fetch(API_URL, {
+        method:'POST',
+        headers:{'Content-Type':'application/x-www-form-urlencoded'},
+        body: Object.keys(payload).map(function(k){return encodeURIComponent(k)+'='+encodeURIComponent(payload[k]);}).join('&'),
+        signal: controller.signal
+      })
+      .then(function(res){ clearTimeout(timeoutId); return res.json(); })
+      .then(function(r){
+        if (r.success) { gsOk=true; checkDone(); }
+        else { console.error('[saveToCloud GS]',r.error); }
+      })
+      .catch(function(e){ clearTimeout(timeoutId); console.error('[saveToCloud GS]',e); });
     });
-  });
+  }
+
+  // 兩個都冇設定
+  if (!API_URL && !SUPA_URL) { if (callback) callback(false); return; }
+
+  // 8 秒後 retry
+  if (!retry) {
+    setTimeout(function(){
+      if (!done) { saveToCloud(callback, true); }
+    }, 8000);
+  } else { if (callback) callback(false); }
 }
 
 function loadFromCloud(callback, retry) {
   if (!CLOUD_ENABLED || !agentName) { if (callback) callback(false); return; }
+
+  // 優先 Supabase
+  if (SUPA_URL && SUPA_KEY) {
+    loadFromSupabase(function(ok){
+      if (ok) return; // Supabase 成功，唔使 fallback
+      // Supabase 失敗，fallback Google Sheets
+      if (API_URL) { loadFromGoogleSheets(callback, retry); }
+      else { if (callback) callback(false); }
+    });
+    return;
+  }
+
+  // 只有 Google Sheets
+  if (API_URL) {
+    loadFromGoogleSheets(callback, retry);
+    return;
+  }
+
+  if (callback) callback(false);
+}
+
+function loadFromGoogleSheets(callback, retry) {
   var qs = 'action=load&agentId=' + encodeURIComponent(agentName);
   var controller = new AbortController();
   var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
@@ -514,6 +599,61 @@ function registerToCloudFetch(agentName, managerName, team, callback) {
 // ===== 兼容舊版 registerToCloud =====
 function registerToCloud(agentName, managerName, team, callback) {
   registerToCloudFetch(agentName, managerName, team, callback);
+}
+
+// ===== Supabase 同步函數 =====
+function saveToSupabase(callback) {
+  if (!SUPA_URL || !SUPA_KEY || !agentName) { if (callback) callback(false); return; }
+  var mgr = assignedManager || localStorage.getItem('insurance_mgr_'+encodeURIComponent(agentName)) || '';
+  var team = assignedTeam || localStorage.getItem('insurance_team_'+encodeURIComponent(agentName)) || '';
+  var controller = new AbortController();
+  var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
+  fetch(SUPA_URL + '/rest/v1/agents', {
+    method:'POST',
+    headers:{
+      'apikey':SUPA_KEY,
+      'Authorization':'Bearer '+SUPA_KEY,
+      'Content-Type':'application/json',
+      'Prefer':'resolution=merge-duplicates'
+    },
+    body:JSON.stringify({name:agentName,data:DB,manager:mgr,team:team}),
+    signal:controller.signal
+  })
+  .then(function(res){ clearTimeout(timeoutId); if(res.ok) { if(callback) callback(true); } else { console.error('[saveToSupabase] HTTP',res.status); if(callback) callback(false); } })
+  .catch(function(e){ clearTimeout(timeoutId); console.error('[saveToSupabase]',e); if(callback) callback(false); });
+}
+function loadFromSupabase(callback) {
+  if (!SUPA_URL || !SUPA_KEY || !agentName) { if (callback) callback(false); return; }
+  var controller = new AbortController();
+  var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
+  fetch(SUPA_URL + '/rest/v1/agents?name=eq.'+encodeURIComponent(agentName)+'&select=data', {
+    headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY},
+    signal:controller.signal
+  })
+  .then(function(res){ clearTimeout(timeoutId); return res.json(); })
+  .then(function(rows){
+    if (rows && rows.length>0 && rows[0].data) {
+      ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k){
+        if (rows[0].data[k]) DB[k]=rows[0].data[k];
+      });
+      saveDB(); setLastSyncTime();
+      if (callback) callback(true);
+      else { toast('☁️ 已從 Supabase 載入'); renderDashboard(); renderCurrentTab(); }
+    } else { if (callback) callback(false); }
+  })
+  .catch(function(e){ clearTimeout(timeoutId); console.error('[loadFromSupabase]',e); if (callback) callback(false); });
+}
+function supabaseDeleteAgent(name, callback) {
+  if (!SUPA_URL || !SUPA_KEY) { if (callback) callback(false); return; }
+  var controller = new AbortController();
+  var timeoutId = setTimeout(function(){ controller.abort(); }, 15000);
+  fetch(SUPA_URL + '/rest/v1/agents?name=eq.'+encodeURIComponent(name), {
+    method:'DELETE',
+    headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY},
+    signal:controller.signal
+  })
+  .then(function(res){ clearTimeout(timeoutId); if(callback) callback(res.ok); })
+  .catch(function(e){ clearTimeout(timeoutId); console.error('[supabaseDelete]',e); if(callback) callback(false); });
 }
 
 function setLastSyncTime() {
@@ -793,10 +933,14 @@ function changeName() {
   // 6. Re-register to cloud with new name
   if (CLOUD_ENABLED && mgr) {
     registerToCloudFetch(newName, mgr, team || '', function(ok) {
-      if (ok) {
-        saveDBAutoSync();
-        toast('☁️ 雲端已更新為新姓名');
-      }
+      if (ok) { saveDBAutoSync(); toast('☁️ 雲端已更新為新姓名'); }
+    });
+  }
+  if (SUPA_URL && SUPA_KEY) {
+    supabaseDeleteAgent(oldName, function(){
+      saveToSupabase(function(ok){
+        if (ok) toast('✅ Supabase 已更新');
+      });
     });
   }
 }
@@ -832,6 +976,8 @@ function loadFromCloudManual() {
 function showCloudSetup() {
   document.getElementById('cloudModalBg').classList.add('show');
   document.getElementById('apiUrlInput').value = API_URL;
+  document.getElementById('supaUrlInput').value = SUPA_URL;
+  document.getElementById('supaKeyInput').value = SUPA_KEY;
   var mgr = assignedManager || '';
   document.getElementById('mgrInputSetting').value = mgr;
   document.getElementById('currentMgrDisplay').textContent = mgr || '尚未設定';
@@ -843,48 +989,74 @@ function hideCloudSetup() {
 
 function saveCloudSetup() {
   var url = document.getElementById('apiUrlInput').value.trim();
+  var supaUrl = document.getElementById('supaUrlInput').value.trim();
+  var supaKey = document.getElementById('supaKeyInput').value.trim();
   var mgr = document.getElementById('mgrInputSetting').value.trim();
+
   if (mgr && mgr !== assignedManager) {
     assignedManager = mgr;
     localStorage.setItem('insurance_mgr_'+encodeURIComponent(agentName), mgr);
     document.getElementById('sidebarAgentInfo').textContent = agentName+' | 代理人版 | '+mgr;
     document.getElementById('currentMgrDisplay').textContent = mgr;
   }
-  if (!url) {
-    setApiUrl('');
+
+  var hasAnyCloud = url || supaUrl;
+  if (!hasAnyCloud) {
+    setApiUrl(''); setSupaConfig('', '');
     hideCloudSetup();
     toast('已關閉雲端同步');
     return;
   }
-  setApiUrl(url);
-  toast('☁️ 測試連接中...');
-  var controller = new AbortController();
-  var timeoutId = setTimeout(function(){ controller.abort(); }, 15000);
-  fetch(API_URL + '?action=init', {signal: controller.signal})
-    .then(function(res){ clearTimeout(timeoutId); return res.json(); })
-    .then(function(r){
-      if (r.success || r.message) {
-        hideCloudSetup();
-        if (mgr) {
-          registerToCloudFetch(agentName, mgr, localStorage.getItem('insurance_team_'+encodeURIComponent(agentName))||'', function(){
-            toast('✅ 連線成功！已設定所屬經理：' + mgr);
-          });
-        } else {
-          toast('✅ 雲端連接成功！');
-        }
-        document.getElementById('cloudStatus').style.display = 'flex';
-        document.getElementById('lastSyncTime').textContent = getLastSyncTime();
-        setTimeout(function(){ loadFromCloudManual(); }, 500);
-      } else {
-        setApiUrl('');
-        toast('連接失敗：' + (r.error||'未知錯誤'),'error');
-      }
-    })
-    .catch(function(e){
-      clearTimeout(timeoutId);
-      setApiUrl('');
-      toast('連接失敗，請檢查網址同網絡','error');
+
+  // 儲存 Google Sheets
+  if (url) setApiUrl(url); else setApiUrl('');
+
+  // 儲存 Supabase
+  if (supaUrl && supaKey) {
+    setSupaConfig(supaUrl, supaKey);
+    hideCloudSetup();
+    toast('✅ Supabase 已設定！開始同步...');
+    saveToCloud(function(ok){
+      if (ok) toast('☁️ 已同步到 Supabase');
     });
+    setTimeout(function(){ loadFromCloud(); }, 1000);
+    return;
+  } else if (supaUrl && !supaKey) {
+    toast('⚠️ 請輸入 Supabase anon key', 'error');
+    return;
+  }
+
+  // 只有 Google Sheets：測試連線
+  if (url && !supaUrl) {
+    toast('☁️ 測試連接中...');
+    var controller = new AbortController();
+    var timeoutId = setTimeout(function(){ controller.abort(); }, 15000);
+    fetch(API_URL + '?action=init', {signal: controller.signal})
+      .then(function(res){ clearTimeout(timeoutId); return res.json(); })
+      .then(function(r){
+        if (r.success || r.message) {
+          hideCloudSetup();
+          if (mgr) {
+            registerToCloudFetch(agentName, mgr, localStorage.getItem('insurance_team_'+encodeURIComponent(agentName))||'', function(){
+              toast('✅ 連線成功！已設定所屬經理：' + mgr);
+            });
+          } else {
+            toast('✅ 雲端連接成功！');
+          }
+          document.getElementById('cloudStatus').style.display = 'flex';
+          document.getElementById('lastSyncTime').textContent = getLastSyncTime();
+          setTimeout(function(){ loadFromCloudManual(); }, 500);
+        } else {
+          setApiUrl('');
+          toast('連接失敗：' + (r.error||'未知錯誤'),'error');
+        }
+      })
+      .catch(function(e){
+        clearTimeout(timeoutId);
+        setApiUrl('');
+        toast('連接失敗，請檢查網址同網絡','error');
+      });
+  }
 }
 
 // 登入後自動從雲端載入
