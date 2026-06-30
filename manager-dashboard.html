@@ -380,6 +380,8 @@ var detailTab = 'clients';
 // ===== 雲端同步設定（已預設 Google Apps Script 網址）=====
 var MGR_API_URL = 'https://script.google.com/macros/s/AKfycbxgU-gqY_oFNj03Us28bcs6PK9vH0wchjgzic5lww4uc5nu8byTGbmrLp8kBOZ0nSU6/exec';
 var MGR_CLOUD_ENABLED = Boolean(MGR_API_URL && MGR_API_URL.length > 0);
+var MGR_SUPA_URL = '';
+var MGR_SUPA_KEY = '';
 
 function mgrSetApiUrl(url) {
   MGR_API_URL = url;
@@ -389,12 +391,81 @@ function mgrSetApiUrl(url) {
 function mgrLoadApiUrl() {
   var saved = localStorage.getItem('mgr_cloud_api') || '';
   if (saved) { MGR_API_URL = saved; MGR_CLOUD_ENABLED = true; }
+  var savedSupaUrl = localStorage.getItem('mgr_supa_url') || '';
+  var savedSupaKey = localStorage.getItem('mgr_supa_key') || '';
+  if (savedSupaUrl) { MGR_SUPA_URL = savedSupaUrl; MGR_SUPA_KEY = savedSupaKey; }
+  MGR_CLOUD_ENABLED = (MGR_API_URL && MGR_API_URL.length > 0) || (MGR_SUPA_URL && MGR_SUPA_URL.length > 0);
+}
+
+function mgrLoadFromSupabase() {
+  if (!MGR_SUPA_URL || !MGR_SUPA_KEY) { return Promise.resolve(false); }
+  toast('☁️ 從 Supabase 載入團隊數據...');
+  var controller = new AbortController();
+  var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
+  return fetch(MGR_SUPA_URL + '/rest/v1/agents?select=name,data,manager,team', {
+    headers:{'apikey':MGR_SUPA_KEY,'Authorization':'Bearer '+MGR_SUPA_KEY},
+    signal:controller.signal
+  })
+  .then(function(res){ clearTimeout(timeoutId); return res.json(); })
+  .then(function(rows){
+    if (rows && rows.length > 0) {
+      TEAM = {};
+      rows.forEach(function(r){
+        var aName = r.name;
+        TEAM[aName] = {
+          clients: [], policies: [], commissions: [],
+          expenses: [], goals: [], schedules: [],
+          pcs: [], incomes: [],
+          managerName: r.manager || '',
+          team: r.team || ''
+        };
+        if (r.data) {
+          ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k){
+            if (r.data[k]) TEAM[aName][k] = r.data[k];
+          });
+        }
+      });
+      render();
+      document.getElementById("noDataMsg").style.display = "none";
+      document.getElementById("dataView").style.display = "block";
+      toast('☁️ 已從 Supabase 載入 '+Object.keys(TEAM).length+' 位代理人數據！');
+      return true;
+    }
+    if (rows && rows.length === 0) {
+      toast('Supabase 無數據，嘗試 Google Sheets...', 'warning');
+    }
+    return false;
+  })
+  .catch(function(e){
+    clearTimeout(timeoutId);
+    console.error('[mgrLoadFromSupabase]',e);
+    return false;
+  });
 }
 
 function mgrLoadFromCloud() {
-  if (!MGR_CLOUD_ENABLED) { toast('請先設定 API 網址', 'error'); mgrShowCloudSetup(); return; }
+  if (!MGR_CLOUD_ENABLED) { toast('請先設定雲端', 'error'); mgrShowCloudSetup(); return; }
+
+  // 優先 Supabase
+  if (MGR_SUPA_URL && MGR_SUPA_KEY) {
+    mgrLoadFromSupabase().then(function(ok){
+      if (!ok && MGR_API_URL) { mgrLoadFromGoogleSheets(); }
+    });
+    return;
+  }
+
+  // Fallback Google Sheets
+  if (MGR_API_URL) {
+    mgrLoadFromGoogleSheets();
+    return;
+  }
+
+  toast('請先設定雲端網址', 'error'); mgrShowCloudSetup();
+}
+
+function mgrLoadFromGoogleSheets() {
   var mgrName = localStorage.getItem(MGR_KEY) || '';
-  toast('☁️ 從雲端載入數據...');
+  toast('☁️ 從 Google Sheets 載入數據...');
   var qs = 'action=manager_load&key=MANAGER_SECRET_KEY';
   if (mgrName) qs += '&managerName=' + encodeURIComponent(mgrName);
   var controller = new AbortController();
@@ -446,16 +517,42 @@ function mgrLoadFromCloud() {
 function mgrShowCloudSetup() {
   document.getElementById('mgrCloudModalBg').classList.add('show');
   document.getElementById('mgrApiUrlInput').value = MGR_API_URL;
+  document.getElementById('mgrSupaUrlInput').value = MGR_SUPA_URL;
+  document.getElementById('mgrSupaKeyInput').value = MGR_SUPA_KEY;
 }
 function mgrHideCloudSetup() {
   document.getElementById('mgrCloudModalBg').classList.remove('show');
 }
 function mgrSaveCloudSetup() {
   var url = document.getElementById('mgrApiUrlInput').value.trim();
-  if (!url) { mgrSetApiUrl(''); mgrHideCloudSetup(); toast('已關閉雲端同步'); return; }
-  mgrSetApiUrl(url);
+  var supaUrl = document.getElementById('mgrSupaUrlInput').value.trim();
+  var supaKey = document.getElementById('mgrSupaKeyInput').value.trim();
+
+  var hasAnyCloud = url || supaUrl;
+  if (!hasAnyCloud) {
+    mgrSetApiUrl('');
+    MGR_SUPA_URL = ''; MGR_SUPA_KEY = '';
+    localStorage.removeItem('mgr_supa_url'); localStorage.removeItem('mgr_supa_key');
+    mgrHideCloudSetup();
+    toast('已關閉雲端同步');
+    return;
+  }
+
+  if (url) mgrSetApiUrl(url); else mgrSetApiUrl('');
+  if (supaUrl && supaKey) {
+    MGR_SUPA_URL = supaUrl; MGR_SUPA_KEY = supaKey;
+    localStorage.setItem('mgr_supa_url', supaUrl);
+    localStorage.setItem('mgr_supa_key', supaKey);
+    MGR_CLOUD_ENABLED = true;
+  } else if (supaUrl && !supaKey) {
+    toast('⚠️ 請輸入 Supabase anon key', 'error'); return;
+  } else {
+    MGR_SUPA_URL = ''; MGR_SUPA_KEY = '';
+    localStorage.removeItem('mgr_supa_url'); localStorage.removeItem('mgr_supa_key');
+  }
+
   mgrHideCloudSetup();
-  toast('☁️ API 網址已儲存');
+  toast('☁️ 雲端設定已儲存');
   mgrLoadFromCloud();
 }
 
@@ -759,6 +856,16 @@ function doDeleteAgent() {
   }
   render();
   toast('已刪除「'+name+'」','error');
+  // 同步從 Supabase 刪除
+  if (MGR_SUPA_URL && MGR_SUPA_KEY) {
+    var controller = new AbortController();
+    var timeoutId = setTimeout(function(){ controller.abort(); }, 15000);
+    fetch(MGR_SUPA_URL + '/rest/v1/agents?name=eq.'+encodeURIComponent(name), {
+      method:'DELETE',
+      headers:{'apikey':MGR_SUPA_KEY,'Authorization':'Bearer '+MGR_SUPA_KEY},
+      signal:controller.signal
+    }).then(function(){ clearTimeout(timeoutId); }).catch(function(e){ clearTimeout(timeoutId); });
+  }
 }
 
 // ============================================================
@@ -797,19 +904,37 @@ if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(
 .form-group label{display:block;font-size:12px;color:var(--gray500);font-weight:500;margin-bottom:4px}
 .form-group input{width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px}
 .modal-actions{display:flex;gap:8px;justify-content:flex-end}
+.acct-section{border-bottom:1px solid var(--gray200);padding-bottom:14px;margin-bottom:14px}
+.acct-section:last-child{border-bottom:none;padding-bottom:0;margin-bottom:0}
 </style>
 <div class="modal-bg" id="mgrCloudModalBg">
-  <div class="modal">
+  <div class="modal" style="max-width:520px">
     <h3>☁️ 雲端同步設定（經理版）</h3>
     <p style="color:var(--gray500);font-size:13px;margin-bottom:14px">
-      填入同一個 Google Apps Script 網址，即可即時載入全團隊數據。
+      可同時設定 Google Sheets 同 Supabase。兩個都用最安全。
     </p>
-    <div class="form-group">
-      <label>Google Apps Script 網址</label>
-      <input type="url" id="mgrApiUrlInput" placeholder="https://script.google.com/macros/s/..." style="font-size:12px">
+    <!-- Google Sheets 區塊 -->
+    <div class="acct-section">
+      <h4 style="font-size:13px;color:var(--gray600);margin-bottom:8px">📊 Google Sheets（兼容模式）</h4>
+      <div class="form-group">
+        <label>Google Apps Script 網址</label>
+        <input type="url" id="mgrApiUrlInput" placeholder="https://script.google.com/macros/s/..." style="font-size:12px">
+      </div>
+    </div>
+    <!-- Supabase 區塊 -->
+    <div class="acct-section">
+      <h4 style="font-size:13px;color:var(--green600);margin-bottom:8px">🚀 Supabase（推薦）</h4>
+      <div class="form-group">
+        <label>Supabase 專案網址</label>
+        <input type="url" id="mgrSupaUrlInput" placeholder="https://xxxxxxxxxxxx.supabase.co" style="font-size:12px">
+      </div>
+      <div class="form-group">
+        <label>Supabase anon/public key</label>
+        <input type="text" id="mgrSupaKeyInput" placeholder="eyJhbGciOi..." style="font-size:12px">
+      </div>
     </div>
     <div style="font-size:12px;color:var(--gray400);margin-bottom:14px">
-      💡 同一個網址同代理人版一樣
+      💡 兩個都留空即可關閉雲端同步
     </div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="mgrHideCloudSetup()">取消</button>
