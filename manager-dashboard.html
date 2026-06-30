@@ -141,7 +141,7 @@ tr:hover td{background:var(--blue50)}
   <div class="header">
     <div>
       <h1>📊 團隊總覽</h1>
-      <div class="sub">保險經紀業務管理系統 · 經理視角</div>
+      <div class="sub" id="mgrNameDisplay">保險經紀業務管理系統 · 經理視角</div>
     </div>
     <div class="header-actions">
       <button class="btn btn-white" onclick="mgrLoadFromCloud()" id="mgrCloudBtn">☁️ 載入團隊數據</button>
@@ -149,6 +149,7 @@ tr:hover td{background:var(--blue50)}
       <button class="btn btn-white" onclick="showMergeModal()">🔗 合併代理人</button>
       <button class="btn btn-white" onclick="showDeleteAgentModal()">🗑️ 刪除代理人</button>
       <button class="btn btn-white" onclick="clearAll()">清除全部</button>
+      <button class="btn btn-white" onclick="showAccountModal()">👤 帳號</button>
       <button class="btn btn-white" onclick="mgrShowCloudSetup()">⚙️ 設定</button>
     </div>
   </div>
@@ -298,6 +299,9 @@ function doUnlock(){
 function unlockOK(){
   mgrUnlocked = true;
   document.getElementById('lockBg').classList.add('hide');
+  var n = localStorage.getItem(MGR_KEY) || '';
+  var hdr = document.getElementById('mgrNameDisplay');
+  if(hdr && n) hdr.textContent = '經理：' + n;
   render();
 }
 
@@ -315,6 +319,53 @@ function doResetMgr(){
   document.getElementById('mgrPinSetup').value='';
   document.getElementById('mgrPinConfirm').value='';
   document.getElementById('mgrName').focus();
+}
+
+// ===== 帳號設定（改名 / 改密碼）=====
+function showAccountModal(){
+  var curName = localStorage.getItem(MGR_KEY) || '';
+  document.getElementById('acctCurName').value = curName;
+  document.getElementById('acctNewName').value = '';
+  document.getElementById('acctOldPin').value = '';
+  document.getElementById('acctNewPin').value = '';
+  document.getElementById('acctNewPin2').value = '';
+  document.getElementById('acctNameErr').textContent = '';
+  document.getElementById('acctPinErr').textContent = '';
+  document.getElementById('mgrAccountModalBg').classList.add('show');
+}
+function hideAccountModal(){
+  document.getElementById('mgrAccountModalBg').classList.remove('show');
+}
+function mgrChangeName(){
+  var newName = document.getElementById('acctNewName').value.trim();
+  var errEl = document.getElementById('acctNameErr');
+  errEl.textContent = '';
+  if(!newName){ errEl.textContent = '請輸入新姓名'; return; }
+  localStorage.setItem(MGR_KEY, newName);
+  var hdr = document.getElementById('mgrNameDisplay');
+  if(hdr) hdr.textContent = newName ? '經理：' + newName : '保險經紀業務管理系統 · 經理視角';
+  toast('✅ 姓名已更新為「' + newName + '」');
+  document.getElementById('acctCurName').value = newName;
+  document.getElementById('acctNewName').value = '';
+}
+function mgrChangePin(){
+  var oldPin = document.getElementById('acctOldPin').value.trim();
+  var newPin = document.getElementById('acctNewPin').value.trim();
+  var newPin2 = document.getElementById('acctNewPin2').value.trim();
+  var errEl = document.getElementById('acctPinErr');
+  var savedPin = localStorage.getItem(MGR_PIN_KEY);
+  errEl.textContent = '';
+  if(!oldPin){ errEl.textContent = '請輸入目前 PIN 碼'; return; }
+  if(oldPin !== savedPin){ errEl.textContent = '目前 PIN 碼不正確'; return; }
+  if(!newPin || newPin.length < 4){ errEl.textContent = '新 PIN 碼至少 4 位數字'; return; }
+  if(!/^\d+$/.test(newPin)){ errEl.textContent = 'PIN 碼只能含數字'; return; }
+  if(newPin !== newPin2){ errEl.textContent = '新 PIN 碼不一致'; return; }
+  localStorage.setItem(MGR_PIN_KEY, newPin);
+  toast('✅ PIN 碼已更新');
+  document.getElementById('acctOldPin').value = '';
+  document.getElementById('acctNewPin').value = '';
+  document.getElementById('acctNewPin2').value = '';
+  hideAccountModal();
 }
 
 // ============================================================
@@ -763,6 +814,55 @@ if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="mgrHideCloudSetup()">取消</button>
       <button class="btn btn-primary" onclick="mgrSaveCloudSetup()">儲存並載入</button>
+    </div>
+  </div>
+</div>
+
+<!-- 帳號設定 Modal -->
+<style>
+#mgrAccountModalBg .modal{max-width:420px}
+#mgrAccountModalBg .acct-section{border-bottom:1px solid var(--gray200);padding-bottom:16px;margin-bottom:16px}
+#mgrAccountModalBg .acct-section:last-child{border-bottom:none;padding-bottom:0;margin-bottom:0}
+#mgrAccountModalBg .acct-section h4{font-size:14px;margin-bottom:10px;color:var(--gray700)}
+#mgrAccountModalBg .acct-err{color:var(--danger);font-size:12px;min-height:16px;margin-top:6px}
+</style>
+<div class="modal-bg" id="mgrAccountModalBg">
+  <div class="modal">
+    <h3>👤 帳號設定</h3>
+    <div class="acct-section">
+      <h4>修改姓名</h4>
+      <div class="form-group">
+        <label>目前姓名</label>
+        <input type="text" id="acctCurName" disabled style="background:var(--gray100);color:var(--gray500)">
+      </div>
+      <div class="form-group">
+        <label>新姓名</label>
+        <input type="text" id="acctNewName" placeholder="輸入新姓名" style="font-size:14px" autocomplete="off">
+      </div>
+      <div class="acct-err" id="acctNameErr"></div>
+      <div class="modal-actions" style="margin-top:8px">
+        <button class="btn btn-primary" onclick="mgrChangeName()">更新姓名</button>
+      </div>
+    </div>
+    <div class="acct-section">
+      <h4>修改 PIN 碼</h4>
+      <div class="form-group">
+        <label>目前 PIN 碼</label>
+        <input type="password" id="acctOldPin" placeholder="••••" maxlength="6" inputmode="numeric" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>新 PIN 碼（4-6 位數字）</label>
+        <input type="password" id="acctNewPin" placeholder="••••" maxlength="6" inputmode="numeric" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>確認新 PIN 碼</label>
+        <input type="password" id="acctNewPin2" placeholder="••••" maxlength="6" inputmode="numeric" autocomplete="off">
+      </div>
+      <div class="acct-err" id="acctPinErr"></div>
+      <div class="modal-actions" style="margin-top:8px">
+        <button class="btn btn-outline" onclick="hideAccountModal()">取消</button>
+        <button class="btn btn-primary" onclick="mgrChangePin()">更新 PIN 碼</button>
+      </div>
     </div>
   </div>
 </div>
