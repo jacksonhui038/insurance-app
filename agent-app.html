@@ -240,7 +240,8 @@ tr:hover td{background:var(--blue50)}
     <button class="nav-btn" onclick="switchTab('dashboard',this)"><span class="nav-icon">📋</span> 總覽</button>
     <button class="nav-btn" onclick="switchTab('schedules',this)"><span class="nav-icon">📅</span> 行程表</button>
     <button class="nav-btn" onclick="switchTab('clients',this)"><span class="nav-icon">👥📄</span> 資料庫</button>
-    <button class="nav-btn" onclick="switchTab('income',this)"><span class="nav-icon">💹</span> 收入記錄</button>
+    <button class="nav-btn" onclick="switchTab('income',this)"><span class="nav-icon">💰</span> 收入記錄</button>
+    <button class="nav-btn" onclick="switchTab('expenses',this)"><span class="nav-icon">💳</span> 支出記錄</button>
     <button class="nav-btn" onclick="switchTab('pcs',this)"><span class="nav-icon">📊</span> PC記錄</button>
     <button class="nav-btn" onclick="switchTab('reports',this)"><span class="nav-icon">📈</span> 業績報表</button>
     <button class="nav-btn" onclick="switchTab('goals',this)"><span class="nav-icon">🎯</span> 目標管理</button>
@@ -327,8 +328,15 @@ tr:hover td{background:var(--blue50)}
     <!-- INCOME (合併佣金+開支) -->
     <div class="tab-panel" id="panel-income">
       <div class="table-wrap">
-        <div class="table-head"><h3>💹 收入記錄</h3><button class="btn btn-primary" onclick="openForm('income')">+ 新增記錄</button></div>
-        <table><thead><tr><th>日期</th><th>類型</th><th>分類</th><th>金額</th><th>客戶</th><th>保單</th><th>操作</th></tr></thead><tbody id="incomeTable"></tbody></table>
+        <div class="table-head"><h3>💰 收入記錄</h3><button class="btn btn-primary" onclick="openForm('income')">+ 新增收入</button></div>
+        <table><thead><tr><th>日期</th><th>分類</th><th>金額</th><th>客戶</th><th>保單</th><th>備註</th><th>操作</th></tr></thead><tbody id="incomeTable"></tbody></table>
+      </div>
+    </div>
+    <!-- 支出記錄 -->
+    <div class="tab-panel" id="panel-expenses">
+      <div class="table-wrap">
+        <div class="table-head"><h3>💳 支出記錄</h3><button class="btn btn-primary" onclick="openForm('expense')">+ 新增支出</button></div>
+        <table><thead><tr><th>日期</th><th>分類</th><th>金額</th><th>付款方式</th><th>備註</th><th>操作</th></tr></thead><tbody id="expenseTable"></tbody></table>
       </div>
     </div>
     <!-- PC 記錄 -->
@@ -868,6 +876,7 @@ function switchTab(tab, btnEl) {
   if (tab === 'schedules') renderSchedules();
   if (tab === 'clients') renderClientPolicies();
   if (tab === 'income') renderIncomes();
+  if (tab === 'expenses') renderExpenses();
   if (tab === 'pcs') renderPCs();
   if (tab === 'reports') { reportPeriod = 'month'; renderReports(); }
   if (tab === 'goals') renderGoals();
@@ -878,6 +887,7 @@ function renderCurrentTab() {
   if (currentTab === 'schedules') renderSchedules();
   if (currentTab === 'clients') renderClientPolicies();
   if (currentTab === 'income') renderIncomes();
+  if (currentTab === 'expenses') renderExpenses();
   if (currentTab === 'pcs') renderPCs();
   if (currentTab === 'reports') { reportPeriod = 'month'; renderReports(); }
   if (currentTab === 'goals') renderGoals();
@@ -967,14 +977,31 @@ function renderClientPolicies() {
 // ===================================================================
 function renderIncomes() {
   var h = '';
-  if (DB.incomes.length === 0) h = '<tr><td colspan="7" class="empty">尚無收入/支出記錄</td></tr>';
-  else DB.incomes.forEach(function(item){
-    var isIncome = INCOME_CATS.indexOf(item.category) >= 0;
-    var typeBadge = isIncome ? '<span class="badge badge-green">收入</span>' : '<span class="badge badge-red">支出</span>';
-    var amtClass = isIncome ? 'amt-pos' : 'amt-neg';
-    h += '<tr><td>'+esc(dFmt(item.date))+'</td><td>'+typeBadge+'</td><td><span class="badge badge-gray">'+esc(item.category)+'</span></td><td class="'+amtClass+'">'+money(item.amount)+'</td><td>'+esc(item.clientName||'—')+'</td><td>'+esc(item.policyNo||'—')+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'income\','+item.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'incomes\','+item.id+')">刪除</button></td></tr>';
+  var incomeItems = DB.incomes.filter(function(item){ return INCOME_CATS.indexOf(item.category) >= 0; });
+  if (incomeItems.length === 0) h = '<tr><td colspan="7" class="empty">尚無收入記錄</td></tr>';
+  else incomeItems.forEach(function(item){
+    h += '<tr><td>'+esc(dFmt(item.date))+'</td><td><span class="badge badge-gray">'+esc(item.category)+'</span></td><td class="amt-pos">'+money(item.amount)+'</td><td>'+esc(item.clientName||'—')+'</td><td>'+esc(item.policyNo||'—')+'</td><td>'+esc(item.notes||'—')+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'income\','+item.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'incomes\','+item.id+')">刪除</button></td></tr>';
   });
   document.getElementById('incomeTable').innerHTML = h;
+}
+
+function renderExpenses() {
+  var h = '';
+  var expItems = DB.incomes.filter(function(item){ return EXPENSE_CATS.indexOf(item.category) >= 0; });
+  // Also check legacy DB.expenses
+  var legacyItems = DB.expenses || [];
+  if (expItems.length === 0 && legacyItems.length === 0) h = '<tr><td colspan="6" class="empty">尚無支出記錄</td></tr>';
+  else {
+    legacyItems.forEach(function(item){
+      if (EXPENSE_CATS.indexOf(item.category) >= 0 || true) {
+        h += '<tr><td>'+esc(dFmt(item.date))+'</td><td><span class="badge badge-gray">'+esc(item.category)+'</span></td><td class="amt-neg">'+money(item.amount)+'</td><td>'+esc(item.payment||'—')+'</td><td>'+esc(item.notes||'—')+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'expense\','+item.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'expenses\','+item.id+')">刪除</button></td></tr>';
+      }
+    });
+    expItems.forEach(function(item){
+      h += '<tr><td>'+esc(dFmt(item.date))+'</td><td><span class="badge badge-gray">'+esc(item.category)+'</span></td><td class="amt-neg">'+money(item.amount)+'</td><td>'+esc(item.payment||'—')+'</td><td>'+esc(item.notes||'—')+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'expense\','+item.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'incomes\','+item.id+')">刪除</button></td></tr>';
+    });
+  }
+  document.getElementById('expenseTable').innerHTML = h;
 }
 
 // ===================================================================
@@ -1189,7 +1216,7 @@ var editId = null, editType = null;
 
 function openForm(type, id) {
   editType = type; editId = id||null;
-  var title = id?'編輯':'新增', t = {client:'客戶',policy:'保單',commission:'佣金記錄',expense:'開支記錄',goal:'目標',schedule:'行程',income:'收入記錄',pc:'PC 記錄'};
+  var title = id?'編輯':'新增', t = {client:'客戶',policy:'保單',commission:'佣金記錄',expense:'支出記錄',goal:'目標',schedule:'行程',income:'收入記錄',pc:'PC 記錄'};
   var h = '<h3>'+title+t[type]+'</h3>';
   if (type === 'client') {
     var c = id?findById('clients',id):{};
@@ -1247,12 +1274,20 @@ function openForm(type, id) {
   else if (type === 'income') {
     var inc = id?findById('incomes',id):{};
     h += fg('日期','date','date',inc.date||new Date().toISOString().slice(0,10))
-      +fs('分類','category',TYPES.incomeCat,inc.category||'')
+      +fs('分類','category',INCOME_CATS,inc.category||'佣金收入')
       +fg('金額(HK$)','amount','number',inc.amount||0)
       +fs('客戶','clientName',DB.clients.map(function(c){return c.name;}),inc.clientName||'')
       +fg('保單編號','policyNo','text',inc.policyNo||'')
       +fs('付款方式','payment',TYPES.payment,inc.payment||'')
       +fg('備註','notes','text',inc.notes||'');
+  }
+  else if (type === 'expense') {
+    var exp = id?findById('expenses',id)||findById('incomes',id):{};
+    h += fg('日期','date','date',exp.date||new Date().toISOString().slice(0,10))
+      +fs('分類','category',EXPENSE_CATS,exp.category||'餐飲')
+      +fg('金額(HK$)','amount','number',exp.amount||0)
+      +fs('付款方式','payment',TYPES.payment,exp.payment||'')
+      +fg('備註','notes','text',exp.notes||'');
   }
   else if (type === 'pc') {
     var pc = id?findById('pcs',id):{};
@@ -1323,6 +1358,9 @@ function saveForm() {
   else if (editType === 'expense') {
     var o = {id:editId||uid(),date:val('f_date'),category:val('f_category'),amount:val('f_amount'),payment:val('f_payment'),notes:val('f_notes')};
     saveTo('expenses',o);
+    // 也寫入 incomes 保持雲端兼容
+    var incObj = {id:o.id,date:o.date,category:o.category,amount:o.amount,clientName:'',policyNo:'',payment:o.payment,notes:o.notes};
+    saveTo('incomes',incObj);
   }
   else if (editType === 'goal') {
     var o = {id:editId||uid(),type:val('f_type'),period:val('f_period'),year:Number(val('f_year')),month:Number(val('f_month')),quarter:Number(val('f_quarter')),target:Number(val('f_target')),desc:val('f_desc')};
@@ -1346,17 +1384,11 @@ function saveForm() {
   }
   else if (editType === 'income') {
     var cat = val('f_category');
-    var isIncome = INCOME_CATS.indexOf(cat) >= 0;
     var o = {id:editId||uid(),date:val('f_date'),category:cat,amount:val('f_amount'),clientName:val('f_clientName'),policyNo:val('f_policyNo'),payment:val('f_payment'),notes:val('f_notes')};
     saveTo('incomes',o);
-    // 雲端兼容：同步寫入 commissions 或 expenses
-    if (isIncome) {
-      var commObj = {id:o.id,date:o.date,clientName:o.clientName,policyNo:o.policyNo,type:cat,amount:o.amount,notes:o.notes};
-      saveTo('commissions',commObj);
-    } else {
-      var expObj = {id:o.id,date:o.date,category:o.category,amount:o.amount,payment:o.payment,notes:o.notes};
-      saveTo('expenses',expObj);
-    }
+    // 雲端兼容：同步寫入 commissions
+    var commObj = {id:o.id,date:o.date,clientName:o.clientName,policyNo:o.policyNo,type:cat,amount:o.amount,notes:o.notes};
+    saveTo('commissions',commObj);
   }
   else if (editType === 'pc') {
     var o = {id:editId||uid(),date:val('f_date'),clientName:val('f_clientName'),policyNo:val('f_policyNo'),amount:val('f_amount'),notes:val('f_notes')};

@@ -146,7 +146,8 @@ tr:hover td{background:var(--blue50)}
     <div class="header-actions">
       <button class="btn btn-white" onclick="document.getElementById('multiImport').click()">📥 匯入多位代理人</button>
       <button class="btn btn-white" onclick="showMergeModal()">🔗 合併代理人</button>
-      <button class="btn btn-white" onclick="clearAll()">🗑️ 清除全部</button>
+      <button class="btn btn-white" onclick="showDeleteAgentModal()">🗑️ 刪除代理人</button>
+      <button class="btn btn-white" onclick="clearAll()">清除全部</button>
     </div>
   </div>
 
@@ -209,6 +210,23 @@ tr:hover td{background:var(--blue50)}
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button class="btn btn-outline" onclick="hideMergeModal()">取消</button>
       <button class="btn btn-danger" onclick="doMerge()">⚠️ 確認合併</button>
+    </div>
+  </div>
+</div>
+
+<!-- DELETE AGENT MODAL -->
+<div id="deleteModalBg" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.45);z-index:1000;justify-content:center;align-items:center">
+  <div style="background:#fff;border-radius:12px;padding:24px;width:92%;max-width:480px;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.2)">
+    <h3 style="font-size:16px;font-weight:700;margin-bottom:18px">🗑️ 刪除代理人</h3>
+    <p style="font-size:13px;color:var(--gray400);margin-bottom:14px">適用於代理人離職或入錯名。刪除後該代理人嘅所有數據（客戶、保單、佣金等）會從經理端移除。</p>
+    <div style="margin-bottom:14px">
+      <label style="font-size:12px;color:var(--gray500);font-weight:500;display:block;margin-bottom:4px">選擇要刪除嘅代理人</label>
+      <select id="deleteAgentSelect" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px;background:#fff"></select>
+    </div>
+    <div id="deletePreview" style="background:#fee2e2;border-radius:8px;padding:14px;margin-bottom:14px;font-size:12px;color:#dc2626"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-outline" onclick="hideDeleteModal()">取消</button>
+      <button class="btn btn-danger" onclick="doDeleteAgent()">⚠️ 確認刪除</button>
     </div>
   </div>
 </div>
@@ -548,6 +566,59 @@ function doMerge() {
   hideMergeModal();
   render();
   toast('✅ 已合併「'+src+'」到「'+tgt+'」');
+}
+
+// ============================================================
+// DELETE AGENT
+// ============================================================
+function showDeleteAgentModal() {
+  var names = Object.keys(TEAM);
+  if (names.length === 0) { toast('沒有可刪除的代理人','error'); return; }
+  var sel = document.getElementById('deleteAgentSelect');
+  sel.innerHTML = '<option value="">-- 請選擇 --</option>';
+  names.forEach(function(n){
+    var d = TEAM[n];
+    sel.innerHTML += '<option value="'+esc(n)+'">'+esc(n)+' ('+d.clients.length+' 客戶, '+d.policies.length+' 保單, '+d.commissions.length+' 佣金)</option>';
+  });
+  document.getElementById('deletePreview').innerHTML = '請選擇要刪除嘅代理人';
+  document.getElementById('deleteModalBg').style.display = 'flex';
+  sel.onchange = function() {
+    var name = sel.value;
+    if (!name) { document.getElementById('deletePreview').innerHTML = '請選擇要刪除嘅代理人'; return; }
+    var d = TEAM[name];
+    var preview = '⚠️ 將會刪除「'+esc(name)+'」：';
+    preview += '<br>客戶：'+d.clients.length+' 位';
+    preview += '<br>保單：'+d.policies.length+' 份';
+    preview += '<br>佣金：'+d.commissions.length+' 筆';
+    preview += '<br>開支：'+d.expenses.length+' 筆';
+    preview += '<br>行程：'+((d.schedules||[]).length)+' 筆';
+    preview += '<br>PC：'+((d.pcs||[]).length)+' 筆';
+    preview += '<br><br>❌ 此操作無法還原！';
+    document.getElementById('deletePreview').innerHTML = preview;
+  };
+}
+
+function hideDeleteModal() {
+  document.getElementById('deleteModalBg').style.display = 'none';
+}
+
+function doDeleteAgent() {
+  var name = document.getElementById('deleteAgentSelect').value;
+  if (!name) { toast('請選擇要刪除的代理人','error'); return; }
+  if (!confirm('⚠️ 最後確認：確定刪除「'+name+'」？\n\n所有數據將永久移除，無法還原！')) return;
+  delete TEAM[name];
+  if (selectedAgent === name) {
+    selectedAgent = null;
+    document.getElementById('detailPanel').style.display = 'none';
+  }
+  hideDeleteModal();
+  // Check if any agents left
+  if (Object.keys(TEAM).length === 0) {
+    document.getElementById('noDataMsg').style.display = 'block';
+    document.getElementById('dataView').style.display = 'none';
+  }
+  render();
+  toast('已刪除「'+name+'」','error');
 }
 
 // ============================================================
