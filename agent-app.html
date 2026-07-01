@@ -1292,6 +1292,7 @@ function changeName() {
 // ===================================================================
 function uid() { return _id++; }
 function money(n) { return 'HK$ '+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function pcMoney(n) { return 'PC '+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function dFmt(s) { if (!s) return ''; var d = new Date(s); return isNaN(d) ? '' : d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function toast(msg, type) { type = type||'success'; var el = document.createElement('div'); el.className = 'toast toast-'+type; el.textContent = msg; document.getElementById('toastBox').appendChild(el); setTimeout(function(){ el.remove(); }, 2600); }
 function esc(s) { if (!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -1514,7 +1515,7 @@ function renderDashboard() {
     '<div class="stat-card" style="border-left-color:var(--green500)"><div class="label">本月新增客戶</div><div class="value">'+newClients+'</div><div class="sub">共 '+DB.clients.length+' 位客戶</div></div>'+
     '<div class="stat-card" style="border-left-color:var(--yellow500)"><div class="label">本月新增保單</div><div class="value">'+newPolicies+'</div><div class="sub">共 '+DB.policies.length+' 份保單</div></div>'+
     '<div class="stat-card" style="border-left-color:var(--purple500)"><div class="label">待跟進保單</div><div class="value">'+pending+'</div><div class="sub">需儘快處理</div></div>'+
-    '<div class="stat-card" style="border-left-color:var(--red500)"><div class="label">本月 PC 收取</div><div class="value">'+money(monthPC)+'</div><div class="sub">共 '+DB.pcs.filter(function(pc){var d=new Date(pc.date);return d.getMonth()===mth&&d.getFullYear()===yr;}).length+' 筆</div></div>';
+    '<div class="stat-card" style="border-left-color:var(--red500)"><div class="label">本月 PC 收取</div><div class="value">'+pcMoney(monthPC)+'</div><div class="sub">共 '+DB.pcs.filter(function(pc){var d=new Date(pc.date);return d.getMonth()===mth&&d.getFullYear()===yr;}).length+' 筆</div></div>';
   // Todo
   var todos = []; DB.policies.forEach(function(p){ if (p.status==='待生效'||p.status==='審核中') todos.push({txt:'保單待跟進',client:p.clientName,type:'保單',date:p.insureDate,status:p.status}); });
   // Add schedule follow-up items
@@ -1617,7 +1618,7 @@ function renderPCs() {
   var h = '';
   if (DB.pcs.length === 0) h = '<tr><td colspan="6" class="empty">尚無 PC 記錄</td></tr>';
   else DB.pcs.forEach(function(pc){
-    h += '<tr><td>'+esc(dFmt(pc.date))+'</td><td>'+esc(pc.clientName||'—')+'</td><td>'+esc(pc.policyNo||'—')+'</td><td class="amt-pos">'+money(pc.amount)+'</td><td>'+esc(pc.notes||'—')+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'pc\','+pc.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'pcs\','+pc.id+')">刪除</button></td></tr>';
+    h += '<tr><td>'+esc(dFmt(pc.date))+'</td><td>'+esc(pc.clientName||'—')+'</td><td>'+esc(pc.policyNo||'—')+'</td><td class="amt-pos">'+pcMoney(pc.amount)+'</td><td>'+esc(pc.notes||'—')+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'pc\','+pc.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'pcs\','+pc.id+')">刪除</button></td></tr>';
   });
   document.getElementById('pcTable').innerHTML = h;
 }
@@ -1647,7 +1648,7 @@ function renderReports() {
   document.getElementById('reportCards').innerHTML =
     '<div class="report-card"><div class="rc-label">'+pn[reportPeriod]+'佣金</div><div class="rc-value" style="color:var(--green500)">'+money(tc)+'</div></div>'+
     '<div class="report-card"><div class="rc-label">'+pn[reportPeriod]+'開支</div><div class="rc-value" style="color:var(--red500)">'+money(te)+'</div></div>'+
-    '<div class="report-card"><div class="rc-label">'+pn[reportPeriod]+' PC</div><div class="rc-value" style="color:var(--purple500)">'+money(tpc)+'</div></div>'+
+    '<div class="report-card"><div class="rc-label">'+pn[reportPeriod]+' PC</div><div class="rc-value" style="color:var(--purple500)">'+pcMoney(tpc)+'</div></div>'+
     '<div class="report-card"><div class="rc-label">淨收入</div><div class="rc-value" style="color:var(--blue700)">'+money(tc-te)+'</div></div>'+
     '<div class="report-card"><div class="rc-label">佣金筆數</div><div class="rc-value">'+cm.length+'</div></div>';
   var ch = ''; if (cm.length===0) ch='<tr><td colspan="5" class="empty">此期間無佣金記錄</td></tr>';
@@ -1784,7 +1785,7 @@ function showQuickView(clientName) {
   if (pcs.length > 0) {
     html += '<div style="font-size:13px;font-weight:600;color:var(--gray600);margin:10px 0 6px">📊 PC ('+pcs.length+')</div>';
     html += '<table style="font-size:12px"><thead><tr><th>日期</th><th>保單</th><th>金額</th></tr></thead><tbody>';
-    pcs.forEach(function(pc){ html += '<tr><td>'+esc(dFmt(pc.date))+'</td><td>'+esc(pc.policyNo||'—')+'</td><td class="amt-pos">'+money(pc.amount)+'</td></tr>'; });
+    pcs.forEach(function(pc){ html += '<tr><td>'+esc(dFmt(pc.date))+'</td><td>'+esc(pc.policyNo||'—')+'</td><td class="amt-pos">'+pcMoney(pc.amount)+'</td></tr>'; });
     html += '</tbody></table>';
   }
   // Recent income for this client
@@ -1953,7 +1954,7 @@ function openForm(type, id) {
     h += fg('日期','date','date',pc.date||new Date().toISOString().slice(0,10))
       +fs('客戶','clientName',DB.clients.map(function(c){return c.name;}),pc.clientName||'')
       +fg('保單編號','policyNo','text',pc.policyNo||'')
-      +fg('金額(HK$)','amount','number',pc.amount||0)
+      +fg('金額(PC)','amount','number',pc.amount||0)
       +fg('備註','notes','text',pc.notes||'');
   }
   h += '<div class="modal-actions"><button class="btn btn-primary" onclick="saveForm()">儲存</button><button class="btn btn-outline" onclick="closeModal()">取消</button></div>';
