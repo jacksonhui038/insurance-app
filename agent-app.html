@@ -388,7 +388,7 @@ tr:hover td{background:var(--blue50)}
       </div>
       <div class="table-wrap" style="margin-top:20px">
         <div class="table-head"><h3>📄 保單列表</h3><button class="btn btn-primary" onclick="openForm('policy')">+ 新增保單</button></div>
-        <table><thead><tr><th>保單編號</th><th>客戶</th><th>類型</th><th>保費</th><th>佣金率</th><th>投保日期</th><th>狀態</th><th>操作</th></tr></thead><tbody id="policyTable"></tbody></table>
+        <table><thead><tr><th>保單編號</th><th>客戶</th><th>類型</th><th>保費</th><th>佣金率</th><th>投保日期</th><th>狀態</th><th>PC</th><th>操作</th></tr></thead><tbody id="policyTable"></tbody></table>
       </div>
     </div>
     <!-- INCOME (合併佣金+開支) -->
@@ -1568,10 +1568,16 @@ function renderClientPolicies() {
   document.getElementById('clientTable').innerHTML = ch;
   // 保單列表
   var ph = '';
-  if (DB.policies.length === 0) ph = '<tr><td colspan="8" class="empty">尚無保單記錄</td></tr>';
+  if (DB.policies.length === 0) ph = '<tr><td colspan="9" class="empty">尚無保單記錄</td></tr>';
   else DB.policies.forEach(function(p){
     var sc = p.status==='生效'?'badge-green':p.status==='待生效'?'badge-yellow':p.status==='審核中'?'badge-blue':'badge-red';
-    ph += '<tr><td>'+esc(p.policyNo||'—')+'</td><td>'+esc(p.clientName)+'</td><td>'+esc(p.type)+'</td><td>'+money(p.premium)+'</td><td>'+esc(p.commissionRate)+'%</td><td>'+esc(dFmt(p.insureDate))+'</td><td><span class="badge '+sc+'">'+esc(p.status)+'</span></td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'policy\','+p.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'policies\','+p.id+')">刪除</button></td></tr>';
+    // 搵出此保單嘅 PC 記錄
+    var polPCs = DB.pcs.filter(function(pc){ return pc.policyNo && p.policyNo && pc.policyNo === p.policyNo; });
+    var pcTotal = 0; polPCs.forEach(function(pc){ pcTotal += Number(pc.amount)||0; });
+    var pcCell = polPCs.length > 0
+      ? '<button class="btn btn-sm" style="background:var(--purple50);color:var(--purple700);border:1px solid var(--purple300);font-weight:600;cursor:pointer" onclick="showPolicyPC(\''+esc(p.policyNo||'')+'\')">'+pcMoney(pcTotal)+'<br><span style="font-size:10px;font-weight:400">'+polPCs.length+' 筆</span></button>'
+      : '—';
+    ph += '<tr><td>'+esc(p.policyNo||'—')+'</td><td>'+esc(p.clientName)+'</td><td>'+esc(p.type)+'</td><td>'+money(p.premium)+'</td><td>'+esc(p.commissionRate)+'%</td><td>'+esc(dFmt(p.insureDate))+'</td><td><span class="badge '+sc+'">'+esc(p.status)+'</span></td><td>'+pcCell+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'policy\','+p.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'policies\','+p.id+')">刪除</button></td></tr>';
   });
   document.getElementById('policyTable').innerHTML = ph;
 }
@@ -1867,7 +1873,32 @@ function showMeetingNotes(scheduleId) {
   qv.scrollIntoView({behavior:'smooth'});
 }
 
-// ===================================================================
+// ===== 顯示某保單嘅 PC 記錄 =====
+function showPolicyPC(policyNo) {
+  if (!policyNo) return;
+  var polPCs = DB.pcs.filter(function(pc){ return pc.policyNo === policyNo; });
+  var total = 0; polPCs.forEach(function(pc){ total += Number(pc.amount)||0; });
+  var qv = document.getElementById('scheduleQuickView');
+  var title = document.getElementById('qvClientTitle');
+  var content = document.getElementById('qvContent');
+  title.innerHTML = '📊 PC 記錄 — 保單 ' + esc(policyNo);
+  var html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">';
+  html += '<div style="background:var(--purple50);border-radius:8px;padding:10px;text-align:center"><div style="font-size:11px;color:var(--gray400)">PC 總額</div><div style="font-weight:700;color:var(--purple700);font-size:18px">'+pcMoney(total)+'</div></div>';
+  html += '<div style="background:var(--purple50);border-radius:8px;padding:10px;text-align:center"><div style="font-size:11px;color:var(--gray400)">記錄數</div><div style="font-weight:700;font-size:18px">'+polPCs.length+' 筆</div></div>';
+  html += '</div>';
+  if (polPCs.length > 0) {
+    html += '<table style="font-size:12px"><thead><tr><th>日期</th><th>客戶</th><th>金額</th><th>備註</th></tr></thead><tbody>';
+    polPCs.forEach(function(pc){
+      html += '<tr><td>'+esc(dFmt(pc.date))+'</td><td>'+esc(pc.clientName||'—')+'</td><td class="amt-pos">'+pcMoney(pc.amount)+'</td><td>'+esc(pc.notes||'—')+'</td></tr>';
+    });
+    html += '</tbody></table>';
+  } else {
+    html += '<div class="empty">此保單尚無 PC 記錄</div>';
+  }
+  content.innerHTML = html;
+  qv.style.display = 'block';
+  qv.scrollIntoView({behavior:'smooth'});
+}
 // FORMS / MODAL
 // ===================================================================
 var editId = null, editType = null;
