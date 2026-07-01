@@ -177,6 +177,7 @@ tr:hover td{background:var(--blue50)}
       <button class="btn btn-white" onclick="document.getElementById('multiImport').click()">📥 匯入 JSON（備用）</button>
       <button class="btn btn-white" onclick="showMergeModal()">🔗 合併代理人</button>
       <button class="btn btn-white" onclick="showDeleteAgentModal()">🗑️ 刪除代理人</button>
+      <button class="btn btn-white" onclick="showResetPinModal()">🔑 重置 PIN</button>
       <button class="btn btn-white" onclick="clearAll()">清除全部</button>
       <button class="btn btn-white" onclick="showAccountModal()">👤 帳號</button>
       <button class="btn btn-white" onclick="mgrShowCloudSetup()">⚙️ 設定</button>
@@ -264,6 +265,31 @@ tr:hover td{background:var(--blue50)}
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button class="btn btn-outline" onclick="hideDeleteModal()">取消</button>
       <button class="btn btn-danger" onclick="doDeleteAgent()">⚠️ 確認刪除</button>
+    </div>
+  </div>
+</div>
+
+<!-- RESET PIN MODAL -->
+<div id="resetPinModalBg" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.45);z-index:1000;justify-content:center;align-items:center">
+  <div style="background:#fff;border-radius:12px;padding:24px;width:92%;max-width:480px;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.2)">
+    <h3 style="font-size:16px;font-weight:700;margin-bottom:18px">🔑 重置代理人 PIN</h3>
+    <p style="font-size:13px;color:var(--gray400);margin-bottom:14px">適用於代理人忘記 PIN 或無法登入。重置後代理人可用新 PIN 登入。</p>
+    <div style="margin-bottom:14px">
+      <label style="font-size:12px;color:var(--gray500);font-weight:500;display:block;margin-bottom:4px">選擇代理人</label>
+      <select id="resetPinSelect" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px;background:#fff" onchange="onResetPinSelect()"></select>
+    </div>
+    <div style="margin-bottom:14px">
+      <label style="font-size:12px;color:var(--gray500);font-weight:500;display:block;margin-bottom:4px">新 PIN 碼（4-6 位數字）</label>
+      <input type="password" id="resetPinInput" placeholder="輸入新 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px">
+    </div>
+    <div style="margin-bottom:14px">
+      <label style="font-size:12px;color:var(--gray500);font-weight:500;display:block;margin-bottom:4px">確認新 PIN 碼</label>
+      <input type="password" id="resetPinConfirm" placeholder="再次輸入新 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px">
+    </div>
+    <div id="resetPinStatus" style="border-radius:8px;padding:12px;margin-bottom:14px;font-size:12px;display:none"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-outline" onclick="hideResetPinModal()">取消</button>
+      <button class="btn btn-primary" onclick="doResetPin()" id="resetPinBtn">🔑 確認重置</button>
     </div>
   </div>
 </div>
@@ -939,7 +965,159 @@ function doDeleteAgent() {
 }
 
 // ============================================================
-// UTILS
+// RESET PIN
+// ============================================================
+function hashPin(pin) {
+  var h = 5381;
+  for (var i = 0; i < pin.length; i++) { h = ((h << 5) + h) + pin.charCodeAt(i); h = h & 0xffffffff; }
+  return 'p' + Math.abs(h).toString(36);
+}
+
+// ============================================================
+// RESET PIN
+// ============================================================
+
+function showResetPinModal() {
+  var names = Object.keys(TEAM);
+  if (names.length === 0) { toast('沒有代理人數據','error'); return; }
+  var sel = document.getElementById('resetPinSelect');
+  sel.innerHTML = '<option value="">-- 請選擇 --</option>';
+  names.sort().forEach(function(n){
+    sel.innerHTML += '<option value="'+esc(n)+'">'+esc(n)+'</option>';
+  });
+  document.getElementById('resetPinInput').value = '';
+  document.getElementById('resetPinConfirm').value = '';
+  document.getElementById('resetPinStatus').style.display = 'none';
+  document.getElementById('resetPinModalBg').style.display = 'flex';
+}
+
+function hideResetPinModal() {
+  document.getElementById('resetPinModalBg').style.display = 'none';
+}
+
+function onResetPinSelect() {
+  document.getElementById('resetPinStatus').style.display = 'none';
+}
+
+function doResetPin() {
+  var name = document.getElementById('resetPinSelect').value;
+  var pin1 = document.getElementById('resetPinInput').value.trim();
+  var pin2 = document.getElementById('resetPinConfirm').value.trim();
+  var statusEl = document.getElementById('resetPinStatus');
+  var btn = document.getElementById('resetPinBtn');
+
+  if (!name) { toast('請選擇代理人','error'); return; }
+  if (!pin1 || pin1.length < 4) {
+    statusEl.style.background = '#fee2e2'; statusEl.style.color = '#dc2626';
+    statusEl.textContent = 'PIN 碼至少 4 位數字'; statusEl.style.display = 'block'; return;
+  }
+  if (!/^\d+$/.test(pin1)) {
+    statusEl.style.background = '#fee2e2'; statusEl.style.color = '#dc2626';
+    statusEl.textContent = 'PIN 碼只能含數字'; statusEl.style.display = 'block'; return;
+  }
+  if (pin1 !== pin2) {
+    statusEl.style.background = '#fee2e2'; statusEl.style.color = '#dc2626';
+    statusEl.textContent = '兩次輸入不一致'; statusEl.style.display = 'block'; return;
+  }
+
+  btn.textContent = '重置中...'; btn.disabled = true;
+  var newPinHash = hashPin(pin1);
+  var supaDone = false, gsDone = false, anyOk = false;
+
+  function checkDone() {
+    if (supaDone && gsDone) {
+      btn.textContent = '🔑 確認重置'; btn.disabled = false;
+      if (anyOk) {
+        hideResetPinModal();
+        toast('✅ 已重置「'+name+'」嘅 PIN 碼');
+      } else {
+        statusEl.style.background = '#fee2e2'; statusEl.style.color = '#dc2626';
+        statusEl.textContent = '重置失敗，請檢查網路後重試'; statusEl.style.display = 'block';
+      }
+    }
+  }
+
+  // Update Supabase — need to fetch current data first, then merge _pinHash
+  if (MGR_SUPA_URL && MGR_SUPA_KEY) {
+    var controller = new AbortController();
+    var timeoutId = setTimeout(function(){ controller.abort(); }, 15000);
+    // Step 1: GET current data
+    fetch(MGR_SUPA_URL + '/rest/v1/agents?name=eq.' + encodeURIComponent(name) + '&select=data', {
+      headers: { 'apikey': MGR_SUPA_KEY, 'Authorization': 'Bearer ' + MGR_SUPA_KEY },
+      signal: controller.signal
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(rows) {
+      clearTimeout(timeoutId);
+      if (rows && rows.length > 0) {
+        var currentData = rows[0].data || {};
+        currentData._pinHash = newPinHash;
+        // Step 2: PATCH with merged data
+        var controller2 = new AbortController();
+        var timeout2 = setTimeout(function(){ controller2.abort(); }, 15000);
+        fetch(MGR_SUPA_URL + '/rest/v1/agents?name=eq.' + encodeURIComponent(name), {
+          method: 'PATCH',
+          headers: {
+            'apikey': MGR_SUPA_KEY,
+            'Authorization': 'Bearer ' + MGR_SUPA_KEY,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal'
+          },
+          body: JSON.stringify({ data: currentData }),
+          signal: controller2.signal
+        })
+        .then(function(res2) {
+          clearTimeout(timeout2);
+          supaDone = true;
+          if (res2.ok) { anyOk = true; }
+          checkDone();
+        })
+        .catch(function(e) {
+          clearTimeout(timeout2);
+          console.error('[resetPin Supabase PATCH]', e);
+          supaDone = true;
+          checkDone();
+        });
+      } else {
+        supaDone = true;
+        checkDone();
+      }
+    })
+    .catch(function(e) {
+      clearTimeout(timeoutId);
+      console.error('[resetPin Supabase GET]', e);
+      supaDone = true;
+      checkDone();
+    });
+  } else {
+    supaDone = true;
+  }
+
+  // Update Google Sheets
+  if (MGR_API_URL) {
+    var qs = 'action=reset_pin&agentId=' + encodeURIComponent(name) + '&pinHash=' + encodeURIComponent(newPinHash);
+    fetch(MGR_API_URL + '?' + qs)
+      .then(function(r) { return r.json(); })
+      .then(function(r) {
+        gsDone = true;
+        if (r.success) { anyOk = true; }
+        checkDone();
+      })
+      .catch(function(e) {
+        console.error('[resetPin GS]', e);
+        gsDone = true;
+        checkDone();
+      });
+  } else {
+    gsDone = true;
+  }
+
+  // If neither configured
+  if (!MGR_SUPA_URL && !MGR_API_URL) {
+    supaDone = true; gsDone = true;
+    checkDone();
+  }
+}
 // ============================================================
 function money(n){return'HK$ '+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function df(s){if(!s)return'';var d=new Date(s);return isNaN(d)?'':d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
