@@ -1694,7 +1694,7 @@ function renderGoals() {
     else { var s2,e2; if (g.period==='quarterly') { s2=new Date(g.year,(g.quarter-1)*3,1); e2=new Date(g.year,(g.quarter-1)*3+3,0); } else { s2=new Date(g.year,0,1); e2=new Date(g.year,11,31); } actual=DB.commissions.filter(function(c){var d=new Date(c.date);return d>=s2&&d<=e2;}).reduce(function(s,c){return s+(Number(c.amount)||0);},0); }
     var pct = Math.round(actual/g.target*100); if (pct>100) pct=100;
     var bc = pct>=100?'var(--green500)':pct>=70?'var(--blue500)':'var(--yellow500)';
-    h += '<div class="goal-card"><div class="goal-header"><div class="goal-title">'+(g.type||'佣金')+' — '+esc(pl)+'</div><span class="badge '+(pct>=100?'badge-green':'badge-blue')+'">'+pct+'%</span></div><div class="goal-meta">目標: '+money(g.target)+' | 已達成: '+money(actual)+' | 差距: '+money(g.target-actual)+'</div><div class="progress-bar"><div class="progress-fill" style="width:'+pct+'%;background:'+bc+'"></div></div><div style="margin-top:8px"><button class="btn btn-sm btn-outline" onclick="openForm(\'goal\','+g.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'goals\','+g.id+')">刪除</button></div></div>';
+    h += '<div class="goal-card"><div class="goal-header"><div class="goal-title">'+(g.type||'佣金')+' — '+esc(pl)+'</div><span class="badge '+(pct>=100?'badge-green':'badge-blue')+'">'+pct+'%</span></div><div class="goal-meta">目標: '+pcMoney(g.target)+' | 已達成: '+pcMoney(actual)+' | 差距: '+pcMoney(g.target-actual)+'</div><div class="progress-bar"><div class="progress-fill" style="width:'+pct+'%;background:'+bc+'"></div></div><div style="margin-top:8px"><button class="btn btn-sm btn-outline" onclick="openForm(\'goal\','+g.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'goals\','+g.id+')">刪除</button></div></div>';
   });
   document.getElementById('goalList').innerHTML = h;
 }
@@ -1940,12 +1940,15 @@ function openForm(type, id) {
   }
   else if (type === 'goal') {
     var g = id?findById('goals',id):{};
+    var yr = new Date().getFullYear();
+    var yearOpts = []; for (var yi=yr-2; yi<=yr+3; yi++) yearOpts.push({val:yi, label:yi+'年'});
+    var qOpts = [{val:1,label:'Q1 (1-3月)'},{val:2,label:'Q2 (4-6月)'},{val:3,label:'Q3 (7-9月)'},{val:4,label:'Q4 (10-12月)'}];
+    var mOpts = []; for (var mi=1; mi<=12; mi++) mOpts.push({val:mi, label:mi+'月'});
     h += fs('類型','type',['佣金'],g.type||'佣金')
-      +fs('週期','period',['monthly','quarterly','yearly'],g.period||'monthly')
-      +fg('年份','year','number',g.year||new Date().getFullYear())
-      +fg('月份(月目標)','month','number',g.month||new Date().getMonth()+1)
-      +fg('季度(季目標)','quarter','number',g.quarter||Math.ceil((new Date().getMonth()+1)/3))
-      +fg('目標金額(HK$)','target','number',g.target||'')
+      +fs('年度目標','year',yearOpts,Number(g.year||yr))
+      +fs('季度目標','quarter',qOpts,Number(g.quarter||Math.ceil((new Date().getMonth()+1)/3)))
+      +fs('每月目標','month',mOpts,Number(g.month||new Date().getMonth()+1))
+      +fg('目標PC','target','number',g.target||'')
       +fg('描述','desc','text',g.desc||'');
   }
   else if (type === 'schedule') {
