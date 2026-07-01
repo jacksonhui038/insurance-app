@@ -122,13 +122,23 @@ tr:hover td{background:var(--blue50)}
       <button class="lock-btn lock-btn-primary" onclick="showMgrLogin()" style="margin-bottom:8px">🔐 登入</button>
       <button class="lock-btn lock-btn-outline" onclick="showMgrSetup()">📝 首次設定</button>
     </div>
-    <!-- LOGIN (name + PIN, no confirm) -->
+    <!-- LOGIN (name + PIN + role, no confirm) -->
     <div id="lockLogin" style="display:none">
       <div class="lock-icon">🔐</div>
       <h2>經理登入</h2>
       <div class="lock-sub">輸入姓名同 PIN 碼</div>
-      <label class="lock-label">經理姓名</label>
-      <input type="text" class="lock-input" id="mgrLoginName" placeholder="例如：張經理" style="letter-spacing:normal;font-size:15px;text-align:left;margin-bottom:16px" autocomplete="off">
+      <label class="lock-label">姓名</label>
+      <input type="text" class="lock-input" id="mgrLoginName" placeholder="例如：Jackson Hui" style="letter-spacing:normal;font-size:15px;text-align:left;margin-bottom:12px" autocomplete="off">
+      <label class="lock-label">職級</label>
+      <select id="mgrLoginRole" style="width:100%;padding:10px 12px;border-radius:8px;border:2px solid var(--gray200);font-size:14px;font-family:inherit;margin-bottom:12px;background:var(--white)">
+        <option value="">-- 請選擇職級 --</option>
+        <option value="SDD">SDD — 大區總監</option>
+        <option value="DD">DD — 小區總監</option>
+        <option value="SDM">SDM — 高級分區經理</option>
+        <option value="DM">DM — 分區經理</option>
+        <option value="SASM">SASM — 高級助理分區經理</option>
+        <option value="ASM">ASM — 助理分區經理</option>
+      </select>
       <label class="lock-label">PIN 碼</label>
       <input type="password" class="lock-input" id="mgrLoginPin" placeholder="••••" maxlength="6" inputmode="numeric" autocomplete="off" onkeydown="if(event.key==='Enter')doMgrLogin()">
       <button class="lock-btn lock-btn-primary" onclick="doMgrLogin()" id="mgrLoginBtn">登入</button>
@@ -304,6 +314,8 @@ tr:hover td{background:var(--blue50)}
 var MGR_KEY = 'mgr_name';
 var MGR_PIN_KEY = 'mgr_pin';
 var mgrUnlocked = false;
+var mgrRole = '';
+var mgrName = '';
 
 function initLock(){
   var name = localStorage.getItem(MGR_KEY);
@@ -349,23 +361,25 @@ function showMgrSetup() {
 
 function doMgrLogin() {
   var name = document.getElementById('mgrLoginName').value.trim();
+  var role = document.getElementById('mgrLoginRole').value;
   var pin = document.getElementById('mgrLoginPin').value.trim();
   var err = document.getElementById('mgrLoginErr');
   var btn = document.getElementById('mgrLoginBtn');
   err.textContent = '';
   if (!name) { err.textContent = '請輸入姓名'; return; }
+  if (!role) { err.textContent = '請選擇職級'; return; }
   if (!pin || pin.length < 4) { err.textContent = 'PIN 碼至少 4 位數字'; return; }
-  // For manager: just save to localStorage (manager data is local, team data comes from cloud)
-  // On a new device, this IS the first setup for that device
   btn.textContent = '進入中...'; btn.disabled = true;
   localStorage.setItem(MGR_KEY, name);
   localStorage.setItem(MGR_PIN_KEY, pin);
+  localStorage.setItem('mgr_role', role);
   mgrUnlocked = true;
+  mgrRole = role;
   document.getElementById('lockBg').classList.add('hide');
   var hdr = document.getElementById('mgrNameDisplay');
-  if (hdr) hdr.textContent = '經理：' + name;
+  if (hdr) hdr.textContent = role + '：' + name;
   render();
-  toast('登入成功！請按「載入團隊數據」查看代理人資料');
+  toast('登入成功！請按「載入團隊數據」查看下屬資料');
   btn.textContent = '登入'; btn.disabled = false;
 }
 
@@ -399,10 +413,11 @@ function doUnlock(){
 
 function unlockOK(){
   mgrUnlocked = true;
+  mgrName = localStorage.getItem(MGR_KEY) || '';
+  mgrRole = localStorage.getItem('mgr_role') || '';
   document.getElementById('lockBg').classList.add('hide');
-  var n = localStorage.getItem(MGR_KEY) || '';
   var hdr = document.getElementById('mgrNameDisplay');
-  if(hdr && n) hdr.textContent = '經理：' + n;
+  if(hdr && mgrName) hdr.textContent = (mgrRole?mgrRole+'：':'經理：') + mgrName;
   render();
 }
 
@@ -495,9 +510,12 @@ function mgrLoadApiUrl() {
 
 function mgrLoadFromSupabase() {
   if (!MGR_SUPA_URL || !MGR_SUPA_KEY) { return Promise.resolve(false); }
+  var myName = localStorage.getItem(MGR_KEY) || '';
+  var myRole = localStorage.getItem('mgr_role') || '';
   toast('☁️ 從 Supabase 載入團隊數據...');
   var controller = new AbortController();
   var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
+  // Load ALL agents, then filter client-side by hierarchyPath
   return fetch(MGR_SUPA_URL + '/rest/v1/agents?select=name,data,manager,team', {
     headers:{'apikey':MGR_SUPA_KEY,'Authorization':'Bearer '+MGR_SUPA_KEY},
     signal:controller.signal
@@ -506,25 +524,42 @@ function mgrLoadFromSupabase() {
   .then(function(rows){
     if (rows && rows.length > 0) {
       TEAM = {};
+      var visibleCount = 0;
       rows.forEach(function(r){
         var aName = r.name;
+        var aData = r.data || {};
+        var aRole = aData.role || 'Agent';
+        var aPath = aData.hierarchyPath || aName;
+        // Filter: show agent if their hierarchyPath contains my name
+        // (means they are in my downline) OR they are me
+        var isMe = (aName === myName);
+        var isInMyDownline = (aPath.indexOf(myName) >= 0);
+        if (!isMe && !isInMyDownline) return; // skip agents not in my downline
         TEAM[aName] = {
           clients: [], policies: [], commissions: [],
           expenses: [], goals: [], schedules: [],
           pcs: [], incomes: [],
           managerName: r.manager || '',
-          team: r.team || ''
+          team: r.team || '',
+          role: aRole,
+          hierarchyPath: aPath,
+          supervisor: aData.supervisor || r.manager || ''
         };
         if (r.data) {
           ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k){
             if (r.data[k]) TEAM[aName][k] = r.data[k];
           });
         }
+        visibleCount++;
       });
       render();
       document.getElementById("noDataMsg").style.display = "none";
       document.getElementById("dataView").style.display = "block";
-      toast('☁️ 已從 Supabase 載入 '+Object.keys(TEAM).length+' 位代理人數據！');
+      if (visibleCount === 0) {
+        toast('⚠️ 你嘅下屬尚未註冊。請讓佢哋喺代理人版註冊時填寫你為直屬上司。', 'warning');
+      } else {
+        toast('☁️ 已載入 '+visibleCount+' 位團隊成員數據！');
+      }
       return true;
     }
     if (rows && rows.length === 0) {
@@ -580,7 +615,10 @@ function mgrLoadFromGoogleSheets() {
             expenses: [], goals: [], schedules: [],
             pcs: [], incomes: [],
             managerName: a.managerName || '',
-            team: a.team || ''
+            team: a.team || '',
+            role: a.role || 'Agent',
+            hierarchyPath: a.hierarchyPath || aName,
+            supervisor: a.supervisor || a.managerName || ''
           };
         });
         ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(sheetName) {
@@ -739,12 +777,17 @@ function render(){
     if(d.pcs) d.pcs.forEach(function(pc){var dt=new Date(pc.date);if(dt.getMonth()===m&&dt.getFullYear()===y)mpc+=Number(pc.amount)||0;if(dt.getFullYear()===y)ypc+=Number(pc.amount)||0;});
     var me=0;d.expenses.forEach(function(e){var dt=new Date(e.date);if(dt.getMonth()===m&&dt.getFullYear()===y)me+=Number(e.amount)||0;});
     var goalRate=0;(d.goals||[]).forEach(function(g){if(g.period==='monthly'&&g.year===y&&g.month===m+1&&g.target>0)goalRate=Math.round(mc/g.target*100);});
-    ranks.push({name:a,clients:d.clients.length,policies:d.policies.length,monthComm:mc,yearComm:yc,monthPC:mpc,yearPC:ypc,expenses:me,goalRate:Math.min(goalRate,999),net:mc-me});
+    ranks.push({name:a,role:d.role||'Agent',clients:d.clients.length,policies:d.policies.length,monthComm:mc,yearComm:yc,monthPC:mpc,yearPC:ypc,expenses:me,goalRate:Math.min(goalRate,999),net:mc-me,supervisor:d.supervisor||''});
   });
   ranks.sort(function(a,b){return b.monthComm-a.monthComm;});
   var maxComm=ranks.length>0?ranks[0].monthComm:1;
+  var roleColors={'SDD':'#1e40af','DD':'#2563eb','SDM':'#3b82f6','DM':'#60a5fa','SASM':'#93c5fd','ASM':'#bfdbfe','Agent':'#e5e7eb'};
   var tableHtml='';
-  ranks.forEach(function(r,i){tableHtml+='<tr class="agent-row'+(selectedAgent===r.name?' selected':'')+'" onclick="selectAgent(\''+esc(r.name)+'\',this)"><td>'+(i+1)+'</td><td>'+esc(r.name)+'</td><td>'+r.clients+'</td><td>'+r.policies+'</td><td class="amt-pos">'+money(r.monthComm)+'</td><td>'+money(r.yearComm)+'</td><td>'+money(r.monthPC)+'</td><td><span class="badge '+(r.goalRate>=100?'badge-green':r.goalRate>=70?'badge-blue':'badge-yellow')+'">'+(r.goalRate===0?'未設定':r.goalRate+'%')+'</span></td><td>'+money(r.net)+'</td></tr>';});
+  ranks.forEach(function(r,i){
+    var rc=roleColors[r.role]||'#e5e7eb';
+    var roleBadge='<span style="background:'+rc+';color:'+(r.role==='Agent'?'#374151':'#fff')+';padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600">'+esc(r.role)+'</span>';
+    tableHtml+='<tr class="agent-row'+(selectedAgent===r.name?' selected':'')+'" onclick="selectAgent(\''+esc(r.name)+'\',this)"><td>'+(i+1)+'</td><td>'+esc(r.name)+' '+roleBadge+'</td><td>'+r.clients+'</td><td>'+r.policies+'</td><td class="amt-pos">'+money(r.monthComm)+'</td><td>'+money(r.yearComm)+'</td><td>'+money(r.monthPC)+'</td><td><span class="badge '+(r.goalRate>=100?'badge-green':r.goalRate>=70?'badge-blue':'badge-yellow')+'">'+(r.goalRate===0?'未設定':r.goalRate+'%')+'</span></td><td>'+money(r.net)+'</td></tr>';
+  });
   document.getElementById('agentRankingTable').innerHTML=tableHtml;
 
   // Ranking chart
