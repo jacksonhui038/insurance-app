@@ -173,24 +173,26 @@ tr:hover td{background:var(--blue50)}
       <div class="form-group"><label>PIN 碼（4-6 位數字）</label><input type="password" id="pinInput" placeholder="設定 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off"></div>
       <div class="form-group"><label>確認 PIN 碼</label><input type="password" id="pinConfirm" placeholder="再次輸入 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off"></div>
       <hr style="border:none;border-top:1px solid var(--gray200);margin:14px 0">
-      <div class="form-group"><label>👔 所屬經理 <span style="color:var(--red500)">*</span></label>
-        <select id="managerSelect" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px;font-family:inherit;background:var(--white)">
-          <option value="">-- 請選擇所屬經理 --</option>
-          <option value="張經理">張經理</option>
-          <option value="李經理">李經理</option>
-          <option value="王經理">王經理</option>
-          <option value="陳經理">陳經理</option>
-          <option value="其他">其他（請在下面填寫）</option>
+      <div class="form-group"><label>👔 職級 <span style="color:var(--red500)">*</span></label>
+        <select id="roleSelect" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px;font-family:inherit;background:var(--white)" onchange="onRoleChange()">
+          <option value="">-- 請選擇職級 --</option>
+          <option value="SDD">SDD — 大區總監</option>
+          <option value="DD">DD — 小區總監</option>
+          <option value="SDM">SDM — 高級分區經理</option>
+          <option value="DM">DM — 分區經理</option>
+          <option value="SASM">SASM — 高級助理分區經理</option>
+          <option value="ASM">ASM — 助理分區經理</option>
+          <option value="Agent">Agent — 同事</option>
         </select>
       </div>
-      <div class="form-group" id="customMgrGroup" style="display:none"><label>經理姓名</label><input type="text" id="customMgrName" placeholder="輸入經理姓名"></div>
+      <div class="form-group"><label>👤 直屬上司姓名 <span id="supervisorStar" style="color:var(--red500)">*</span> <span style="font-size:11px;color:var(--gray400)">註冊後不可更改</span></label><input type="text" id="supervisorInput" placeholder="例如：Jackson Hui" autocomplete="off"></div>
       <div class="form-group"><label>團隊名稱（選填）</label><input type="text" id="teamInput" placeholder="例如：Team A（選填）"></div>
       <div class="modal-actions" style="justify-content:center;flex-wrap:wrap;gap:8px">
         <button class="btn btn-primary" onclick="saveName()" id="regBtn">註冊</button>
         <button class="btn btn-outline" onclick="showChoiceMode()">返回</button>
       </div>
       <p id="regErr" style="color:var(--red500);font-size:12px;margin-top:8px;display:none"></p>
-      <p style="font-size:11px;color:var(--gray400);margin-top:10px;text-align:center">⚠️ 所屬經理決定咗邊位可以睇到你嘅數據</p>
+      <p style="font-size:11px;color:var(--gray400);margin-top:10px;text-align:center">⚠️ 直屬上司決定咗邊位可以睇到你嘅數據</p>
     </div>
     <!-- UNLOCK: returning user on same device -->
     <div id="unlockMode" style="display:none">
@@ -447,6 +449,8 @@ var chartInstances = {};
 var agentName = '';
 var assignedManager = '';
 var assignedTeam = '';
+var agentRole = '';
+var agentHierarchyPath = '';
 var _id = 0;
 
 // ===== 雲端同步設定 =====
@@ -779,6 +783,21 @@ function showRegisterMode() {
   document.getElementById('nameInput').focus();
 }
 
+function onRoleChange() {
+  var role = document.getElementById('roleSelect').value;
+  var star = document.getElementById('supervisorStar');
+  var supInput = document.getElementById('supervisorInput');
+  if (role === 'SDD') {
+    star.style.color = 'var(--gray400)';
+    star.textContent = '(選填)';
+    supInput.placeholder = 'SDD 為最高層級，可留空';
+  } else {
+    star.style.color = 'var(--red500)';
+    star.textContent = '*';
+    supInput.placeholder = '例如：Jackson Hui';
+  }
+}
+
 function doLogin() {
   var name = document.getElementById('loginName').value.trim();
   var pin = document.getElementById('loginPin').value.trim();
@@ -822,17 +841,21 @@ function doLogin() {
         agentName = name; agentPIN = pin;
         assignedManager = rows[0].manager || '';
         assignedTeam = rows[0].team || '';
+        agentRole = ad.role || ad._role || 'Agent';
+        agentHierarchyPath = ad.hierarchyPath || ad._hierarchyPath || name;
         localStorage.setItem(AGENT_KEY, name);
         localStorage.setItem(AGENT_PIN_KEY, pin);
         localStorage.setItem('insurance_agent_name_locked', 'true');
         localStorage.setItem('insurance_mgr_'+encodeURIComponent(name), assignedManager);
+        localStorage.setItem('insurance_role_'+encodeURIComponent(name), agentRole);
+        localStorage.setItem('insurance_hpath_'+encodeURIComponent(name), agentHierarchyPath);
         if (assignedTeam) localStorage.setItem('insurance_team_'+encodeURIComponent(name), assignedTeam);
         DB = {clients:[],policies:[],commissions:[],expenses:[],goals:[],schedules:[],pcs:[],incomes:[]};
         ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k) { if (ad[k]) DB[k] = ad[k]; });
         saveDB();
         document.getElementById('nameModalBg').classList.remove('show');
         document.getElementById('agentNameDisplay').textContent = name;
-        document.getElementById('sidebarAgentInfo').textContent = name+' | 代理人'+(assignedManager?' | '+assignedManager:'');
+        document.getElementById('sidebarAgentInfo').textContent = name+' | '+agentRole+(assignedManager?' | 上司：'+assignedManager:'');
         renderDashboard(); renderCurrentTab(); afterLoginSync();
         toast('登入成功！已從雲端載入數據');
         resetBtn();
@@ -966,8 +989,8 @@ function saveName() {
   var n = document.getElementById('nameInput').value.trim();
   var pin = document.getElementById('pinInput').value.trim();
   var pin2 = document.getElementById('pinConfirm').value.trim();
-  var mgrSelect = document.getElementById('managerSelect').value;
-  var customMgr = document.getElementById('customMgrName').value.trim();
+  var role = document.getElementById('roleSelect').value;
+  var supervisor = document.getElementById('supervisorInput').value.trim();
   var team = document.getElementById('teamInput').value.trim();
   var errEl = document.getElementById('regErr');
   errEl.style.display = 'none';
@@ -975,8 +998,8 @@ function saveName() {
   if (!pin || pin.length < 4) { errEl.textContent = 'PIN 碼至少 4 位數字'; errEl.style.display = 'block'; return; }
   if (!/^\d+$/.test(pin)) { errEl.textContent = 'PIN 碼只能含數字'; errEl.style.display = 'block'; return; }
   if (pin !== pin2) { errEl.textContent = 'PIN 碼不一致'; errEl.style.display = 'block'; return; }
-  var finalMgr = mgrSelect === '其他' ? customMgr : mgrSelect;
-  if (!finalMgr) { errEl.textContent = '請選擇所屬經理'; errEl.style.display = 'block'; return; }
+  if (!role) { errEl.textContent = '請選擇職級'; errEl.style.display = 'block'; return; }
+  if (role !== 'SDD' && !supervisor) { errEl.textContent = '請輸入直屬上司姓名'; errEl.style.display = 'block'; return; }
   var btn = document.getElementById('regBtn');
   btn.textContent = '檢查中...'; btn.disabled = true;
   // Check cloud for duplicate
@@ -985,24 +1008,63 @@ function saveName() {
       errEl.textContent = '此姓名已註冊，請用「登入已有帳戶」'; errEl.style.display = 'block';
       btn.textContent = '註冊'; btn.disabled = false; return;
     }
-    if (!confirm('確認姓名是「'+n+'」？\n\n姓名確認後不可更改。')) {
+    if (!confirm('確認姓名是「'+n+'」？\n職級：'+role+'\n直屬上司：'+(supervisor||'無（最高層級）')+'\n\n姓名確認後不可更改。')) {
       btn.textContent = '註冊'; btn.disabled = false; return;
     }
-    agentName = n; agentPIN = pin; assignedManager = finalMgr;
+    agentName = n; agentPIN = pin; assignedManager = supervisor;
+    agentRole = role;
     localStorage.setItem(AGENT_KEY, n);
     localStorage.setItem(AGENT_PIN_KEY, pin);
     localStorage.setItem('insurance_agent_name_locked', 'true');
-    localStorage.setItem('insurance_mgr_'+encodeURIComponent(n), finalMgr);
+    localStorage.setItem('insurance_mgr_'+encodeURIComponent(n), supervisor);
+    localStorage.setItem('insurance_role_'+encodeURIComponent(n), role);
     if (team) localStorage.setItem('insurance_team_'+encodeURIComponent(n), team);
-    document.getElementById('nameModalBg').classList.remove('show');
-    document.getElementById('agentNameDisplay').textContent = n;
-    document.getElementById('sidebarAgentInfo').textContent = n+' | 代理人 | '+finalMgr;
-    loadDB(); loadSample(); renderDashboard();
-    afterLoginSync();
-    // Register to cloud with pinHash
-    registerToCloudWithPin(n, finalMgr, team, hashPin(pin));
-    btn.textContent = '註冊'; btn.disabled = false;
+    // Compute hierarchyPath: query supervisor's hierarchyPath from cloud, then append own name
+    computeHierarchyPath(supervisor, n, function(hPath) {
+      agentHierarchyPath = hPath;
+      localStorage.setItem('insurance_hpath_'+encodeURIComponent(n), hPath);
+      document.getElementById('nameModalBg').classList.remove('show');
+      document.getElementById('agentNameDisplay').textContent = n;
+      document.getElementById('sidebarAgentInfo').textContent = n+' | '+role+(supervisor?' | 上司：'+supervisor:'');
+      loadDB(); loadSample(); renderDashboard();
+      afterLoginSync();
+      // Register to cloud with pinHash + role + hierarchyPath
+      registerToCloudWithPin(n, supervisor, team, hashPin(pin), role, hPath);
+      btn.textContent = '註冊'; btn.disabled = false;
+    });
   });
+}
+
+// Compute hierarchyPath by looking up supervisor's path from Supabase
+function computeHierarchyPath(supervisor, myName, callback) {
+  if (!supervisor) {
+    // SDD (top level) — path is just own name
+    callback(myName);
+    return;
+  }
+  if (SUPA_URL && SUPA_KEY) {
+    var ctrl = new AbortController();
+    var tid = setTimeout(function(){ ctrl.abort(); }, 10000);
+    fetch(SUPA_URL + '/rest/v1/agents?name=eq.' + encodeURIComponent(supervisor) + '&select=data', {
+      headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }, signal: ctrl.signal
+    })
+    .then(function(res) { clearTimeout(tid); return res.json(); })
+    .then(function(rows) {
+      if (rows && rows.length > 0 && rows[0].data) {
+        var supPath = rows[0].data.hierarchyPath || rows[0].data._hierarchyPath || supervisor;
+        callback(supPath + ',' + myName);
+      } else {
+        // Supervisor not found in cloud — use supervisor name as starting point
+        callback(supervisor + ',' + myName);
+      }
+    })
+    .catch(function() {
+      clearTimeout(tid);
+      callback(supervisor + ',' + myName);
+    });
+  } else {
+    callback(supervisor + ',' + myName);
+  }
 }
 
 function checkAgentExists(name, callback) {
@@ -1028,13 +1090,13 @@ function checkAgentExistsGS(name, callback) {
     .catch(function() { callback(false); });
 }
 
-function registerToCloudWithPin(name, manager, team, pinH) {
+function registerToCloudWithPin(name, manager, team, pinH, role, hPath) {
   if (API_URL) {
-    var qs = 'action=register_agent&agentId='+encodeURIComponent(name)+'&agentName='+encodeURIComponent(name)+'&managerName='+encodeURIComponent(manager||'')+'&team='+encodeURIComponent(team||'')+'&pinHash='+encodeURIComponent(pinH);
+    var qs = 'action=register_agent&agentId='+encodeURIComponent(name)+'&agentName='+encodeURIComponent(name)+'&managerName='+encodeURIComponent(manager||'')+'&team='+encodeURIComponent(team||'')+'&pinHash='+encodeURIComponent(pinH)+'&role='+encodeURIComponent(role||'Agent')+'&hierarchyPath='+encodeURIComponent(hPath||name);
     fetch(API_URL + '?' + qs).then(function(r){return r.json();}).then(function(r){console.log('[reg]',r);}).catch(function(e){console.error('[reg]',e);});
   }
   if (SUPA_URL && SUPA_KEY) {
-    var dwp = Object.assign({}, DB, {_pinHash: pinH});
+    var dwp = Object.assign({}, DB, {_pinHash: pinH, role: role||'Agent', hierarchyPath: hPath||name, supervisor: manager||''});
     fetch(SUPA_URL + '/rest/v1/agents?on_conflict=name', {
       method:'POST',
       headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
@@ -1048,13 +1110,15 @@ function unlockAgent() {
   if (pin !== localStorage.getItem(AGENT_PIN_KEY)) { alert('❌ PIN 碼錯誤'); document.getElementById('unlockPin').value=''; document.getElementById('unlockPin').focus(); return; }
   agentPIN = pin;
   assignedManager = localStorage.getItem('insurance_mgr_'+encodeURIComponent(agentName)) || '';
+  agentRole = localStorage.getItem('insurance_role_'+encodeURIComponent(agentName)) || 'Agent';
+  agentHierarchyPath = localStorage.getItem('insurance_hpath_'+encodeURIComponent(agentName)) || agentName;
   document.getElementById('nameModalBg').classList.remove('show');
   document.getElementById('agentNameDisplay').textContent = agentName;
-  document.getElementById('sidebarAgentInfo').textContent = agentName+' | 代理人版'+(assignedManager?' | '+assignedManager:'');
+  document.getElementById('sidebarAgentInfo').textContent = agentName+' | '+agentRole+(assignedManager?' | 上司：'+assignedManager:'');
   loadDB(); loadSample(); renderDashboard();
   afterLoginSync();
-  if (!assignedManager) {
-    toast('⚠️ 尚未設定所屬經理，請到「☁️ 雲端」設定', 'error');
+  if (!assignedManager && agentRole !== 'SDD') {
+    toast('⚠️ 尚未設定直屬上司，請聯絡系統管理員', 'error');
   }
 }
 
