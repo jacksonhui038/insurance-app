@@ -189,7 +189,14 @@ tr:hover td{background:var(--blue50)}
         </select>
       </div>
       <div class="form-group"><label>👤 直屬上司姓名 <span id="supervisorStar" style="color:var(--red500)">*</span> <span style="font-size:11px;color:var(--gray400)">註冊後不可更改</span></label><input type="text" id="supervisorInput" placeholder="例如：Jackson Hui" autocomplete="off"></div>
-      <div class="form-group"><label>團隊名稱（選填）</label><input type="text" id="teamInput" placeholder="例如：Team A（選填）"></div>
+      <div class="form-group"><label>團隊 <span style="color:var(--red500)">*</span></label>
+        <select id="teamInput" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px;font-family:inherit;background:var(--white)">
+          <option value="">-- 請選擇團隊 --</option>
+          <option value="Terry Pau District">Terry Pau District</option>
+          <option value="Eric Ng District">Eric Ng District</option>
+          <option value="Sammy Chan District">Sammy Chan District</option>
+        </select>
+      </div>
       <div class="modal-actions" style="justify-content:center;flex-wrap:wrap;gap:8px">
         <button class="btn btn-primary" onclick="saveName()" id="regBtn">註冊</button>
         <button class="btn btn-outline" onclick="showChoiceMode()">返回</button>
@@ -1003,6 +1010,7 @@ function saveName() {
   if (pin !== pin2) { errEl.textContent = 'PIN 碼不一致'; errEl.style.display = 'block'; return; }
   if (!role) { errEl.textContent = '請選擇職級'; errEl.style.display = 'block'; return; }
   if (role !== 'SDD' && !supervisor) { errEl.textContent = '請輸入直屬上司姓名'; errEl.style.display = 'block'; return; }
+  if (!team) { errEl.textContent = '請選擇團隊'; errEl.style.display = 'block'; return; }
   var btn = document.getElementById('regBtn');
   btn.textContent = '檢查中...'; btn.disabled = true;
   // Check cloud for duplicate
@@ -1011,7 +1019,7 @@ function saveName() {
       errEl.textContent = '此姓名已註冊，請用「登入已有帳戶」'; errEl.style.display = 'block';
       btn.textContent = '註冊'; btn.disabled = false; return;
     }
-    if (!confirm('確認姓名是「'+n+'」？\n職級：'+role+'\n直屬上司：'+(supervisor||'無（最高層級）')+'\n\n姓名確認後不可更改。')) {
+    if (!confirm('確認姓名是「'+n+'」？\n職級：'+role+'\n直屬上司：'+(supervisor||'無（最高層級）')+'\n團隊：'+team+'\n\n姓名確認後不可更改。')) {
       btn.textContent = '註冊'; btn.disabled = false; return;
     }
     agentName = n; agentPIN = pin; assignedManager = supervisor;
