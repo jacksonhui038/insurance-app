@@ -188,6 +188,7 @@ tr:hover td{background:var(--blue50)}
       <button class="btn btn-white" onclick="showMergeModal()">🔗 合併代理人</button>
       <button class="btn btn-white" onclick="showDeleteAgentModal()">🗑️ 刪除代理人</button>
       <button class="btn btn-white" onclick="showResetPinModal()">🔑 重置 PIN</button>
+      <button class="btn btn-white" onclick="showFixRoleModal()">🔧 補填職級</button>
       <button class="btn btn-white" onclick="clearAll()">清除全部</button>
       <button class="btn btn-white" onclick="showAccountModal()">👤 帳號</button>
       <button class="btn btn-white" onclick="mgrShowCloudSetup()">⚙️ 設定</button>
@@ -300,6 +301,42 @@ tr:hover td{background:var(--blue50)}
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button class="btn btn-outline" onclick="hideResetPinModal()">取消</button>
       <button class="btn btn-primary" onclick="doResetPin()" id="resetPinBtn">🔑 確認重置</button>
+    </div>
+  </div>
+</div>
+
+<!-- FIX ROLE MODAL -->
+<div id="fixRoleModalBg" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.45);z-index:1000;justify-content:center;align-items:center">
+  <div style="background:#fff;border-radius:12px;padding:24px;width:92%;max-width:500px;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.2)">
+    <h3 style="font-size:16px;font-weight:700;margin-bottom:18px">🔧 補填職級 / 所屬經理</h3>
+    <p style="font-size:13px;color:var(--gray400);margin-bottom:14px">為舊帳號補填職級同所屬經理，自動計算層級鏈（hierarchyPath）。</p>
+    <div style="margin-bottom:14px">
+      <label style="font-size:12px;color:var(--gray500);font-weight:500;display:block;margin-bottom:4px">選擇代理人</label>
+      <select id="fixRoleSelect" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px;background:#fff" onchange="onFixRoleSelect()"></select>
+    </div>
+    <div id="fixRoleCurrentInfo" style="border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;background:#f0f9ff;color:#0369a1;display:none"></div>
+    <div style="margin-bottom:14px">
+      <label style="font-size:12px;color:var(--gray500);font-weight:500;display:block;margin-bottom:4px">職級 <span style="color:var(--red500)">*</span></label>
+      <select id="fixRoleRole" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px;background:#fff">
+        <option value="">-- 請選擇職級 --</option>
+        <option value="SDD">SDD — 大區總監</option>
+        <option value="DD">DD — 小區總監</option>
+        <option value="SDM">SDM — 高級分區經理</option>
+        <option value="DM">DM — 分區經理</option>
+        <option value="SASM">SASM — 高級助理分區經理</option>
+        <option value="ASM">ASM — 助理分區經理</option>
+        <option value="Agent">Agent — 同事</option>
+      </select>
+    </div>
+    <div style="margin-bottom:14px">
+      <label style="font-size:12px;color:var(--gray500);font-weight:500;display:block;margin-bottom:4px">所屬經理 <span id="fixRoleSupStar" style="color:var(--red500)">*</span></label>
+      <input type="text" id="fixRoleSupervisor" list="fixRoleSupList" placeholder="輸入上司姓名（SDD 可留空）" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px">
+      <datalist id="fixRoleSupList"><option value="Terry Pau"><option value="Eric Ng"><option value="Sammy Chan"></datalist>
+    </div>
+    <div id="fixRoleStatus" style="border-radius:8px;padding:12px;margin-bottom:14px;font-size:12px;display:none"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-outline" onclick="hideFixRoleModal()">取消</button>
+      <button class="btn btn-primary" onclick="doFixRole()" id="fixRoleBtn">🔧 確認補填</button>
     </div>
   </div>
 </div>
@@ -1159,6 +1196,176 @@ function doResetPin() {
   if (!MGR_SUPA_URL && !MGR_API_URL) {
     supaDone = true; gsDone = true;
     checkDone();
+  }
+}
+// ============================================================
+// FIX ROLE — 補填職級 / 所屬經理
+// ============================================================
+function showFixRoleModal() {
+  var names = Object.keys(TEAM);
+  if (names.length === 0) { toast('沒有代理人數據，請先載入團隊','error'); return; }
+  var sel = document.getElementById('fixRoleSelect');
+  sel.innerHTML = '<option value="">-- 請選擇 --</option>';
+  names.sort().forEach(function(n){
+    var ad = TEAM[n]._agentData || {};
+    var roleInfo = ad.role ? (' ['+ad.role+']') : ' [未設定]';
+    sel.innerHTML += '<option value="'+esc(n)+'">'+esc(n)+roleInfo+'</option>';
+  });
+  document.getElementById('fixRoleRole').value = '';
+  document.getElementById('fixRoleSupervisor').value = '';
+  document.getElementById('fixRoleCurrentInfo').style.display = 'none';
+  document.getElementById('fixRoleStatus').style.display = 'none';
+  document.getElementById('fixRoleModalBg').style.display = 'flex';
+}
+
+function hideFixRoleModal() {
+  document.getElementById('fixRoleModalBg').style.display = 'none';
+}
+
+function onFixRoleSelect() {
+  var name = document.getElementById('fixRoleSelect').value;
+  var infoEl = document.getElementById('fixRoleCurrentInfo');
+  if (!name) { infoEl.style.display = 'none'; return; }
+  var ad = (TEAM[name] && TEAM[name]._agentData) ? TEAM[name]._agentData : {};
+  var role = ad.role || '未設定';
+  var sup = ad.supervisor || ad._supervisor || '未設定';
+  var hPath = ad.hierarchyPath || ad._hierarchyPath || '未設定';
+  infoEl.innerHTML = '現時職級：<b>'+esc(role)+'</b><br>現時所屬經理：<b>'+esc(sup)+'</b><br>現時層級鏈：<b>'+esc(hPath)+'</b>';
+  infoEl.style.display = 'block';
+  // Pre-fill if existing
+  if (ad.role) document.getElementById('fixRoleRole').value = ad.role;
+  if (ad.supervisor || ad._supervisor) document.getElementById('fixRoleSupervisor').value = ad.supervisor || ad._supervisor;
+}
+
+function doFixRole() {
+  var name = document.getElementById('fixRoleSelect').value;
+  var role = document.getElementById('fixRoleRole').value;
+  var supervisor = document.getElementById('fixRoleSupervisor').value.trim();
+  var statusEl = document.getElementById('fixRoleStatus');
+  var btn = document.getElementById('fixRoleBtn');
+
+  if (!name) { toast('請選擇代理人','error'); return; }
+  if (!role) {
+    statusEl.style.background = '#fee2e2'; statusEl.style.color = '#dc2626';
+    statusEl.textContent = '請選擇職級'; statusEl.style.display = 'block'; return;
+  }
+  if (role !== 'SDD' && !supervisor) {
+    statusEl.style.background = '#fee2e2'; statusEl.style.color = '#dc2626';
+    statusEl.textContent = '非 SDD 職級必須填寫所屬經理'; statusEl.style.display = 'block'; return;
+  }
+
+  btn.textContent = '補填中...'; btn.disabled = true;
+
+  // Compute hierarchyPath: look up supervisor's hierarchyPath from Supabase
+  function updateCloud(hPath) {
+    var supaDone = false, anyOk = false;
+    if (MGR_SUPA_URL && MGR_SUPA_KEY) {
+      var controller = new AbortController();
+      var timeoutId = setTimeout(function(){ controller.abort(); }, 15000);
+      // GET current data
+      fetch(MGR_SUPA_URL + '/rest/v1/agents?name=eq.' + encodeURIComponent(name) + '&select=data', {
+        headers: { 'apikey': MGR_SUPA_KEY, 'Authorization': 'Bearer ' + MGR_SUPA_KEY },
+        signal: controller.signal
+      })
+      .then(function(res) { return res.json(); })
+      .then(function(rows) {
+        clearTimeout(timeoutId);
+        if (rows && rows.length > 0) {
+          var currentData = rows[0].data || {};
+          currentData.role = role;
+          currentData.supervisor = supervisor || '';
+          currentData.hierarchyPath = hPath;
+          // PATCH
+          var controller2 = new AbortController();
+          var timeout2 = setTimeout(function(){ controller2.abort(); }, 15000);
+          fetch(MGR_SUPA_URL + '/rest/v1/agents?name=eq.' + encodeURIComponent(name), {
+            method: 'PATCH',
+            headers: {
+              'apikey': MGR_SUPA_KEY,
+              'Authorization': 'Bearer ' + MGR_SUPA_KEY,
+              'Content-Type': 'application/json',
+              'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify({ data: currentData }),
+            signal: controller2.signal
+          })
+          .then(function(res2) {
+            clearTimeout(timeout2);
+            supaDone = true;
+            if (res2.ok) { anyOk = true; }
+            finishUpdate();
+          })
+          .catch(function(e) {
+            clearTimeout(timeout2);
+            console.error('[fixRole PATCH]', e);
+            supaDone = true;
+            finishUpdate();
+          });
+        } else {
+          supaDone = true;
+          finishUpdate();
+        }
+      })
+      .catch(function(e) {
+        clearTimeout(timeoutId);
+        console.error('[fixRole GET]', e);
+        supaDone = true;
+        finishUpdate();
+      });
+    } else {
+      supaDone = true;
+      finishUpdate();
+    }
+
+    function finishUpdate() {
+      btn.textContent = '🔧 確認補填'; btn.disabled = false;
+      if (anyOk) {
+        // Update local TEAM data
+        if (TEAM[name]) {
+          if (!TEAM[name]._agentData) TEAM[name]._agentData = {};
+          TEAM[name]._agentData.role = role;
+          TEAM[name]._agentData.supervisor = supervisor || '';
+          TEAM[name]._agentData.hierarchyPath = hPath;
+        }
+        hideFixRoleModal();
+        toast('已補填「'+name+'」嘅職級：'+role+(supervisor?(' | 經理：'+supervisor):''));
+        // Re-render team list if visible
+        if (typeof renderTeamList === 'function') renderTeamList();
+      } else {
+        statusEl.style.background = '#fee2e2'; statusEl.style.color = '#dc2626';
+        statusEl.textContent = '補填失敗，請檢查網路或 Supabase 設定'; statusEl.style.display = 'block';
+      }
+    }
+  }
+
+  // Compute hierarchyPath
+  if (supervisor) {
+    // Look up supervisor's hierarchyPath from Supabase
+    if (MGR_SUPA_URL && MGR_SUPA_KEY) {
+      fetch(MGR_SUPA_URL + '/rest/v1/agents?name=eq.' + encodeURIComponent(supervisor) + '&select=data', {
+        headers: { 'apikey': MGR_SUPA_KEY, 'Authorization': 'Bearer ' + MGR_SUPA_KEY }
+      })
+      .then(function(res) { return res.json(); })
+      .then(function(rows) {
+        if (rows && rows.length > 0) {
+          var supData = rows[0].data || {};
+          var supPath = supData.hierarchyPath || supData._hierarchyPath || supervisor;
+          updateCloud(supPath + ',' + name);
+        } else {
+          // Supervisor not found — use supervisor name as starting point
+          updateCloud(supervisor + ',' + name);
+        }
+      })
+      .catch(function(e) {
+        console.error('[fixRole sup lookup]', e);
+        updateCloud(supervisor + ',' + name);
+      });
+    } else {
+      updateCloud(supervisor + ',' + name);
+    }
+  } else {
+    // SDD — no supervisor
+    updateCloud(name);
   }
 }
 // ============================================================
