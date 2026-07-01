@@ -188,7 +188,7 @@ tr:hover td{background:var(--blue50)}
           <option value="Agent">Agent — 同事</option>
         </select>
       </div>
-      <div class="form-group"><label>👤 直屬上司姓名 <span id="supervisorStar" style="color:var(--red500)">*</span> <span style="font-size:11px;color:var(--gray400)">註冊後不可更改</span></label><input type="text" id="supervisorInput" placeholder="例如：Jackson Hui" autocomplete="off"></div>
+      <div class="form-group"><label>👤 所屬經理 <span id="supervisorStar" style="color:var(--red500)">*</span> <span style="font-size:11px;color:var(--gray400)">註冊後不可更改</span></label><input type="text" id="supervisorInput" list="supervisorList" autocomplete="off"><datalist id="supervisorList"><option value="Terry Pau"><option value="Eric Ng"><option value="Sammy Chan"></datalist></div>
       <div class="form-group"><label>團隊 <span style="color:var(--red500)">*</span></label>
         <select id="teamInput" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px;font-family:inherit;background:var(--white)">
           <option value="">-- 請選擇團隊 --</option>
@@ -202,7 +202,7 @@ tr:hover td{background:var(--blue50)}
         <button class="btn btn-outline" onclick="showChoiceMode()">返回</button>
       </div>
       <p id="regErr" style="color:var(--red500);font-size:12px;margin-top:8px;display:none"></p>
-      <p style="font-size:11px;color:var(--gray400);margin-top:10px;text-align:center">⚠️ 直屬上司決定咗邊位可以睇到你嘅數據</p>
+      <p style="font-size:11px;color:var(--gray400);margin-top:10px;text-align:center">⚠️ 所屬經理決定咗邊位可以睇到你嘅數據</p>
     </div>
     <!-- UNLOCK: returning user on same device -->
     <div id="unlockMode" style="display:none">
@@ -865,7 +865,7 @@ function doLogin() {
         saveDB();
         document.getElementById('nameModalBg').classList.remove('show');
         document.getElementById('agentNameDisplay').textContent = name;
-        document.getElementById('sidebarAgentInfo').textContent = name+' | '+agentRole+(assignedManager?' | 上司：'+assignedManager:'');
+        document.getElementById('sidebarAgentInfo').textContent = name+' | '+agentRole+(assignedManager?' | 經理：'+assignedManager:'');
         renderDashboard(); renderCurrentTab(); afterLoginSync();
         toast('登入成功！已從雲端載入數據');
         resetBtn();
@@ -1009,7 +1009,7 @@ function saveName() {
   if (!/^\d+$/.test(pin)) { errEl.textContent = 'PIN 碼只能含數字'; errEl.style.display = 'block'; return; }
   if (pin !== pin2) { errEl.textContent = 'PIN 碼不一致'; errEl.style.display = 'block'; return; }
   if (!role) { errEl.textContent = '請選擇職級'; errEl.style.display = 'block'; return; }
-  if (role !== 'SDD' && !supervisor) { errEl.textContent = '請輸入直屬上司姓名'; errEl.style.display = 'block'; return; }
+  if (role !== 'SDD' && !supervisor) { errEl.textContent = '請輸入所屬經理'; errEl.style.display = 'block'; return; }
   if (!team) { errEl.textContent = '請選擇團隊'; errEl.style.display = 'block'; return; }
   var btn = document.getElementById('regBtn');
   btn.textContent = '檢查中...'; btn.disabled = true;
@@ -1019,7 +1019,7 @@ function saveName() {
       errEl.textContent = '此姓名已註冊，請用「登入已有帳戶」'; errEl.style.display = 'block';
       btn.textContent = '註冊'; btn.disabled = false; return;
     }
-    if (!confirm('確認姓名是「'+n+'」？\n職級：'+role+'\n直屬上司：'+(supervisor||'無（最高層級）')+'\n團隊：'+team+'\n\n姓名確認後不可更改。')) {
+    if (!confirm('確認姓名是「'+n+'」？\n職級：'+role+'\n所屬經理：'+(supervisor||'無（最高層級）')+'\n團隊：'+team+'\n\n姓名確認後不可更改。')) {
       btn.textContent = '註冊'; btn.disabled = false; return;
     }
     agentName = n; agentPIN = pin; assignedManager = supervisor;
@@ -1036,7 +1036,7 @@ function saveName() {
       localStorage.setItem('insurance_hpath_'+encodeURIComponent(n), hPath);
       document.getElementById('nameModalBg').classList.remove('show');
       document.getElementById('agentNameDisplay').textContent = n;
-      document.getElementById('sidebarAgentInfo').textContent = n+' | '+role+(supervisor?' | 上司：'+supervisor:'');
+      document.getElementById('sidebarAgentInfo').textContent = n+' | '+role+(supervisor?' | 經理：'+supervisor:'');
       loadDB(); loadSample(); renderDashboard();
       afterLoginSync();
       // Register to cloud with pinHash + role + hierarchyPath
@@ -1125,11 +1125,11 @@ function unlockAgent() {
   agentHierarchyPath = localStorage.getItem('insurance_hpath_'+encodeURIComponent(agentName)) || agentName;
   document.getElementById('nameModalBg').classList.remove('show');
   document.getElementById('agentNameDisplay').textContent = agentName;
-  document.getElementById('sidebarAgentInfo').textContent = agentName+' | '+agentRole+(assignedManager?' | 上司：'+assignedManager:'');
+  document.getElementById('sidebarAgentInfo').textContent = agentName+' | '+agentRole+(assignedManager?' | 經理：'+assignedManager:'');
   loadDB(); loadSample(); renderDashboard();
   afterLoginSync();
   if (!assignedManager && agentRole !== 'SDD') {
-    toast('⚠️ 尚未設定直屬上司，請聯絡系統管理員', 'error');
+    toast('⚠️ 尚未設定所屬經理，請聯絡系統管理員', 'error');
   }
 }
 
