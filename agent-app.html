@@ -1982,14 +1982,12 @@ function fs(label, name, options, selected) {
   });
   h += '</select></div>'; return h;
 }
-// 時間欄：下拉選單，每5分鐘一個選項
+// 時間欄：原生 time input，可下拉揀 + 可自行輸入
 function fTime(label, name, slots, selected) {
+  var v = selected || '10:00';
   var h = '<div class="form-group"><label>'+label+'</label>';
-  h += '<select id="f_'+name+'" style="font-size:14px">';
-  slots.forEach(function(s){
-    h += '<option value="'+esc(s)+'"'+(s===(selected||'')?' selected':'')+'>'+esc(s)+'</option>';
-  });
-  h += '</select></div>';
+  h += '<input type="time" id="f_'+name+'" value="'+esc(v)+'" style="font-size:14px">';
+  h += '</div>';
   return h;
 }
 // 客戶欄：自由輸入 + 自動完成。輸入新名稱 = 自動新增客戶。
