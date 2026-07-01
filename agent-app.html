@@ -1918,14 +1918,14 @@ function fs(label, name, options, selected) {
   });
   h += '</select></div>'; return h;
 }
-// 時間欄：可從預設時間揀，亦可自由輸入
+// 時間欄：下拉選單，每5分鐘一個選項
 function fTime(label, name, slots, selected) {
-  var listId = 'dl_'+name+'_'+Date.now();
   var h = '<div class="form-group"><label>'+label+'</label>';
-  h += '<input type="text" id="f_'+name+'" value="'+esc(selected||'')+'" list="'+listId+'" placeholder="輸入或選擇時間 (HH:MM)" autocomplete="off" style="font-size:14px">';
-  h += '<datalist id="'+listId+'">';
-  slots.forEach(function(s){ h += '<option value="'+esc(s)+'">'; });
-  h += '</datalist></div>';
+  h += '<select id="f_'+name+'" style="font-size:14px">';
+  slots.forEach(function(s){
+    h += '<option value="'+esc(s)+'"'+(s===(selected||'')?' selected':'')+'>'+esc(s)+'</option>';
+  });
+  h += '</select></div>';
   return h;
 }
 // 客戶欄：自由輸入 + 自動完成。輸入新名稱 = 自動新增客戶。
