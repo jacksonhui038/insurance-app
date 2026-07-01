@@ -633,7 +633,7 @@ function saveToSupabase(callback) {
   var team = assignedTeam || localStorage.getItem('insurance_team_'+encodeURIComponent(agentName)) || '';
   var controller = new AbortController();
   var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
-  fetch(SUPA_URL + '/rest/v1/agents', {
+  fetch(SUPA_URL + '/rest/v1/agents?on_conflict=name', {
     method:'POST',
     headers:{
       'apikey':SUPA_KEY,
@@ -968,7 +968,7 @@ function registerToCloudWithPin(name, manager, team, pinH) {
   }
   if (SUPA_URL && SUPA_KEY) {
     var dwp = Object.assign({}, DB, {_pinHash: pinH});
-    fetch(SUPA_URL + '/rest/v1/agents', {
+    fetch(SUPA_URL + '/rest/v1/agents?on_conflict=name', {
       method:'POST',
       headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
       body:JSON.stringify({name:name,data:dwp,manager:manager,team:team})
@@ -1456,18 +1456,21 @@ function renderIncomes() {
 
 function renderExpenses() {
   var h = '';
-  var expItems = DB.incomes.filter(function(item){ return EXPENSE_CATS.indexOf(item.category) >= 0; });
-  // Also check legacy DB.expenses
-  var legacyItems = DB.expenses || [];
-  if (expItems.length === 0 && legacyItems.length === 0) h = '<tr><td colspan="6" class="empty">尚無支出記錄</td></tr>';
+  // 合併 DB.expenses + DB.incomes 中屬於支出的項目，按 id 去重
+  var allItems = [];
+  var seenIds = {};
+  (DB.expenses || []).forEach(function(item){
+    if (!seenIds[item.id]) { seenIds[item.id] = true; allItems.push(item); }
+  });
+  var expFromIncome = DB.incomes.filter(function(item){ return EXPENSE_CATS.indexOf(item.category) >= 0; });
+  expFromIncome.forEach(function(item){
+    if (!seenIds[item.id]) { seenIds[item.id] = true; allItems.push(item); }
+  });
+  if (allItems.length === 0) h = '<tr><td colspan="6" class="empty">尚無支出記錄</td></tr>';
   else {
-    legacyItems.forEach(function(item){
-      if (EXPENSE_CATS.indexOf(item.category) >= 0 || true) {
-        h += '<tr><td>'+esc(dFmt(item.date))+'</td><td><span class="badge badge-gray">'+esc(item.category)+'</span></td><td class="amt-neg">'+money(item.amount)+'</td><td>'+esc(item.payment||'—')+'</td><td>'+esc(item.notes||'—')+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'expense\','+item.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'expenses\','+item.id+')">刪除</button></td></tr>';
-      }
-    });
-    expItems.forEach(function(item){
-      h += '<tr><td>'+esc(dFmt(item.date))+'</td><td><span class="badge badge-gray">'+esc(item.category)+'</span></td><td class="amt-neg">'+money(item.amount)+'</td><td>'+esc(item.payment||'—')+'</td><td>'+esc(item.notes||'—')+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'expense\','+item.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'incomes\','+item.id+')">刪除</button></td></tr>';
+    allItems.sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
+    allItems.forEach(function(item){
+      h += '<tr><td>'+esc(dFmt(item.date))+'</td><td><span class="badge badge-gray">'+esc(item.category)+'</span></td><td class="amt-neg">'+money(item.amount)+'</td><td>'+esc(item.payment||'—')+'</td><td>'+esc(item.notes||'—')+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'expense\','+item.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'expenses\','+item.id+')">刪除</button></td></tr>';
     });
   }
   document.getElementById('expenseTable').innerHTML = h;
@@ -1787,7 +1790,7 @@ function openForm(type, id) {
       +fTime('開始時間','startTime',timeSlots,sc.startTime||'10:00')
       +fTime('結束時間','endTime',timeSlots,sc.endTime||'11:00')
       +fClient('客戶','clientName',sc.clientName||'')
-      +fs('會面目的','purpose',['講解保單','續保跟進','理財諮詢','索償處理','新客開發','售後服務','其他'],sc.purpose||'')
+      +fs('會面目的','purpose',['講解保單','續保跟進','理財諮詢','索償處理','新客開發','售後服務','招聘增員','其他'],sc.purpose||'')
       +fg('地點','location','text',sc.location||'')
       +fs('狀態','status',['待處理','已確認','已完成','已取消'],sc.status||'待處理')
       +ft('📝 會面筆記','meetingNotes',sc.meetingNotes||'', isDone?'記低今次傾咗嘅重點、客戶關注事項、報價內容等':'（完成會面後填寫）')
