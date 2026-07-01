@@ -163,7 +163,7 @@ tr:hover td{background:var(--blue50)}
         <button class="btn btn-outline" onclick="showChoiceMode()">返回</button>
       </div>
       <p id="loginErr" style="color:var(--red500);font-size:12px;margin-top:8px;display:none"></p>
-      <p style="font-size:11px;color:var(--gray400);margin-top:10px;text-align:center">忘記 PIN？請聯絡系統管理員重置</p>
+      <p style="font-size:11px;color:var(--gray400);margin-top:10px;text-align:center">忘記 PIN？請聯絡經理喺<strong>經理後台</strong>重置</p>
     </div>
     <!-- REGISTER MODE -->
     <div id="registerMode" style="display:none">
@@ -201,7 +201,7 @@ tr:hover td{background:var(--blue50)}
         <button class="btn btn-primary" onclick="unlockAgent()">解鎖</button>
         <button class="btn btn-outline btn-sm" onclick="showChoiceMode()">切換帳戶</button>
       </div>
-      <p style="font-size:11px;color:var(--gray400);margin-top:10px;text-align:center">忘記 PIN？請聯絡系統管理員重置</p>
+      <p style="font-size:11px;color:var(--gray400);margin-top:10px;text-align:center">忘記 PIN？請聯絡經理喺<strong>經理後台</strong>重置</p>
     </div>
     <!-- SWITCH: confirm PIN before switching -->
     <div id="switchMode" style="display:none">
@@ -790,10 +790,18 @@ function doLogin() {
   btn.textContent = '驗證中...'; btn.disabled = true;
   var pinH = hashPin(pin);
 
+  // Hard timeout: always reset button after 20s
+  var hardTimer = setTimeout(function() {
+    btn.textContent = '登入'; btn.disabled = false;
+    errEl.textContent = '連線逾時，請檢查網路或聯絡經理重置 PIN'; errEl.style.display = 'block';
+  }, 20000);
+
+  function resetBtn() { clearTimeout(hardTimer); btn.textContent = '登入'; btn.disabled = false; }
+
   // Try Supabase first
   if (SUPA_URL && SUPA_KEY) {
     var ctrl = new AbortController();
-    var tid = setTimeout(function(){ ctrl.abort(); }, 15000);
+    var tid = setTimeout(function(){ ctrl.abort(); }, 10000);
     fetch(SUPA_URL + '/rest/v1/agents?name=eq.' + encodeURIComponent(name) + '&select=data,manager,team', {
       headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }, signal: ctrl.signal
     })
@@ -803,11 +811,14 @@ function doLogin() {
         var ad = rows[0].data || {};
         var sh = ad._pinHash || '';
         if (sh && sh !== pinH) {
-          errEl.textContent = 'PIN 碼錯誤'; errEl.style.display = 'block';
+          clearTimeout(hardTimer);
+          errEl.innerHTML = 'PIN 碼錯誤。<a style="color:var(--blue500);cursor:pointer;text-decoration:underline" onclick="showLoginMode()">重試</a> 或聯絡經理重置 PIN';
+          errEl.style.display = 'block';
           document.getElementById('loginPin').value = ''; document.getElementById('loginPin').focus();
-          btn.textContent = '登入'; btn.disabled = false; return;
+          resetBtn(); return;
         }
         // Success (pin matches or no pinHash = old account)
+        clearTimeout(hardTimer);
         agentName = name; agentPIN = pin;
         assignedManager = rows[0].manager || '';
         assignedTeam = rows[0].team || '';
@@ -824,25 +835,29 @@ function doLogin() {
         document.getElementById('sidebarAgentInfo').textContent = name+' | 代理人'+(assignedManager?' | '+assignedManager:'');
         renderDashboard(); renderCurrentTab(); afterLoginSync();
         toast('登入成功！已從雲端載入數據');
-        btn.textContent = '登入'; btn.disabled = false;
+        resetBtn();
       } else {
-        loginViaGS(name, pin, pinH, errEl, btn);
+        clearTimeout(hardTimer);
+        loginViaGS(name, pin, pinH, errEl, btn, resetBtn);
       }
     })
-    .catch(function(e) { clearTimeout(tid); console.error('[doLogin] SA:', e); loginViaGS(name, pin, pinH, errEl, btn); });
+    .catch(function(e) { clearTimeout(tid); console.error('[doLogin] SA:', e); clearTimeout(hardTimer); loginViaGS(name, pin, pinH, errEl, btn, resetBtn); });
   } else {
-    loginViaGS(name, pin, pinH, errEl, btn);
+    loginViaGS(name, pin, pinH, errEl, btn, function(){ clearTimeout(hardTimer); });
   }
 }
 
-function loginViaGS(name, pin, pinH, errEl, btn) {
+function loginViaGS(name, pin, pinH, errEl, btn, resetBtn) {
   if (!API_URL) {
-    errEl.textContent = '未設定雲端，無法驗證'; errEl.style.display = 'block';
-    btn.textContent = '登入'; btn.disabled = false; return;
+    errEl.textContent = '無法連接雲端，請聯絡經理重置 PIN'; errEl.style.display = 'block';
+    if (resetBtn) resetBtn(); else { btn.textContent = '登入'; btn.disabled = false; }
+    return;
   }
   var qs = 'action=verify_agent&agentId=' + encodeURIComponent(name) + '&pinHash=' + encodeURIComponent(pinH);
-  fetch(API_URL + '?' + qs)
-    .then(function(res) { return res.json(); })
+  var ctrl = new AbortController();
+  var tid = setTimeout(function(){ ctrl.abort(); }, 10000);
+  fetch(API_URL + '?' + qs, {signal: ctrl.signal})
+    .then(function(res) { clearTimeout(tid); return res.json(); })
     .then(function(r) {
       if (r.verified) {
         agentName = name; agentPIN = pin;
@@ -861,10 +876,10 @@ function loginViaGS(name, pin, pinH, errEl, btn) {
           renderDashboard(); renderCurrentTab(); afterLoginSync();
           toast('登入成功！' + (ok ? '已從雲端載入數據' : ''));
         });
-        btn.textContent = '登入'; btn.disabled = false;
+        if (resetBtn) resetBtn(); else { btn.textContent = '登入'; btn.disabled = false; }
       } else if (r.notFound) {
-        errEl.textContent = '此姓名未註冊，請用「註冊新帳戶」'; errEl.style.display = 'block';
-        btn.textContent = '登入'; btn.disabled = false;
+        // Agent not in Google Sheets either — try old load method as last resort
+        tryLegacyLogin(name, pin, pinH, errEl, btn, resetBtn);
       } else if (r.found && !r.hasPin) {
         // Old account without pinHash — allow login
         agentName = name; agentPIN = pin;
@@ -881,17 +896,69 @@ function loginViaGS(name, pin, pinH, errEl, btn) {
           renderDashboard(); renderCurrentTab(); afterLoginSync();
           toast('登入成功！');
         });
-        btn.textContent = '登入'; btn.disabled = false;
+        if (resetBtn) resetBtn(); else { btn.textContent = '登入'; btn.disabled = false; }
       } else {
-        errEl.textContent = 'PIN 碼錯誤'; errEl.style.display = 'block';
-        document.getElementById('loginPin').value = ''; document.getElementById('loginPin').focus();
-        btn.textContent = '登入'; btn.disabled = false;
+        // verify_agent returned found + hasPin + wrong pin — OR unknown error format
+        // Try legacy login as fallback
+        tryLegacyLogin(name, pin, pinH, errEl, btn, resetBtn);
       }
     })
     .catch(function(e) {
+      clearTimeout(tid);
       console.error('[doLogin] GS:', e);
-      errEl.textContent = '網路錯誤，請重試'; errEl.style.display = 'block';
-      btn.textContent = '登入'; btn.disabled = false;
+      // Google Sheets fetch failed entirely — try legacy
+      tryLegacyLogin(name, pin, pinH, errEl, btn, resetBtn);
+    });
+}
+
+// Legacy fallback: load agent data from Google Sheets without PIN verification
+function tryLegacyLogin(name, pin, pinH, errEl, btn, resetBtn) {
+  if (!API_URL) {
+    errEl.innerHTML = '無法連接雲端。<br>請聯絡經理<a style="color:var(--blue500);cursor:pointer;text-decoration:underline" onclick="showRegisterMode()">重新註冊</a> 或重置 PIN';
+    errEl.style.display = 'block';
+    if (resetBtn) resetBtn(); else { btn.textContent = '登入'; btn.disabled = false; }
+    return;
+  }
+  var qs = 'action=load&agentId=' + encodeURIComponent(name);
+  var ctrl = new AbortController();
+  var tid = setTimeout(function(){ ctrl.abort(); }, 10000);
+  fetch(API_URL + '?' + qs, {signal: ctrl.signal})
+    .then(function(res) { clearTimeout(tid); return res.json(); })
+    .then(function(r) {
+      if (r.success && r.data) {
+        // Agent exists in Google Sheets — allow login
+        agentName = name; agentPIN = pin;
+        assignedManager = r.data.manager || r.managerName || '';
+        assignedTeam = r.data.team || r.team || '';
+        localStorage.setItem(AGENT_KEY, name);
+        localStorage.setItem(AGENT_PIN_KEY, pin);
+        localStorage.setItem('insurance_agent_name_locked', 'true');
+        localStorage.setItem('insurance_mgr_'+encodeURIComponent(name), assignedManager);
+        if (assignedTeam) localStorage.setItem('insurance_team_'+encodeURIComponent(name), assignedTeam);
+        DB = {clients:[],policies:[],commissions:[],expenses:[],goals:[],schedules:[],pcs:[],incomes:[]};
+        ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k){
+          if (r.data[k]) DB[k] = r.data[k];
+        });
+        saveDB();
+        document.getElementById('nameModalBg').classList.remove('show');
+        document.getElementById('agentNameDisplay').textContent = name;
+        document.getElementById('sidebarAgentInfo').textContent = name+' | 代理人'+(assignedManager?' | '+assignedManager:'');
+        renderDashboard(); renderCurrentTab(); afterLoginSync();
+        toast('登入成功！');
+        if (resetBtn) resetBtn(); else { btn.textContent = '登入'; btn.disabled = false; }
+      } else {
+        // Agent not found anywhere
+        errEl.innerHTML = '此姓名未註冊。請用<a style="color:var(--blue500);cursor:pointer;text-decoration:underline" onclick="showRegisterMode()">註冊新帳戶</a>';
+        errEl.style.display = 'block';
+        if (resetBtn) resetBtn(); else { btn.textContent = '登入'; btn.disabled = false; }
+      }
+    })
+    .catch(function(e) {
+      clearTimeout(tid);
+      console.error('[tryLegacyLogin]', e);
+      errEl.innerHTML = '連線失敗，請檢查網路後重試。<br>如持續失敗，請聯絡經理重置 PIN';
+      errEl.style.display = 'block';
+      if (resetBtn) resetBtn(); else { btn.textContent = '登入'; btn.disabled = false; }
     });
 }
 
