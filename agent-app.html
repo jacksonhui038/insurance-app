@@ -392,7 +392,7 @@ tr:hover td{background:var(--blue50)}
     <div class="tab-panel" id="panel-clients">
       <div class="table-wrap">
         <div class="table-head"><h3>👥 客戶列表</h3><div><button class="btn btn-primary" onclick="openForm('client')">+ 新增客戶</button></div></div>
-        <table><thead><tr><th>姓名</th><th>別稱</th><th>電話</th><th>電郵</th><th>狀態</th><th>保單數</th><th>操作</th></tr></thead><tbody id="clientTable"></tbody></table>
+        <table><thead><tr><th>姓名</th><th>別稱</th><th>狀態</th><th>保單數</th><th>操作</th></tr></thead><tbody id="clientTable"></tbody></table>
       </div>
       <div class="table-wrap" style="margin-top:20px">
         <div class="table-head"><h3>📄 保單列表</h3><button class="btn btn-primary" onclick="openForm('policy')">+ 新增保單</button></div>
@@ -1747,7 +1747,7 @@ function renderClientPolicies() {
   else DB.clients.forEach(function(c){
     var policyCount = DB.policies.filter(function(p){ return String(p.clientId)===String(c.id); }).length;
     var sc = c.status==='活躍'?'badge-green':c.status==='潛在'?'badge-yellow':'badge-red';
-    ch += '<tr><td>'+esc(c.name)+'</td><td>'+esc(c.alias||'—')+'</td><td>'+esc(c.phone||'—')+'</td><td>'+esc(c.email||'—')+'</td><td><span class="badge '+sc+'">'+esc(c.status)+'</span></td><td>'+policyCount+' 份</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'client\','+c.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="delClient('+c.id+')">刪除</button></td></tr>';
+    ch += '<tr><td>'+esc(c.name)+'</td><td>'+esc(c.alias||'—')+'</td><td><span class="badge '+sc+'">'+esc(c.status)+'</span></td><td>'+policyCount+' 份</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'client\','+c.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="delClient('+c.id+')">刪除</button></td></tr>';
   });
   document.getElementById('clientTable').innerHTML = ch;
   // 保單列表
@@ -1951,10 +1951,8 @@ function showQuickView(clientName) {
   title.innerHTML = '🔗 ' + esc(clientName) + ' — 相關資料';
   var html = '';
   if (client) {
-    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:14px">';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px">';
     html += '<div style="background:var(--blue50);border-radius:8px;padding:10px;text-align:center"><div style="font-size:12px;color:var(--gray400)">別稱</div><div style="font-weight:600">'+esc(client.alias||'—')+'</div></div>';
-    html += '<div style="background:var(--blue50);border-radius:8px;padding:10px;text-align:center"><div style="font-size:12px;color:var(--gray400)">電話</div><div style="font-weight:600">'+esc(client.phone||'—')+'</div></div>';
-    html += '<div style="background:var(--blue50);border-radius:8px;padding:10px;text-align:center"><div style="font-size:12px;color:var(--gray400)">電郵</div><div style="font-weight:600">'+esc(client.email||'—')+'</div></div>';
     html += '<div style="background:var(--blue50);border-radius:8px;padding:10px;text-align:center"><div style="font-size:12px;color:var(--gray400)">狀態</div><div style="font-weight:600;color:var(--blue700)">'+esc(client.status||'—')+'</div></div>';
     html += '</div>';
   } else {
@@ -2094,7 +2092,7 @@ function openForm(type, id) {
   var h = '<h3>'+title+t[type]+'</h3>';
   if (type === 'client') {
     var c = id?findById('clients',id):{};
-    h += fg('姓名','name','text',c.name||'')+fg('別稱','alias','text',c.alias||'')+fg('電話','phone','text',c.phone||'')+fg('電郵','email','email',c.email||'')+fs('狀態','status',['活躍','潛在','流失'],c.status||'活躍')+fg('備註','notes','text',c.notes||'');
+    h += fg('姓名','name','text',c.name||'')+fg('別稱','alias','text',c.alias||'')+fs('狀態','status',['活躍','潛在','流失'],c.status||'活躍')+fg('備註','notes','text',c.notes||'');
   }
   else if (type === 'policy') {
     var p = id?findById('policies',id):{};
@@ -2296,16 +2294,10 @@ function delClient(id) {
   h += '<div style="font-size:14px;line-height:1.8">';
   h += '<p style="color:var(--red500);font-weight:600">⚠️ 確認刪除客戶：「'+esc(c.name)+'」</p>';
   if (policyCount > 0) h += '<p style="color:var(--red500);font-size:12px">此客戶有 '+policyCount+' 份保單，刪除後相關保單不受影響。</p>';
-  var hasContact = (c.phone||'').trim() || (c.email||'').trim();
-  if (hasContact) {
-    h += '<p style="font-size:12px;color:var(--gray400)">為安全起見，請輸入此客戶的電話和電郵以確認刪除。</p>';
-  } else {
-    h += '<p style="font-size:12px;color:var(--gray400)">此客戶無電話/電郵記錄，請在兩個欄位都輸入 <b>DELETE</b> 確認。</p>';
-  }
-  h += '<div class="form-group" style="margin-top:12px"><label>客戶電話</label><input type="text" id="delClientPhone" placeholder="輸入電話確認" style="border-color:var(--red500)"></div>';
-  h += '<div class="form-group"><label>客戶電郵</label><input type="text" id="delClientEmail" placeholder="輸入電郵確認" style="border-color:var(--red500)"></div>';
-  h += '<div id="delClientErr" style="color:var(--red500);font-size:12px;display:none;margin-top:6px"></div>';
+  h += '<p style="font-size:12px;color:var(--gray400)">為安全起見，請輸入此客戶的<b>姓名</b>以確認刪除。</p>';
   h += '</div>';
+  h += '<div class="form-group" style="margin-top:12px"><label>客戶姓名</label><input type="text" id="delClientName" placeholder="輸入姓名確認" style="border-color:var(--red500)"></div>';
+  h += '<div id="delClientErr" style="color:var(--red500);font-size:12px;display:none;margin-top:6px"></div>';
   h += '<div class="modal-actions"><button class="btn btn-danger" onclick="doDelClient('+id+')">確認刪除</button><button class="btn btn-outline" onclick="closeModal()">取消</button></div>';
   document.getElementById('modalInner').innerHTML = h;
   document.getElementById('modalBg').classList.add('show');
@@ -2314,35 +2306,17 @@ function delClient(id) {
 function doDelClient(id) {
   var c = findById('clients', id);
   if (!c) { closeModal(); return; }
-  var inputPhone = (document.getElementById('delClientPhone').value||'').trim();
-  var inputEmail = (document.getElementById('delClientEmail').value||'').trim();
+  var inputName = (document.getElementById('delClientName').value||'').trim();
   var errEl = document.getElementById('delClientErr');
-  var expectedPhone = (c.phone||'').trim();
-  var expectedEmail = (c.email||'').trim();
-  if (!expectedPhone && !expectedEmail) {
-    if (inputPhone !== 'DELETE' || inputEmail !== 'DELETE') {
-      errEl.textContent = '請在兩個欄位都輸入 DELETE 確認';
-      errEl.style.display = 'block';
-      return;
-    }
-  } else {
-    if (expectedPhone && inputPhone !== expectedPhone) {
-      errEl.textContent = '電話不正確，請核對後重新輸入';
-      errEl.style.display = 'block';
-      return;
-    }
-    if (expectedEmail && inputEmail !== expectedEmail) {
-      errEl.textContent = '電郵不正確，請核對後重新輸入';
-      errEl.style.display = 'block';
-      return;
-    }
+  if (inputName !== c.name.trim()) {
+    errEl.textContent = '姓名不正確，請核對後重新輸入';
+    errEl.style.display = 'block';
+    return;
   }
   DB.clients = DB.clients.filter(function(x){ return x.id !== id; });
-  saveDB();
-  if (CLOUD_ENABLED && agentName) saveDBAutoSync();
+  saveDB(); renderDashboard(); renderCurrentTab();
   closeModal();
-  renderCurrentTab();
-  toast('客戶已刪除', 'error');
+  toast('客戶已刪除', 'success');
 }
 
 function del(key, id) {
