@@ -154,6 +154,7 @@ tr:hover td{background:var(--blue50)}
         <button class="btn btn-primary" onclick="showLoginMode()" style="padding:14px;font-size:15px">🔐 登入已有帳戶</button>
         <button class="btn btn-outline" onclick="showRegisterMode()" style="padding:14px;font-size:15px">📝 註冊新帳戶</button>
       </div>
+      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.4.3</p>
     </div>
     <!-- LOGIN MODE -->
     <div id="loginMode" style="display:none">
@@ -635,7 +636,7 @@ function loadFromGoogleSheets(callback, retry) {
     .then(function(res){ clearTimeout(timeoutId); return res.json(); })
     .then(function(r){
       if (r.success && r.data) {
-        // v3.3.0: 合併數據，唔係覆蓋
+        // v3.4.3: 徹底簡化登入流程 + 修復 race condition
         var hasData = false;
         ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k){
           if (r.data[k] && Array.isArray(r.data[k]) && r.data[k].length > 0) {
@@ -715,7 +716,7 @@ function loadFromSupabase(callback) {
   .then(function(res){ clearTimeout(timeoutId); return res.json(); })
   .then(function(rows){
     if (rows && rows.length>0 && rows[0].data) {
-      // v3.3.0: 合併數據，唔係覆蓋
+      // v3.4.3: 徹底簡化登入流程 + 修復 race condition
       var hasData = false;
       ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k){
         if (rows[0].data[k] && Array.isArray(rows[0].data[k]) && rows[0].data[k].length > 0) {
