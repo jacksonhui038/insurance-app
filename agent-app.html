@@ -549,6 +549,9 @@ function loadApiUrl() {
 }
 
 // ===== 雲端同步函數（雙寫：Supabase + Google Sheets）=====
+var _syncRetryCount = 0;
+var _syncMaxRetry = 3;
+var _syncTimer = null;
 function saveToCloud(callback, retry) {
   if (!CLOUD_ENABLED || !agentName) { if (callback) callback(false); return; }
   var mgr = assignedManager || localStorage.getItem('insurance_mgr_'+encodeURIComponent(agentName)) || '';
@@ -559,7 +562,7 @@ function saveToCloud(callback, retry) {
   function checkDone() {
     if (done) return;
     if (supaOk || gsOk) {
-      done = true; setLastSyncTime();
+      done = true; _syncRetryCount = 0; setLastSyncTime();
       if (callback) callback(true);
       else toast('☁️ 已同步到雲端');
     }
@@ -567,7 +570,7 @@ function saveToCloud(callback, retry) {
 
   // 寫入 Supabase
   if (SUPA_URL && SUPA_KEY) {
-    saveToSupabase(function(ok){ supaOk=ok; checkDone(); });
+    saveToSupabase(function(ok, errMsg){ supaOk=ok; if (!ok) console.error('[saveToCloud Supabase]', errMsg||'unknown'); checkDone(); });
   }
 
   // 寫入 Google Sheets
@@ -599,12 +602,27 @@ function saveToCloud(callback, retry) {
   // 兩個都冇設定
   if (!API_URL && !SUPA_URL) { if (callback) callback(false); return; }
 
-  // 8 秒後 retry
+  // 重試邏輯：最多 3 次，間隔逐步增加
   if (!retry) {
-    setTimeout(function(){
-      if (!done) { saveToCloud(callback, true); }
-    }, 8000);
-  } else { if (callback) callback(false); }
+    _syncRetryCount = 0;
+    _scheduleRetry(callback);
+  } else {
+    if (_syncRetryCount < _syncMaxRetry) {
+      _syncRetryCount++;
+      _scheduleRetry(callback);
+    } else {
+      // 所有重試失敗
+      if (callback) callback(false);
+      else toast('⚠️ 同步失敗，請檢查網絡後重試','error');
+    }
+  }
+}
+function _scheduleRetry(callback) {
+  if (_syncTimer) clearTimeout(_syncTimer);
+  var delay = Math.min(8000 * Math.pow(1.5, _syncRetryCount), 60000); // 8s, 12s, 18s, 最多 60s
+  _syncTimer = setTimeout(function(){
+    if (!done) { saveToCloud(callback, true); }
+  }, delay);
 }
 
 function loadFromCloud(callback, retry) {
@@ -691,23 +709,33 @@ function saveToSupabase(callback) {
   if (!SUPA_URL || !SUPA_KEY || !agentName) { if (callback) callback(false); return; }
   var mgr = assignedManager || localStorage.getItem('insurance_mgr_'+encodeURIComponent(agentName)) || '';
   var team = assignedTeam || localStorage.getItem('insurance_team_'+encodeURIComponent(agentName)) || '';
-  var controller = new AbortController();
-  var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
   // v3.6.0: 發送前修復所有壞時間格式
   fixAllScheduleTimes(false);
+  var payload = JSON.stringify({name:agentName,data:Object.assign({},DB,{_pinHash:agentPIN?hashPin(agentPIN):''}),manager:mgr,team:team});
+  var payloadSize = new Blob([payload]).size;
+  if (payloadSize > 5 * 1024 * 1024) console.warn('[saveToSupabase] Payload size:', Math.round(payloadSize/1024), 'KB');
+  var controller = new AbortController();
+  var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
   fetch(SUPA_URL + '/rest/v1/agents?on_conflict=name', {
     method:'POST',
     headers:{
       'apikey':SUPA_KEY,
       'Authorization':'Bearer '+SUPA_KEY,
       'Content-Type':'application/json',
-      'Prefer':'resolution=merge-duplicates'
+      'Prefer':'resolution=merge-duplicates,return=minimal'
     },
-    body:JSON.stringify({name:agentName,data:Object.assign({},DB,{_pinHash:agentPIN?hashPin(agentPIN):''}),manager:mgr,team:team}),
+    body:payload,
     signal:controller.signal
   })
-  .then(function(res){ clearTimeout(timeoutId); if(res.ok) { if(callback) callback(true); } else { console.error('[saveToSupabase] HTTP',res.status); if(callback) callback(false); } })
-  .catch(function(e){ clearTimeout(timeoutId); console.error('[saveToSupabase]',e); if(callback) callback(false); });
+  .then(function(res){
+    clearTimeout(timeoutId);
+    if (res.ok) { if (callback) callback(true); }
+    else {
+      res.text().then(function(t){ console.error('[saveToSupabase] HTTP',res.status, t.substring(0,200)); });
+      if (callback) callback(false, 'HTTP '+res.status);
+    }
+  })
+  .catch(function(e){ clearTimeout(timeoutId); console.error('[saveToSupabase]',e); if (callback) callback(false, String(e)); });
 }
 function loadFromSupabase(callback) {
   if (!SUPA_URL || !SUPA_KEY || !agentName) { if (callback) callback(false); return; }
