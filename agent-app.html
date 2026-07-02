@@ -913,7 +913,7 @@ function doLogin() {
         // Verify PIN
         if (ad.pinHash && ad.pinHash !== pinH) {
           loginInProgress = false;
-          errEl.innerHTML = 'PIN 碼錯誤。<a style="color:var(--blue500);cursor:pointer;text-decoration:underline" onclick="document.getElementById(\'loginPin').focus()">重試</a>';
+          errEl.innerHTML = "<span style=color:red>PIN 碼錯誤</span>，請重新輸入";
           errEl.style.display = 'block';
           pinInput.value = '';
           btn.textContent = '登入'; btn.disabled = false;
@@ -1163,12 +1163,17 @@ function saveName() {
       errEl.innerHTML = '<span style="color:var(--blue700)">⚠️ 此姓名已註冊過，請輸入原有 PIN 登入</span>' +
         '<div style="margin-top:8px;display:flex;gap:6px;align-items:center">' +
         '<input type="password" id="recoverPinInput" placeholder="原有 PIN" style="width:120px;padding:6px 8px;border:1px solid var(--gray300);border-radius:6px;font-size:14px;text-align:center" maxlength="8">' +
-        '<button class="btn btn-sm btn-primary" onclick="verifyAndRecover(\''+n.replace(/'/g,'\\'')+'\')">登入</button>' +
+        "<button class='btn btn-sm btn-primary' id='recoverLoginBtn'>登入</button>" +
         '</div>' +
         '<div id="recoverErr" style="color:var(--red500);font-size:12px;margin-top:4px;display:none"></div>';
       errEl.style.display = 'block';
       btn.textContent = '註冊'; btn.disabled = false;
-      setTimeout(function(){ var el=document.getElementById('recoverPinInput'); if(el) el.focus(); }, 100);
+      setTimeout(function(){
+        var el=document.getElementById('recoverPinInput');
+        if(el) el.focus();
+        var rb=document.getElementById('recoverLoginBtn');
+        if(rb) rb.onclick=function(){ verifyAndRecover(n); };
+      }, 100);
       return;
     }
     if (!confirm('確認姓名是「'+n+'」？\n職級：'+role+'\n所屬經理：'+(supervisor||'無（最高層級）')+'\n團隊：'+team+'\n\n姓名確認後不可更改。')) {
