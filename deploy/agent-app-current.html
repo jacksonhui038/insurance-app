@@ -2200,7 +2200,7 @@ function renderSchedules() {
         var sc = s.status==='已完成'?'badge-green':s.status==='已確認'?'badge-blue':s.status==='已取消'?'badge-red':'badge-yellow';
         var hasNotes = (s.meetingNotes && s.meetingNotes.trim()) || (s.followUp && s.followUp.trim());
         html += '<div style="background:var(--blue50);border-radius:6px;padding:6px 8px;margin-bottom:4px;font-size:11px;cursor:pointer" onclick="openForm(\'schedule\','+s.id+')">';
-        html += '<div style="font-weight:600;color:var(--blue700)">'+esc(s.startTime||'')+' - '+esc(s.endTime||'')+(hasNotes?' 📝':'')+'</div>';
+        html += '<div style="font-weight:600;color:var(--blue700)">'+normalizeTime(s.startTime)+' - '+normalizeTime(s.endTime)+(hasNotes?' 📝':'')+'</div>';
         html += '<div style="color:var(--blue500);margin-top:2px;cursor:pointer;text-decoration:underline" onclick="event.stopPropagation();showQuickView(\''+esc(s.clientName||'')+'\')">'+esc(s.clientName||'')+'</div>';
         html += '<div style="color:var(--gray400)">'+esc(s.purpose||'')+'</div>';
         html += '<span class="badge '+sc+'" style="margin-top:2px">'+esc(s.status)+'</span>';
@@ -2219,7 +2219,7 @@ function renderSchedules() {
       var sc = s.status==='已完成'?'badge-green':s.status==='已確認'?'badge-blue':s.status==='已取消'?'badge-red':'badge-yellow';
       var hasNotes = (s.meetingNotes && s.meetingNotes.trim()) || (s.followUp && s.followUp.trim());
       var notesBtn = hasNotes ? '<button class="btn btn-sm btn-outline" style="border-color:var(--blue500);color:var(--blue500)" onclick="event.stopPropagation();showMeetingNotes('+s.id+')">📝 查看</button>' : '<span style="color:var(--gray300);font-size:11px">—</span>';
-      h += '<tr><td>'+esc(dFmt(s.date))+'</td><td>'+esc(s.startTime||'')+'-'+esc(s.endTime||'')+'</td><td><a style="color:var(--blue500);cursor:pointer;text-decoration:underline" onclick="showQuickView(\''+esc(s.clientName||'')+'\')">'+esc(s.clientName||'—')+'</a></td><td>'+esc(s.purpose||'—')+'</td><td>'+esc(s.location||'—')+'</td><td><span class="badge '+sc+'">'+esc(s.status)+'</span></td><td>'+notesBtn+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'schedule\','+s.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'schedules\','+s.id+')">刪除</button></td></tr>';
+      h += '<tr><td>'+esc(dFmt(s.date))+'</td><td>'+normalizeTime(s.startTime)+'-'+normalizeTime(s.endTime)+'</td><td><a style="color:var(--blue500);cursor:pointer;text-decoration:underline" onclick="showQuickView(\''+esc(s.clientName||'')+'\')">'+esc(s.clientName||'—')+'</a></td><td>'+esc(s.purpose||'—')+'</td><td>'+esc(s.location||'—')+'</td><td><span class="badge '+sc+'">'+esc(s.status)+'</span></td><td>'+notesBtn+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'schedule\','+s.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'schedules\','+s.id+')">刪除</button></td></tr>';
     });
   }
   document.getElementById('scheduleTable').innerHTML = h;
@@ -2279,7 +2279,7 @@ function showQuickView(clientName) {
     html += '<div style="font-size:13px;font-weight:600;color:var(--gray600);margin:10px 0 6px">📝 會面筆記紀錄 ('+pastMeetings.length+')</div>';
     pastMeetings.forEach(function(s){
       html += '<div style="background:var(--gray50);border-radius:8px;padding:10px;margin-bottom:8px;border-left:3px solid var(--green500)">';
-      html += '<div style="font-size:12px;color:var(--gray500);margin-bottom:4px">'+esc(dFmt(s.date))+' '+esc(s.startTime||'')+'-'+esc(s.endTime||'')+' | '+esc(s.purpose||'')+'</div>';
+      html += '<div style="font-size:12px;color:var(--gray500);margin-bottom:4px">'+esc(dFmt(s.date))+' '+normalizeTime(s.startTime)+'-'+normalizeTime(s.endTime)+' | '+esc(s.purpose||'')+'</div>';
       if (s.meetingNotes && s.meetingNotes.trim()) {
         html += '<div style="font-size:12px;margin-bottom:4px"><b>📝 筆記：</b><span style="white-space:pre-wrap">'+esc(s.meetingNotes.substring(0,200))+(s.meetingNotes.length>200?'...':'')+'</span></div>';
       }
@@ -2297,7 +2297,7 @@ function showQuickView(clientName) {
     html += '<table style="font-size:12px"><thead><tr><th>日期</th><th>時間</th><th>目的</th><th>狀態</th></tr></thead><tbody>';
     scheds.forEach(function(s){
       var sc = s.status==='已完成'?'badge-green':s.status==='已確認'?'badge-blue':'badge-yellow';
-      html += '<tr><td>'+esc(dFmt(s.date))+'</td><td>'+esc(s.startTime)+'-'+esc(s.endTime)+'</td><td>'+esc(s.purpose)+'</td><td><span class="badge '+sc+'">'+esc(s.status)+'</span></td></tr>';
+      html += '<tr><td>'+esc(dFmt(s.date))+'</td><td>'+normalizeTime(s.startTime)+'-'+normalizeTime(s.endTime)+'</td><td>'+esc(s.purpose)+'</td><td><span class="badge '+sc+'">'+esc(s.status)+'</span></td></tr>';
     });
     html += '</tbody></table>';
   }
@@ -2319,7 +2319,7 @@ function showMeetingNotes(scheduleId) {
   var content = document.getElementById('qvContent');
   title.innerHTML = '📝 會面筆記 — ' + esc(s.clientName||'') + ' (' + esc(dFmt(s.date)) + ')';
   var html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">';
-  html += '<div style="background:var(--blue50);border-radius:8px;padding:8px 10px"><div style="font-size:11px;color:var(--gray400)">時間</div><div style="font-weight:600">'+esc(s.startTime||'')+' - '+esc(s.endTime||'')+'</div></div>';
+  html += '<div style="background:var(--blue50);border-radius:8px;padding:8px 10px"><div style="font-size:11px;color:var(--gray400)">時間</div><div style="font-weight:600">'+normalizeTime(s.startTime)+' - '+normalizeTime(s.endTime)+'</div></div>';
   html += '<div style="background:var(--blue50);border-radius:8px;padding:8px 10px"><div style="font-size:11px;color:var(--gray400)">目的</div><div style="font-weight:600">'+esc(s.purpose||'—')+'</div></div>';
   html += '</div>';
   if (s.meetingNotes && s.meetingNotes.trim()) {
@@ -2487,16 +2487,33 @@ function fs(label, name, options, selected) {
   });
   h += '</select></div>'; return h;
 }
-// 時間欄：原生 time input，可下拉揀 + 可自行輸入
+// 時間欄：text input + datalist 下拉，可揀可打字
+function normalizeTime(raw) {
+  if (!raw) return '';
+  var s = String(raw).trim();
+  if (/^\d{1,2}:\d{2}$/.test(s)) return s;
+  if (s.indexOf('T') >= 0 || s.indexOf('-') >= 0) {
+    var d = new Date(s);
+    if (!isNaN(d.getTime())) {
+      var hh = d.getHours(), mm = d.getMinutes();
+      return String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0');
+    }
+  }
+  var n = parseFloat(s);
+  if (!isNaN(n) && n < 1 && n > 0) {
+    var totalMin = Math.round(n * 24 * 60);
+    var h2 = Math.floor(totalMin / 60), m2 = totalMin % 60;
+    return String(h2).padStart(2,'0')+':'+String(m2).padStart(2,'0');
+  }
+  return s;
+}
 function fTime(label, name, slots, selected) {
-  var v = selected || '10:00';
+  var v = normalizeTime(selected) || '10:00';
   var listId = 'dl_time_'+name+'_'+Date.now();
   var h = '<div class="form-group"><label>'+label+'</label>';
   h += '<input type="text" id="f_'+name+'" value="'+esc(v)+'" list="'+listId+'" placeholder="HH:MM（可輸入或選擇）" style="font-size:14px;padding:8px 10px;border:1px solid var(--gray300);border-radius:8px;width:100%">';
   h += '<datalist id="'+listId+'">';
-  slots.forEach(function(slot) {
-    h += '<option value="'+slot+'">';
-  });
+  slots.forEach(function(slot) { h += '<option value="'+slot+'">'; });
   h += '</datalist>';
   h += '</div>';
   return h;
@@ -2560,7 +2577,7 @@ function saveForm() {
         toast('✓ 已連結客戶「'+clientName+'」');
       }
     }
-    var o = {id:editId||uid(),date:val('f_date'),startTime:val('f_startTime'),endTime:val('f_endTime'),clientName:clientName,purpose:val('f_purpose'),location:val('f_location'),status:val('f_status'),meetingNotes:val('f_meetingNotes'),followUp:val('f_followUp'),notes:val('f_notes')};
+    var o = {id:editId||uid(),date:val('f_date'),startTime:normalizeTime(val('f_startTime')),endTime:normalizeTime(val('f_endTime')),clientName:clientName,purpose:val('f_purpose'),location:val('f_location'),status:val('f_status'),meetingNotes:val('f_meetingNotes'),followUp:val('f_followUp'),notes:val('f_notes')};
     saveTo('schedules',o);
   }
   else if (editType === 'income') {
