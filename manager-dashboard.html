@@ -213,6 +213,21 @@ tr:hover td{background:var(--blue50)}
     <!-- Summary Cards -->
     <div class="cards-grid" id="summaryCards"></div>
 
+    <!-- Team Activity Overview -->
+    <div class="table-wrap" id="teamActivitySection">
+      <div class="table-head">
+        <h3>📋 團隊活動總覽</h3>
+        <div class="period-btns" style="margin-bottom:0">
+          <button class="period-btn active" onclick="showTeamActivity('today', this)">今日</button>
+          <button class="period-btn" onclick="showTeamActivity('week', this)">本週</button>
+          <button class="period-btn" onclick="showTeamActivity('overdue', this)">待跟進</button>
+        </div>
+      </div>
+      <div id="teamActivityContent" style="padding:16px">
+        <div style="text-align:center;padding:32px;color:var(--gray400)">載入中...</div>
+      </div>
+    </div>
+
     <!-- Charts -->
     <div class="charts-row">
       <div class="chart-card"><h3>🏆 代理人佣金排名</h3><canvas id="chartRanking"></canvas></div>
@@ -832,6 +847,9 @@ function render(){
 
   // Detail panel
   if(selectedAgent)renderDetail();
+
+  // Team activity overview
+  renderTeamActivity();
 }
 
 // ============================================================
@@ -847,6 +865,128 @@ function renderCharts(ranks,maxComm,agentNames,y,m){
   var tlabels=[],tdata=[];
   for(var i=5;i>=0;i--){var dm=new Date(y,m-i,1);tlabels.push(dm.getFullYear()+'/'+(dm.getMonth()+1));var ts=0;agentNames.forEach(function(a){TEAM[a].commissions.forEach(function(c){var d=new Date(c.date);if(d.getMonth()===dm.getMonth()&&d.getFullYear()===dm.getFullYear())ts+=Number(c.amount)||0;});});tdata.push(ts);}
   chartInstances['chartTeamTrend']=new chartLib(document.getElementById('chartTeamTrend'),{type:'line',data:{labels:tlabels,datasets:[{data:tdata,borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,0.1)',fill:true,tension:0.4,pointRadius:4}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:function(v){return'HK$'+v.toLocaleString()}}}}}});
+}
+
+// ============================================================
+// TEAM ACTIVITY OVERVIEW
+// ============================================================
+var teamActivityPeriod = 'today';
+function showTeamActivity(period, btnEl) {
+  teamActivityPeriod = period;
+  if (btnEl) {
+    btnEl.parentElement.querySelectorAll('.period-btn').forEach(function(b) { b.classList.remove('active'); });
+    btnEl.classList.add('active');
+  }
+  renderTeamActivity();
+}
+
+function renderTeamActivity() {
+  if (!TEAM || Object.keys(TEAM).length === 0) {
+    document.getElementById('teamActivityContent').innerHTML = '<div class="empty">請先載入團隊數據</div>';
+    return;
+  }
+
+  var now = new Date();
+  var todayStr = now.toISOString().split('T')[0];
+  var weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - now.getDay()); // Sunday
+  var weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+
+  var activities = [];
+
+  // Collect all schedules from all agents
+  Object.keys(TEAM).forEach(function(agentName) {
+    var agentData = TEAM[agentName];
+    if (!agentData.schedules) return;
+
+    agentData.schedules.forEach(function(schedule) {
+      var scheduleDate = schedule.date;
+      if (!scheduleDate) return;
+
+      var match = false;
+      if (teamActivityPeriod === 'today') {
+        match = (scheduleDate === todayStr);
+      } else if (teamActivityPeriod === 'week') {
+        var d = new Date(scheduleDate);
+        match = (d >= weekStart && d <= weekEnd);
+      } else if (teamActivityPeriod === 'overdue') {
+        var d = new Date(scheduleDate);
+        match = (d < now && schedule.status !== '已完成' && schedule.status !== '取消');
+      }
+
+      if (match) {
+        activities.push({
+          agent: agentName,
+          date: scheduleDate,
+          startTime: schedule.startTime || '',
+          endTime: schedule.endTime || '',
+          clientName: schedule.clientName || '',
+          purpose: schedule.purpose || '',
+          location: schedule.location || '',
+          status: schedule.status || '待確認',
+          meetingNotes: schedule.meetingNotes || '',
+          followUp: schedule.followUp || ''
+        });
+      }
+    });
+  });
+
+  // Sort by date and time
+  activities.sort(function(a, b) {
+    if (a.date !== b.date) return a.date.localeCompare(b.date);
+    return (a.startTime || '').localeCompare(b.startTime || '');
+  });
+
+  // Render
+  var h = '';
+  if (activities.length === 0) {
+    var msg = teamActivityPeriod === 'today' ? '今日無會議安排' :
+              teamActivityPeriod === 'week' ? '本週無會議安排' :
+              '無待跟進事項';
+    h = '<div class="empty">' + msg + '</div>';
+  } else {
+    h = '<table style="width:100%;border-collapse:collapse;font-size:13px">';
+    h += '<thead><tr style="text-align:left;padding:8px 12px;font-size:11px;color:var(--gray400);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--gray200);background:var(--gray50)">';
+    h += '<th style="padding:8px 12px">日期</th>';
+    h += '<th style="padding:8px 12px">時間</th>';
+    h += '<th style="padding:8px 12px">代理人</th>';
+    h += '<th style="padding:8px 12px">客戶</th>';
+    h += '<th style="padding:8px 12px">目的</th>';
+    h += '<th style="padding:8px 12px">地點</th>';
+    h += '<th style="padding:8px 12px">狀態</th>';
+    h += '</tr></thead><tbody>';
+
+    activities.forEach(function(activity) {
+      var statusClass = '';
+      if (activity.status === '已完成') statusClass = 'badge-green';
+      else if (activity.status === '取消') statusClass = 'badge-red';
+      else if (activity.status === '待確認') statusClass = 'badge-yellow';
+      else statusClass = 'badge-blue';
+
+      h += '<tr style="border-bottom:1px solid var(--gray100);cursor:pointer" onmouseover="this.style.background=\'var(--blue50)\'" onmouseout="this.style.background=\'\'">';
+      h += '<td style="padding:8px 12px">' + activity.date + '</td>';
+      h += '<td style="padding:8px 12px;font-weight:600">' + activity.startTime + (activity.endTime ? ' - ' + activity.endTime : '') + '</td>';
+      h += '<td style="padding:8px 12px;font-weight:500">' + esc(activity.agent) + '</td>';
+      h += '<td style="padding:8px 12px">' + esc(activity.clientName) + '</td>';
+      h += '<td style="padding:8px 12px">' + esc(activity.purpose) + '</td>';
+      h += '<td style="padding:8px 12px;color:var(--gray500)">' + esc(activity.location) + '</td>';
+      h += '<td style="padding:8px 12px"><span class="badge ' + statusClass + '">' + esc(activity.status) + '</span></td>';
+      h += '</tr>';
+
+      // Show meeting notes and follow-up if exists
+      if (activity.meetingNotes || activity.followUp) {
+        h += '<tr style="background:var(--gray50)"><td colspan="7" style="padding:4px 12px;font-size:12px;color:var(--gray500)">';
+        if (activity.meetingNotes) h += '<div>📝 ' + esc(activity.meetingNotes) + '</div>';
+        if (activity.followUp) h += '<div>⏰ 跟進：' + esc(activity.followUp) + '</div>';
+        h += '</td></tr>';
+      }
+    });
+
+    h += '</tbody></table>';
+  }
+
+  document.getElementById('teamActivityContent').innerHTML = h;
 }
 
 // ============================================================
