@@ -2259,7 +2259,12 @@ function renderSchedules() {
   for (var d=0; d<7; d++) {
     var dt = new Date(monday); dt.setDate(monday.getDate()+d);
     var ds = fmtD(dt);
-    var daySchedules = DB.schedules.filter(function(s){ var sd = (s.date||'').slice(0,10); return sd === ds; });
+    var daySchedules = DB.schedules.filter(function(s){
+      var raw = String(s.date||'').trim();
+      var sd = raw.slice(0,10);
+      // 三重匹配：ISO前10位 / dFmt格式化 / 包含檢查
+      return sd === ds || dFmt(s.date) === ds || raw.indexOf(ds) >= 0;
+    });
     daySchedules.sort(function(a,b){ return (a.startTime||'').localeCompare(b.startTime||''); });
     var isToday = fmtD(today)===ds;
     html += '<div style="background:var(--white);border-radius:8px;padding:10px;min-height:120px;box-shadow:var(--shadow);border-top:3px solid '+(isToday?'var(--blue500)':'var(--gray200)')+'">';
