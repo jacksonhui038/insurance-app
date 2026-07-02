@@ -2259,7 +2259,7 @@ function renderSchedules() {
   for (var d=0; d<7; d++) {
     var dt = new Date(monday); dt.setDate(monday.getDate()+d);
     var ds = fmtD(dt);
-    var daySchedules = DB.schedules.filter(function(s){ var sd = dFmt(s.date); return sd && sd === ds; });
+    var daySchedules = DB.schedules.filter(function(s){ var sd = (s.date||'').slice(0,10); return sd === ds; });
     daySchedules.sort(function(a,b){ return (a.startTime||'').localeCompare(b.startTime||''); });
     var isToday = fmtD(today)===ds;
     html += '<div style="background:var(--white);border-radius:8px;padding:10px;min-height:120px;box-shadow:var(--shadow);border-top:3px solid '+(isToday?'var(--blue500)':'var(--gray200)')+'">';
@@ -2362,7 +2362,7 @@ function showQuickView(clientName) {
     });
   }
   // Upcoming schedules for this client
-  var scheds = DB.schedules.filter(function(s){ return s.clientName === clientName && dFmt(s.date) >= new Date().toISOString().slice(0,10); });
+  var scheds = DB.schedules.filter(function(s){ return s.clientName === clientName && (s.date||'').slice(0,10) >= new Date().toISOString().slice(0,10); });
   if (scheds.length > 0) {
     html += '<div style="font-size:13px;font-weight:600;color:var(--gray600);margin:10px 0 6px">📅 近期行程 ('+scheds.length+')</div>';
     html += '<table style="font-size:12px"><thead><tr><th>日期</th><th>時間</th><th>目的</th><th>狀態</th></tr></thead><tbody>';
