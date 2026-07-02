@@ -1107,7 +1107,11 @@ function saveName() {
   // Check cloud for duplicate
   checkAgentExists(n, function(exists) {
     if (exists) {
-      errEl.textContent = '此姓名已註冊，請用「登入已有帳戶」'; errEl.style.display = 'block';
+      // Name exists in cloud - offer recovery instead of rejecting
+      errEl.innerHTML = '此姓名已註冊。' +
+        '<br><button class="btn btn-sm btn-primary" onclick="recoverAccount(\''+n.replace(/'/g,'\\'')+'\',\''+pin+'\')" style="margin-top:6px">恢復帳戶（輸入PIN登入）</button>' +
+        '<br><span style="font-size:11px;color:var(--gray400)">或者聯絡經理刪除後重新註冊</span>';
+      errEl.style.display = 'block';
       btn.textContent = '註冊'; btn.disabled = false; return;
     }
     if (!confirm('確認姓名是「'+n+'」？\n職級：'+role+'\n所屬經理：'+(supervisor||'無（最高層級）')+'\n團隊：'+team+'\n\n姓名確認後不可更改。')) {
@@ -1474,6 +1478,59 @@ function doDeleteAccount() {
 // ===================================================================
 // UID, MONEY, DATE, TOAST, ESC
 // ===================================================================
+
+function recoverAccount(name, pin) {
+  // Try to recover account from Supabase using name + pin
+  if (!SUPA_URL || !SUPA_KEY) {
+    alert('雲端未連線，無法恢復帳戶');
+    return;
+  }
+  var pinHash = hashPin(pin);
+  var controller = new AbortController();
+  var timeoutId = setTimeout(function(){ controller.abort(); }, 15000);
+  fetch(SUPA_URL + '/rest/v1/agents?name=eq.'+encodeURIComponent(name)+'&select=*', {
+    headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY},
+    signal:controller.signal
+  })
+  .then(function(res){ clearTimeout(timeoutId); return res.json(); })
+  .then(function(rows){
+    if (rows && rows.length > 0) {
+      var ad = rows[0];
+      // Verify pinHash matches
+      if (ad.pinHash && ad.pinHash !== pinHash) {
+        alert('PIN 錯誤，無法恢復帳戶');
+        return;
+      }
+      // Restore account
+      agentName = name; agentPIN = pin;
+      assignedManager = ad.manager || '';
+      assignedTeam = ad.team || '';
+      agentRole = ad.role || 'Agent';
+      agentHierarchyPath = ad.hierarchyPath || name;
+      localStorage.setItem(AGENT_KEY, name);
+      localStorage.setItem(AGENT_PIN_KEY, pin);
+      localStorage.setItem('insurance_agent_name_locked', 'true');
+      // Load data from cloud
+      if (ad.data) {
+        DB = {clients:[],policies:[],commissions:[],expenses:[],goals:[],schedules:[],pcs:[],incomes:[]};
+        ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k) { if (ad.data[k]) DB[k] = ad.data[k]; });
+        saveDB();
+      }
+      document.getElementById('nameModalBg').classList.remove('show');
+      document.getElementById('agentNameDisplay').textContent = name;
+      renderDashboard(); renderCurrentTab();
+      toast('帳戶已恢復', 'success');
+    } else {
+      alert('無法從雲端找到此帳戶');
+    }
+  })
+  .catch(function(e){
+    clearTimeout(timeoutId);
+    console.error('[recoverAccount]', e);
+    alert('恢復失敗：' + e.message);
+  });
+}
+
 function uid() { return _id++; }
 function money(n) { return 'HK$ '+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function pcMoney(n) { return 'PC '+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
