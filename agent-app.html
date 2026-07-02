@@ -2344,9 +2344,6 @@ function doDelClient(id) {
   renderCurrentTab();
   toast('客戶已刪除', 'error');
 }
-  if (editId) { for (var i=0;i<DB[key].length;i++) if (DB[key][i].id===editId) { DB[key][i]=obj; return; } }
-  DB[key].push(obj);
-}
 
 function del(key, id) {
   if (!confirm('確定刪除？')) return;
