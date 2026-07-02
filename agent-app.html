@@ -2598,8 +2598,11 @@ function fTime(label, name, slots, selected) {
   var v = normalizeTime(selected) || '10:00';
   if (!/^\d{2}:\d{2}$/.test(v)) v = '10:00';
   var h = '<div class="form-group"><label>'+label+'</label>';
-  h += '<input type="time" id="f_'+name+'" value="'+esc(v)+'" step="900" style="font-size:14px;padding:8px 10px;border:1px solid var(--gray300);border-radius:8px;width:100%">';
-  h += '<small style="color:var(--gray500);font-size:11px">可點撃右邊時鐘圖示選擇，或直接輸入 HH:MM</small>';
+  h += '<div style="display:flex;align-items:center;gap:6px">';
+  h += '<input type="time" id="f_'+name+'" value="'+esc(v)+'" step="900" style="font-size:14px;padding:8px 10px;border:1px solid var(--gray300);border-radius:8px;flex:1;min-width:0">';
+  h += '<button type="button" onclick="document.getElementById(\'f_'+name+'\').showPicker()" style="padding:8px 10px;border:1px solid var(--gray300);border-radius:8px;background:var(--gray50);cursor:pointer;font-size:16px;line-height:1" title="選擇時間">🕐</button>';
+  h += '</div>';
+  h += '<small style="color:var(--gray500);font-size:11px">撳 🕐 選時間，或直接輸入 HH:MM</small>';
   h += '</div>';
   return h;
 }
