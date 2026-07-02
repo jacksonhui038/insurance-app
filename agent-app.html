@@ -2226,9 +2226,14 @@ function fClient(label, name, value) {
 
 function closeModal() { document.getElementById('modalBg').classList.remove('show'); }
 
+function saveTo(key, obj) {
+  if (editId) { for (var i=0;i<DB[key].length;i++) if (DB[key][i].id===editId) { DB[key][i]=obj; return; } }
+  DB[key].push(obj);
+}
+
 function saveForm() {
   if (editType === 'client') {
-    var o = {id:editId||uid(),name:val('f_name'),alias:val('f_alias'),phone:val('f_phone'),email:val('f_email'),status:val('f_status'),notes:val('f_notes'),createdAt:editId?findById('clients',editId).createdAt:new Date().toISOString()};
+    var o = {id:editId||uid(),name:val('f_name'),alias:val('f_alias'),status:val('f_status'),notes:val('f_notes'),createdAt:editId?findById('clients',editId).createdAt:new Date().toISOString()};
     saveTo('clients',o);
   }
   else if (editType === 'policy') {
@@ -2258,7 +2263,7 @@ function saveForm() {
     if (clientName) {
       var exists = DB.clients.some(function(c){ return c.name === clientName; });
       if (!exists) {
-        var newClient = {id:uid(),name:clientName,phone:'',email:'',status:'活躍',notes:'從行程表自動新增 '+new Date().toISOString().slice(0,10),createdAt:new Date().toISOString()};
+        var newClient = {id:uid(),name:clientName,status:'活躍',notes:'從行程表自動新增 '+new Date().toISOString().slice(0,10),createdAt:new Date().toISOString()};
         DB.clients.push(newClient);
         toast('✅ 已自動新增客戶「'+clientName+'」到資料庫');
       } else {
