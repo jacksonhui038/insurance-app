@@ -2596,12 +2596,10 @@ function fixAllScheduleTimes(forceSave) {
 }
 function fTime(label, name, slots, selected) {
   var v = normalizeTime(selected) || '10:00';
-  var listId = 'dl_time_'+name+'_'+Date.now();
+  if (!/^\d{2}:\d{2}$/.test(v)) v = '10:00';
   var h = '<div class="form-group"><label>'+label+'</label>';
-  h += '<input type="text" id="f_'+name+'" value="'+esc(v)+'" list="'+listId+'" placeholder="HH:MM（可輸入或選擇）" style="font-size:14px;padding:8px 10px;border:1px solid var(--gray300);border-radius:8px;width:100%">';
-  h += '<datalist id="'+listId+'">';
-  slots.forEach(function(slot) { h += '<option value="'+slot+'">'; });
-  h += '</datalist>';
+  h += '<input type="time" id="f_'+name+'" value="'+esc(v)+'" step="900" style="font-size:14px;padding:8px 10px;border:1px solid var(--gray300);border-radius:8px;width:100%">';
+  h += '<small style="color:var(--gray500);font-size:11px">可點撃右邊時鐘圖示選擇，或直接輸入 HH:MM</small>';
   h += '</div>';
   return h;
 }
