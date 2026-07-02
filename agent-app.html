@@ -2490,13 +2490,14 @@ function fs(label, name, options, selected) {
 // 時間欄：原生 time input，可下拉揀 + 可自行輸入
 function fTime(label, name, slots, selected) {
   var v = selected || '10:00';
+  var listId = 'dl_time_'+name+'_'+Date.now();
   var h = '<div class="form-group"><label>'+label+'</label>';
-  h += '<select id="f_'+name+'" style="font-size:14px;padding:8px 10px;border:1px solid var(--gray300);border-radius:8px;width:100%;background:var(--white);cursor:pointer">';
+  h += '<input type="text" id="f_'+name+'" value="'+esc(v)+'" list="'+listId+'" placeholder="HH:MM（可輸入或選擇）" style="font-size:14px;padding:8px 10px;border:1px solid var(--gray300);border-radius:8px;width:100%">';
+  h += '<datalist id="'+listId+'">';
   slots.forEach(function(slot) {
-    var sel = (slot === v) ? ' selected' : '';
-    h += '<option value="'+slot+'"'+sel+'>'+slot+'</option>';
+    h += '<option value="'+slot+'">';
   });
-  h += '</select>';
+  h += '</datalist>';
   h += '</div>';
   return h;
 }
