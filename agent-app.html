@@ -179,12 +179,12 @@ tr:hover td{background:var(--blue50)}
       <div class="form-group"><label>👔 職級 <span style="color:var(--red500)">*</span></label>
         <select id="roleSelect" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px;font-family:inherit;background:var(--white)" onchange="onRoleChange()">
           <option value="">-- 請選擇職級 --</option>
-          <option value="SDD">SDD — 大區總監</option>
-          <option value="DD">DD — 小區總監</option>
+          <option value="SDD">SDD — 高級區域總監</option>
+          <option value="DD">DD — 區域總監</option>
           <option value="SDM">SDM — 高級分區經理</option>
           <option value="DM">DM — 分區經理</option>
-          <option value="SASM">SASM — 高級助理分區經理</option>
-          <option value="ASM">ASM — 助理分區經理</option>
+          <option value="SASM">SASM — 高級經銷經理</option>
+          <option value="ASM">ASM — 經銷經理</option>
           <option value="Agent">Agent — 同事</option>
         </select>
       </div>
@@ -392,7 +392,7 @@ tr:hover td{background:var(--blue50)}
     <div class="tab-panel" id="panel-clients">
       <div class="table-wrap">
         <div class="table-head"><h3>👥 客戶列表</h3><div><button class="btn btn-primary" onclick="openForm('client')">+ 新增客戶</button></div></div>
-        <table><thead><tr><th>姓名</th><th>電話</th><th>電郵</th><th>狀態</th><th>保單數</th><th>操作</th></tr></thead><tbody id="clientTable"></tbody></table>
+        <table><thead><tr><th>姓名</th><th>別稱</th><th>電話</th><th>電郵</th><th>狀態</th><th>保單數</th><th>操作</th></tr></thead><tbody id="clientTable"></tbody></table>
       </div>
       <div class="table-wrap" style="margin-top:20px">
         <div class="table-head"><h3>📄 保單列表</h3><button class="btn btn-primary" onclick="openForm('policy')">+ 新增保單</button></div>
@@ -838,29 +838,33 @@ function onRoleChange() {
   }
 }
 
+var loginInProgress = false;
 function doLogin() {
+  if (loginInProgress) return;
+  loginInProgress = true;
   var name = document.getElementById('loginName').value.trim();
   var pin = document.getElementById('loginPin').value.trim();
   var errEl = document.getElementById('loginErr');
   var btn = document.getElementById('loginBtn');
   errEl.style.display = 'none';
-  if (!name) { errEl.textContent = '請輸入姓名'; errEl.style.display = 'block'; return; }
-  if (!pin) { errEl.textContent = '請輸入 PIN 碼'; errEl.style.display = 'block'; return; }
+  if (!name) { errEl.textContent = '請輸入姓名'; errEl.style.display = 'block'; loginInProgress = false; return; }
+  if (!pin) { errEl.textContent = '請輸入 PIN 碼'; errEl.style.display = 'block'; loginInProgress = false; return; }
   btn.textContent = '驗證中...'; btn.disabled = true;
   var pinH = hashPin(pin);
 
-  // Hard timeout: always reset button after 20s
+  // Hard timeout: always reset button after 15s
   var hardTimer = setTimeout(function() {
+    loginInProgress = false;
     btn.textContent = '登入'; btn.disabled = false;
-    errEl.textContent = '連線逾時，請檢查網路或聯絡經理重置 PIN'; errEl.style.display = 'block';
-  }, 20000);
+    errEl.textContent = '連線逾時，請再試一次或聯絡經理重置 PIN'; errEl.style.display = 'block';
+  }, 15000);
 
-  function resetBtn() { clearTimeout(hardTimer); btn.textContent = '登入'; btn.disabled = false; }
+  function resetBtn() { clearTimeout(hardTimer); loginInProgress = false; btn.textContent = '登入'; btn.disabled = false; }
 
   // Try Supabase first
   if (SUPA_URL && SUPA_KEY) {
     var ctrl = new AbortController();
-    var tid = setTimeout(function(){ ctrl.abort(); }, 10000);
+    var tid = setTimeout(function(){ ctrl.abort(); }, 8000);
     fetch(SUPA_URL + '/rest/v1/agents?name=eq.' + encodeURIComponent(name) + '&select=data,manager,team', {
       headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }, signal: ctrl.signal
     })
@@ -871,13 +875,15 @@ function doLogin() {
         var sh = ad._pinHash || '';
         if (sh && sh !== pinH) {
           clearTimeout(hardTimer);
+          loginInProgress = false;
           errEl.innerHTML = 'PIN 碼錯誤。<a style="color:var(--blue500);cursor:pointer;text-decoration:underline" onclick="showLoginMode()">重試</a> 或聯絡經理重置 PIN';
           errEl.style.display = 'block';
           document.getElementById('loginPin').value = ''; document.getElementById('loginPin').focus();
-          resetBtn(); return;
+          btn.textContent = '登入'; btn.disabled = false; return;
         }
         // Success (pin matches or no pinHash = old account)
         clearTimeout(hardTimer);
+        loginInProgress = false;
         agentName = name; agentPIN = pin;
         assignedManager = rows[0].manager || '';
         assignedTeam = rows[0].team || '';
@@ -898,31 +904,36 @@ function doLogin() {
         document.getElementById('sidebarAgentInfo').textContent = name+' | '+agentRole+(assignedManager?' | 經理：'+assignedManager:'');
         renderDashboard(); renderCurrentTab(); afterLoginSync();
         toast('登入成功！已從雲端載入數據');
-        resetBtn();
+        btn.textContent = '登入'; btn.disabled = false;
       } else {
         clearTimeout(hardTimer);
-        loginViaGS(name, pin, pinH, errEl, btn, resetBtn);
+        loginInProgress = false;
+        loginViaGS(name, pin, pinH, errEl, btn, function(){});
       }
     })
-    .catch(function(e) { clearTimeout(tid); console.error('[doLogin] SA:', e); clearTimeout(hardTimer); loginViaGS(name, pin, pinH, errEl, btn, resetBtn); });
+    .catch(function(e) { clearTimeout(tid); console.error('[doLogin] SA:', e); clearTimeout(hardTimer); loginInProgress = false; loginViaGS(name, pin, pinH, errEl, btn, function(){}); });
   } else {
-    loginViaGS(name, pin, pinH, errEl, btn, function(){ clearTimeout(hardTimer); });
+    clearTimeout(hardTimer);
+    loginInProgress = false;
+    loginViaGS(name, pin, pinH, errEl, btn, function(){});
   }
 }
 
 function loginViaGS(name, pin, pinH, errEl, btn, resetBtn) {
   if (!API_URL) {
+    loginInProgress = false;
     errEl.textContent = '無法連接雲端，請聯絡經理重置 PIN'; errEl.style.display = 'block';
-    if (resetBtn) resetBtn(); else { btn.textContent = '登入'; btn.disabled = false; }
+    btn.textContent = '登入'; btn.disabled = false;
     return;
   }
   var qs = 'action=verify_agent&agentId=' + encodeURIComponent(name) + '&pinHash=' + encodeURIComponent(pinH);
   var ctrl = new AbortController();
-  var tid = setTimeout(function(){ ctrl.abort(); }, 10000);
+  var tid = setTimeout(function(){ ctrl.abort(); }, 8000);
   fetch(API_URL + '?' + qs, {signal: ctrl.signal})
     .then(function(res) { clearTimeout(tid); return res.json(); })
     .then(function(r) {
       if (r.verified) {
+        loginInProgress = false;
         agentName = name; agentPIN = pin;
         assignedManager = r.managerName || '';
         assignedTeam = r.team || '';
@@ -939,12 +950,11 @@ function loginViaGS(name, pin, pinH, errEl, btn, resetBtn) {
           renderDashboard(); renderCurrentTab(); afterLoginSync();
           toast('登入成功！' + (ok ? '已從雲端載入數據' : ''));
         });
-        if (resetBtn) resetBtn(); else { btn.textContent = '登入'; btn.disabled = false; }
+        btn.textContent = '登入'; btn.disabled = false;
       } else if (r.notFound) {
-        // Agent not in Google Sheets either — try old load method as last resort
         tryLegacyLogin(name, pin, pinH, errEl, btn, resetBtn);
       } else if (r.found && !r.hasPin) {
-        // Old account without pinHash — allow login
+        loginInProgress = false;
         agentName = name; agentPIN = pin;
         assignedManager = r.managerName || ''; assignedTeam = r.team || '';
         localStorage.setItem(AGENT_KEY, name); localStorage.setItem(AGENT_PIN_KEY, pin);
@@ -959,17 +969,14 @@ function loginViaGS(name, pin, pinH, errEl, btn, resetBtn) {
           renderDashboard(); renderCurrentTab(); afterLoginSync();
           toast('登入成功！');
         });
-        if (resetBtn) resetBtn(); else { btn.textContent = '登入'; btn.disabled = false; }
+        btn.textContent = '登入'; btn.disabled = false;
       } else {
-        // verify_agent returned found + hasPin + wrong pin — OR unknown error format
-        // Try legacy login as fallback
         tryLegacyLogin(name, pin, pinH, errEl, btn, resetBtn);
       }
     })
     .catch(function(e) {
       clearTimeout(tid);
       console.error('[doLogin] GS:', e);
-      // Google Sheets fetch failed entirely — try legacy
       tryLegacyLogin(name, pin, pinH, errEl, btn, resetBtn);
     });
 }
@@ -977,19 +984,20 @@ function loginViaGS(name, pin, pinH, errEl, btn, resetBtn) {
 // Legacy fallback: load agent data from Google Sheets without PIN verification
 function tryLegacyLogin(name, pin, pinH, errEl, btn, resetBtn) {
   if (!API_URL) {
+    loginInProgress = false;
     errEl.innerHTML = '無法連接雲端。<br>請聯絡經理<a style="color:var(--blue500);cursor:pointer;text-decoration:underline" onclick="showRegisterMode()">重新註冊</a> 或重置 PIN';
     errEl.style.display = 'block';
-    if (resetBtn) resetBtn(); else { btn.textContent = '登入'; btn.disabled = false; }
+    btn.textContent = '登入'; btn.disabled = false;
     return;
   }
   var qs = 'action=load&agentId=' + encodeURIComponent(name);
   var ctrl = new AbortController();
-  var tid = setTimeout(function(){ ctrl.abort(); }, 10000);
+  var tid = setTimeout(function(){ ctrl.abort(); }, 8000);
   fetch(API_URL + '?' + qs, {signal: ctrl.signal})
     .then(function(res) { clearTimeout(tid); return res.json(); })
     .then(function(r) {
+      loginInProgress = false;
       if (r.success && r.data) {
-        // Agent exists in Google Sheets — allow login
         agentName = name; agentPIN = pin;
         assignedManager = r.data.manager || r.managerName || '';
         assignedTeam = r.data.team || r.team || '';
@@ -1008,20 +1016,20 @@ function tryLegacyLogin(name, pin, pinH, errEl, btn, resetBtn) {
         document.getElementById('sidebarAgentInfo').textContent = name+' | 代理人'+(assignedManager?' | '+assignedManager:'');
         renderDashboard(); renderCurrentTab(); afterLoginSync();
         toast('登入成功！');
-        if (resetBtn) resetBtn(); else { btn.textContent = '登入'; btn.disabled = false; }
+        btn.textContent = '登入'; btn.disabled = false;
       } else {
-        // Agent not found anywhere
         errEl.innerHTML = '此姓名未註冊。請用<a style="color:var(--blue500);cursor:pointer;text-decoration:underline" onclick="showRegisterMode()">註冊新帳戶</a>';
         errEl.style.display = 'block';
-        if (resetBtn) resetBtn(); else { btn.textContent = '登入'; btn.disabled = false; }
+        btn.textContent = '登入'; btn.disabled = false;
       }
     })
     .catch(function(e) {
       clearTimeout(tid);
+      loginInProgress = false;
       console.error('[tryLegacyLogin]', e);
       errEl.innerHTML = '連線失敗，請檢查網路後重試。<br>如持續失敗，請聯絡經理重置 PIN';
       errEl.style.display = 'block';
-      if (resetBtn) resetBtn(); else { btn.textContent = '登入'; btn.disabled = false; }
+      btn.textContent = '登入'; btn.disabled = false;
     });
 }
 
@@ -1682,11 +1690,11 @@ function renderDashboardCharts() {
 function renderClientPolicies() {
   // 客戶列表
   var ch = '';
-  if (DB.clients.length === 0) ch = '<tr><td colspan="6" class="empty">尚無客戶，點擊「+ 新增客戶」開始</td></tr>';
+  if (DB.clients.length === 0) ch = '<tr><td colspan="7" class="empty">尚無客戶，點擊「+ 新增客戶」開始</td></tr>';
   else DB.clients.forEach(function(c){
     var policyCount = DB.policies.filter(function(p){ return String(p.clientId)===String(c.id); }).length;
     var sc = c.status==='活躍'?'badge-green':c.status==='潛在'?'badge-yellow':'badge-red';
-    ch += '<tr><td>'+esc(c.name)+'</td><td>'+esc(c.phone||'—')+'</td><td>'+esc(c.email||'—')+'</td><td><span class="badge '+sc+'">'+esc(c.status)+'</span></td><td>'+policyCount+' 份</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'client\','+c.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'clients\','+c.id+')">刪除</button></td></tr>';
+    ch += '<tr><td>'+esc(c.name)+'</td><td>'+esc(c.alias||'—')+'</td><td>'+esc(c.phone||'—')+'</td><td>'+esc(c.email||'—')+'</td><td><span class="badge '+sc+'">'+esc(c.status)+'</span></td><td>'+policyCount+' 份</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'client\','+c.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="delClient('+c.id+')">刪除</button></td></tr>';
   });
   document.getElementById('clientTable').innerHTML = ch;
   // 保單列表
@@ -1890,10 +1898,11 @@ function showQuickView(clientName) {
   title.innerHTML = '🔗 ' + esc(clientName) + ' — 相關資料';
   var html = '';
   if (client) {
-    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px">';
-    html += '<div style="background:var(--blue50);border-radius:8px;padding:10px;text-align:center"><div style="font-size:12px;color:var(--gray400)">狀態</div><div style="font-weight:600;color:var(--blue700)">'+esc(client.status||'—')+'</div></div>';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:14px">';
+    html += '<div style="background:var(--blue50);border-radius:8px;padding:10px;text-align:center"><div style="font-size:12px;color:var(--gray400)">別稱</div><div style="font-weight:600">'+esc(client.alias||'—')+'</div></div>';
     html += '<div style="background:var(--blue50);border-radius:8px;padding:10px;text-align:center"><div style="font-size:12px;color:var(--gray400)">電話</div><div style="font-weight:600">'+esc(client.phone||'—')+'</div></div>';
     html += '<div style="background:var(--blue50);border-radius:8px;padding:10px;text-align:center"><div style="font-size:12px;color:var(--gray400)">電郵</div><div style="font-weight:600">'+esc(client.email||'—')+'</div></div>';
+    html += '<div style="background:var(--blue50);border-radius:8px;padding:10px;text-align:center"><div style="font-size:12px;color:var(--gray400)">狀態</div><div style="font-weight:600;color:var(--blue700)">'+esc(client.status||'—')+'</div></div>';
     html += '</div>';
   } else {
     html += '<div style="font-size:13px;color:var(--gray400);margin-bottom:12px">⚠️ 此客戶尚未在資料庫中登記</div>';
@@ -2032,7 +2041,7 @@ function openForm(type, id) {
   var h = '<h3>'+title+t[type]+'</h3>';
   if (type === 'client') {
     var c = id?findById('clients',id):{};
-    h += fg('姓名','name','text',c.name||'')+fg('電話','phone','text',c.phone||'')+fg('電郵','email','email',c.email||'')+fs('狀態','status',['活躍','潛在','流失'],c.status||'活躍')+fg('備註','notes','text',c.notes||'');
+    h += fg('姓名','name','text',c.name||'')+fg('別稱','alias','text',c.alias||'')+fg('電話','phone','text',c.phone||'')+fg('電郵','email','email',c.email||'')+fs('狀態','status',['活躍','潛在','流失'],c.status||'活躍')+fg('備註','notes','text',c.notes||'');
   }
   else if (type === 'policy') {
     var p = id?findById('policies',id):{};
@@ -2168,7 +2177,7 @@ function closeModal() { document.getElementById('modalBg').classList.remove('sho
 
 function saveForm() {
   if (editType === 'client') {
-    var o = {id:editId||uid(),name:val('f_name'),phone:val('f_phone'),email:val('f_email'),status:val('f_status'),notes:val('f_notes'),createdAt:editId?findById('clients',editId).createdAt:new Date().toISOString()};
+    var o = {id:editId||uid(),name:val('f_name'),alias:val('f_alias'),phone:val('f_phone'),email:val('f_email'),status:val('f_status'),notes:val('f_notes'),createdAt:editId?findById('clients',editId).createdAt:new Date().toISOString()};
     saveTo('clients',o);
   }
   else if (editType === 'policy') {
@@ -2225,7 +2234,63 @@ function saveForm() {
   renderCurrentTab();
 }
 
-function saveTo(key, obj) {
+// 刪除客戶 — 需輸入電話+電郵確認
+function delClient(id) {
+  var c = findById('clients', id);
+  if (!c) return;
+  var policyCount = DB.policies.filter(function(p){ return String(p.clientId)===String(c.id); }).length;
+  var h = '<h3>刪除客戶</h3>';
+  h += '<div style="font-size:14px;line-height:1.8">';
+  h += '<p style="color:var(--red500);font-weight:600">⚠️ 確認刪除客戶：「'+esc(c.name)+'」</p>';
+  if (policyCount > 0) h += '<p style="color:var(--red500);font-size:12px">此客戶有 '+policyCount+' 份保單，刪除後相關保單不受影響。</p>';
+  var hasContact = (c.phone||'').trim() || (c.email||'').trim();
+  if (hasContact) {
+    h += '<p style="font-size:12px;color:var(--gray400)">為安全起見，請輸入此客戶的電話和電郵以確認刪除。</p>';
+  } else {
+    h += '<p style="font-size:12px;color:var(--gray400)">此客戶無電話/電郵記錄，請在兩個欄位都輸入 <b>DELETE</b> 確認。</p>';
+  }
+  h += '<div class="form-group" style="margin-top:12px"><label>客戶電話</label><input type="text" id="delClientPhone" placeholder="輸入電話確認" style="border-color:var(--red500)"></div>';
+  h += '<div class="form-group"><label>客戶電郵</label><input type="text" id="delClientEmail" placeholder="輸入電郵確認" style="border-color:var(--red500)"></div>';
+  h += '<div id="delClientErr" style="color:var(--red500);font-size:12px;display:none;margin-top:6px"></div>';
+  h += '</div>';
+  h += '<div class="modal-actions"><button class="btn btn-danger" onclick="doDelClient('+id+')">確認刪除</button><button class="btn btn-outline" onclick="closeModal()">取消</button></div>';
+  document.getElementById('modalInner').innerHTML = h;
+  document.getElementById('modalBg').classList.add('show');
+}
+
+function doDelClient(id) {
+  var c = findById('clients', id);
+  if (!c) { closeModal(); return; }
+  var inputPhone = (document.getElementById('delClientPhone').value||'').trim();
+  var inputEmail = (document.getElementById('delClientEmail').value||'').trim();
+  var errEl = document.getElementById('delClientErr');
+  var expectedPhone = (c.phone||'').trim();
+  var expectedEmail = (c.email||'').trim();
+  if (!expectedPhone && !expectedEmail) {
+    if (inputPhone !== 'DELETE' || inputEmail !== 'DELETE') {
+      errEl.textContent = '請在兩個欄位都輸入 DELETE 確認';
+      errEl.style.display = 'block';
+      return;
+    }
+  } else {
+    if (expectedPhone && inputPhone !== expectedPhone) {
+      errEl.textContent = '電話不正確，請核對後重新輸入';
+      errEl.style.display = 'block';
+      return;
+    }
+    if (expectedEmail && inputEmail !== expectedEmail) {
+      errEl.textContent = '電郵不正確，請核對後重新輸入';
+      errEl.style.display = 'block';
+      return;
+    }
+  }
+  DB.clients = DB.clients.filter(function(x){ return x.id !== id; });
+  saveDB();
+  if (CLOUD_ENABLED && agentName) saveDBAutoSync();
+  closeModal();
+  renderCurrentTab();
+  toast('客戶已刪除', 'error');
+}
   if (editId) { for (var i=0;i<DB[key].length;i++) if (DB[key][i].id===editId) { DB[key][i]=obj; return; } }
   DB[key].push(obj);
 }
