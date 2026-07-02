@@ -1545,55 +1545,105 @@ function doDeleteAccount() {
 // FORCE REGISTER — bypass cloud check, clear local data, re-register
 // ===================================================================
 function forceRegister(name, pin, role, supervisor, team) {
-  if (!confirm('強制覆蓋註冊？\n\n將會清除本地所有「' + name + '」的數據，\n並以新設定重新註冊。\n\n⚠️ 此操作不可撤銷！')) return;
+  if (!confirm('強制覆蓋註冊？\n\n將會清除本地數據並重設 PIN。\n雲端資料（客戶、保單等）會保留。\n\n確定繼續？')) return;
 
-  // Clear ALL local data for this name
-  var keysToRemove = [];
-  for (var i = 0; i < localStorage.length; i++) {
-    var k = localStorage.key(i);
-    if (k.indexOf(encodeURIComponent(name)) >= 0 || k.indexOf(name) >= 0) {
-      keysToRemove.push(k);
-    }
-  }
-  keysToRemove.forEach(function(k) { localStorage.removeItem(k); });
-
-  // Also clear general agent keys
-  localStorage.removeItem('insurance_agent_name');
-  localStorage.removeItem('insurance_agent_pin');
-  localStorage.removeItem('insurance_agent_name_locked');
-
-  // Re-register with new data
   if (!pin) pin = document.getElementById('pinInput').value.trim();
   if (!role) role = document.getElementById('roleSelect').value;
   if (!supervisor) supervisor = document.getElementById('supervisorInput').value.trim();
   if (!team) team = document.getElementById('teamInput').value.trim();
 
-  agentName = name;
-  agentPIN = pin;
-  assignedManager = supervisor;
-  agentRole = role;
-  localStorage.setItem(AGENT_KEY, name);
-  localStorage.setItem(AGENT_PIN_KEY, pin);
-  localStorage.setItem('insurance_agent_name_locked', 'true');
-  localStorage.setItem('insurance_mgr_' + encodeURIComponent(name), supervisor);
-  localStorage.setItem('insurance_role_' + encodeURIComponent(name), role);
-  if (team) localStorage.setItem('insurance_team_' + encodeURIComponent(name), team);
+  var pinH = hashPin(pin);
+  if (!pinH) { toast('請先輸入 PIN', 'error'); return; }
 
-  computeHierarchyPath(supervisor, name, function(hPath) {
-    agentHierarchyPath = hPath;
-    localStorage.setItem('insurance_hpath_' + encodeURIComponent(name), hPath);
+  // Fetch existing cloud data FIRST
+  if (SUPA_URL && SUPA_KEY) {
+    fetch(SUPA_URL + '/rest/v1/agents?name=eq.' + encodeURIComponent(name) + '&select=*', {
+      headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(rows){
+      var existingData = {};
+      if (rows && rows.length > 0 && rows[0].data) existingData = rows[0].data;
 
-    document.getElementById('nameModalBg').classList.remove('show');
-    document.getElementById('agentNameDisplay').textContent = name;
-    document.getElementById('sidebarAgentInfo').textContent = name + ' | ' + role + (supervisor ? ' | 經理：' + supervisor : '');
-    loadDB();
-    renderDashboard();
-    afterLoginSync();
+      // Clear local storage
+      var keysToRemove = [];
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k.indexOf(encodeURIComponent(name)) >= 0 || k.indexOf(name) >= 0) keysToRemove.push(k);
+      }
+      keysToRemove.forEach(function(k) { localStorage.removeItem(k); });
+      localStorage.removeItem('insurance_agent_name');
+      localStorage.removeItem('insurance_agent_pin');
+      localStorage.removeItem('insurance_agent_name_locked');
 
-    // Register to cloud (will upsert/overwrite existing record)
-    registerToCloudWithPin(name, supervisor, team, hashPin(pin), role, hPath);
-    toast('強制覆蓋註冊成功 ✓', 'success');
-  });
+      // Set new local data
+      agentName = name; agentPIN = pin; assignedManager = supervisor; agentRole = role;
+      localStorage.setItem(AGENT_KEY, name);
+      localStorage.setItem(AGENT_PIN_KEY, pin);
+      localStorage.setItem('insurance_agent_name_locked', 'true');
+      localStorage.setItem('insurance_mgr_' + encodeURIComponent(name), supervisor);
+      localStorage.setItem('insurance_role_' + encodeURIComponent(name), role);
+      if (team) localStorage.setItem('insurance_team_' + encodeURIComponent(name), team);
+
+      computeHierarchyPath(supervisor, name, function(hPath) {
+        agentHierarchyPath = hPath;
+        localStorage.setItem('insurance_hpath_' + encodeURIComponent(name), hPath);
+
+        // Load existing cloud data into DB (PRESERVE)
+        DB = {clients:[],policies:[],commissions:[],expenses:[],goals:[],schedules:[],pcs:[],incomes:[]};
+        ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k) {
+          if (existingData[k]) DB[k] = existingData[k];
+        });
+        saveDB();
+
+        document.getElementById('nameModalBg').classList.remove('show');
+        document.getElementById('agentNameDisplay').textContent = name;
+        document.getElementById('sidebarAgentInfo').textContent = name + ' | ' + role + (supervisor ? ' | 經理：' + supervisor : '');
+        renderDashboard();
+
+        // Upsert with PRESERVED data + new PIN
+        var dwp = Object.assign({}, existingData, {
+          _pinHash: pinH, role: role||'Agent', hierarchyPath: hPath||name, supervisor: supervisor||'', lastSync: new Date().toISOString()
+        });
+        fetch(SUPA_URL + '/rest/v1/agents?on_conflict=name', {
+          method:'POST',
+          headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
+          body:JSON.stringify({name:name, data:dwp, manager:supervisor, team:team})
+        }).then(function(r){
+          if (r.ok) toast('強制覆蓋註冊成功 ✓ 雲端資料已保留', 'success');
+          else toast('雲端更新失敗', 'error');
+        }).catch(function(e){ toast('雲端更新失敗：' + e.message, 'error'); });
+      });
+    })
+    .catch(function(e){ toast('雲端讀取失敗：' + e.message, 'error'); });
+  } else {
+    // Offline mode
+    var keysToRemove = [];
+    for (var i = 0; i < localStorage.length; i++) {
+      var k = localStorage.key(i);
+      if (k.indexOf(encodeURIComponent(name)) >= 0 || k.indexOf(name) >= 0) keysToRemove.push(k);
+    }
+    keysToRemove.forEach(function(k) { localStorage.removeItem(k); });
+    localStorage.removeItem('insurance_agent_name');
+    localStorage.removeItem('insurance_agent_pin');
+    localStorage.removeItem('insurance_agent_name_locked');
+    agentName = name; agentPIN = pin; assignedManager = supervisor; agentRole = role;
+    localStorage.setItem(AGENT_KEY, name);
+    localStorage.setItem(AGENT_PIN_KEY, pin);
+    localStorage.setItem('insurance_agent_name_locked', 'true');
+    localStorage.setItem('insurance_mgr_' + encodeURIComponent(name), supervisor);
+    localStorage.setItem('insurance_role_' + encodeURIComponent(name), role);
+    if (team) localStorage.setItem('insurance_team_' + encodeURIComponent(name), team);
+    computeHierarchyPath(supervisor, name, function(hPath) {
+      agentHierarchyPath = hPath;
+      localStorage.setItem('insurance_hpath_' + encodeURIComponent(name), hPath);
+      document.getElementById('nameModalBg').classList.remove('show');
+      document.getElementById('agentNameDisplay').textContent = name;
+      document.getElementById('sidebarAgentInfo').textContent = name + ' | ' + role + (supervisor ? ' | 經理：' + supervisor : '');
+      loadDB(); renderDashboard();
+      toast('強制覆蓋註冊成功 ✓（離線模式）', 'success');
+    });
+  }
 }
 
 // ===================================================================
