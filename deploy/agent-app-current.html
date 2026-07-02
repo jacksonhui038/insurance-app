@@ -1159,20 +1159,23 @@ function saveName() {
   // Check cloud for duplicate
   checkAgentExists(n, function(exists) {
     if (exists) {
-      // Name exists in cloud — auto-recover: ask for PIN to verify identity
-      errEl.innerHTML = '<span style="color:var(--blue700)">⚠️ 此姓名已註冊過，請輸入原有 PIN 登入</span>' +
-        '<div style="margin-top:8px;display:flex;gap:6px;align-items:center">' +
-        '<input type="password" id="recoverPinInput" placeholder="原有 PIN" style="width:120px;padding:6px 8px;border:1px solid var(--gray300);border-radius:6px;font-size:14px;text-align:center" maxlength="8">' +
-        "<button class='btn btn-sm btn-primary' id='recoverLoginBtn'>登入</button>" +
-        '</div>' +
-        '<div id="recoverErr" style="color:var(--red500);font-size:12px;margin-top:4px;display:none"></div>';
+      // Name exists in cloud — show recover + force register option
+      errEl.innerHTML = '<span style="color:var(--blue700)">此姓名雲端已有記錄</span>'
+        + '<div style="margin-top:10px;display:flex;flex-direction:column;gap:6px">'
+        + '<div style="display:flex;gap:6px;align-items:center">'
+        + '<input type=password id=recoverPinInput placeholder=原有PIN style="width:110px;padding:6px 8px;border:1px solid var(--gray300);border-radius:6px;font-size:14px;text-align:center" maxlength=8>'
+        + "<button class='btn btn-sm btn-primary' id='recoverLoginBtn'>用原PIN登入</button>"
+        + '</div>'
+        + "<button class='btn btn-sm' id='forceRegBtn' style='background:#f59e0b;color:#fff;margin-top:4px'>強制覆蓋註冊（清除雲端數據）</button>"
+        + '</div>';
       errEl.style.display = 'block';
       btn.textContent = '註冊'; btn.disabled = false;
       setTimeout(function(){
-        var el=document.getElementById('recoverPinInput');
-        if(el) el.focus();
+        var el=document.getElementById('recoverPinInput'); if(el) el.focus();
         var rb=document.getElementById('recoverLoginBtn');
         if(rb) rb.onclick=function(){ verifyAndRecover(n); };
+        var fb=document.getElementById('forceRegBtn');
+        if(fb) fb.onclick=function(){ forceRegister(n, pin, role, supervisor, team); };
       }, 100);
       return;
     }
@@ -1538,6 +1541,61 @@ function doDeleteAccount() {
 }
 
 // ===================================================================
+// ===================================================================
+// FORCE REGISTER — bypass cloud check, clear local data, re-register
+// ===================================================================
+function forceRegister(name, pin, role, supervisor, team) {
+  if (!confirm('強制覆蓋註冊？\n\n將會清除本地所有「' + name + '」的數據，\n並以新設定重新註冊。\n\n⚠️ 此操作不可撤銷！')) return;
+
+  // Clear ALL local data for this name
+  var keysToRemove = [];
+  for (var i = 0; i < localStorage.length; i++) {
+    var k = localStorage.key(i);
+    if (k.indexOf(encodeURIComponent(name)) >= 0 || k.indexOf(name) >= 0) {
+      keysToRemove.push(k);
+    }
+  }
+  keysToRemove.forEach(function(k) { localStorage.removeItem(k); });
+
+  // Also clear general agent keys
+  localStorage.removeItem('insurance_agent_name');
+  localStorage.removeItem('insurance_agent_pin');
+  localStorage.removeItem('insurance_agent_name_locked');
+
+  // Re-register with new data
+  if (!pin) pin = document.getElementById('pinInput').value.trim();
+  if (!role) role = document.getElementById('roleSelect').value;
+  if (!supervisor) supervisor = document.getElementById('supervisorInput').value.trim();
+  if (!team) team = document.getElementById('teamInput').value.trim();
+
+  agentName = name;
+  agentPIN = pin;
+  assignedManager = supervisor;
+  agentRole = role;
+  localStorage.setItem(AGENT_KEY, name);
+  localStorage.setItem(AGENT_PIN_KEY, pin);
+  localStorage.setItem('insurance_agent_name_locked', 'true');
+  localStorage.setItem('insurance_mgr_' + encodeURIComponent(name), supervisor);
+  localStorage.setItem('insurance_role_' + encodeURIComponent(name), role);
+  if (team) localStorage.setItem('insurance_team_' + encodeURIComponent(name), team);
+
+  computeHierarchyPath(supervisor, name, function(hPath) {
+    agentHierarchyPath = hPath;
+    localStorage.setItem('insurance_hpath_' + encodeURIComponent(name), hPath);
+
+    document.getElementById('nameModalBg').classList.remove('show');
+    document.getElementById('agentNameDisplay').textContent = name;
+    document.getElementById('sidebarAgentInfo').textContent = name + ' | ' + role + (supervisor ? ' | 經理：' + supervisor : '');
+    loadDB();
+    renderDashboard();
+    afterLoginSync();
+
+    // Register to cloud (will upsert/overwrite existing record)
+    registerToCloudWithPin(name, supervisor, team, hashPin(pin), role, hPath);
+    toast('強制覆蓋註冊成功 ✓', 'success');
+  });
+}
+
 // ===================================================================
 // RECOVER FROM REGISTRATION FLOW
 // ===================================================================
