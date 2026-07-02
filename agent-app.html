@@ -635,12 +635,25 @@ function loadFromGoogleSheets(callback, retry) {
     .then(function(res){ clearTimeout(timeoutId); return res.json(); })
     .then(function(r){
       if (r.success && r.data) {
+        // v3.3.0: 合併數據，唔係覆蓋
+        var hasData = false;
         ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k){
-          if (r.data[k]) DB[k] = r.data[k];
+          if (r.data[k] && Array.isArray(r.data[k]) && r.data[k].length > 0) {
+            hasData = true;
+            // 按 ID 合併
+            var localMap = {};
+            if (DB[k] && Array.isArray(DB[k])) {
+              DB[k].forEach(function(item) { localMap[item.id] = item; });
+            }
+            r.data[k].forEach(function(item) {
+              localMap[item.id] = item; // 雲端數據優先
+            });
+            DB[k] = Object.values(localMap);
+          }
         });
         saveDB(); setLastSyncTime();
         if (callback) callback(true);
-        else { toast('☁️ 已從雲端載入'); renderDashboard(); renderCurrentTab(); }
+        else { toast('☁️ 已從雲端合併數據'); renderDashboard(); renderCurrentTab(); }
       } else {
         if (callback) callback(false);
         else if (!retry) { setTimeout(function(){ loadFromCloud(null, true); }, 3000); }
@@ -702,12 +715,25 @@ function loadFromSupabase(callback) {
   .then(function(res){ clearTimeout(timeoutId); return res.json(); })
   .then(function(rows){
     if (rows && rows.length>0 && rows[0].data) {
+      // v3.3.0: 合併數據，唔係覆蓋
+      var hasData = false;
       ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k){
-        if (rows[0].data[k]) DB[k]=rows[0].data[k];
+        if (rows[0].data[k] && Array.isArray(rows[0].data[k]) && rows[0].data[k].length > 0) {
+          hasData = true;
+          // 按 ID 合併
+          var localMap = {};
+          if (DB[k] && Array.isArray(DB[k])) {
+            DB[k].forEach(function(item) { localMap[item.id] = item; });
+          }
+          rows[0].data[k].forEach(function(item) {
+            localMap[item.id] = item; // 雲端數據優先
+          });
+          DB[k] = Object.values(localMap);
+        }
       });
       saveDB(); setLastSyncTime();
       if (callback) callback(true);
-      else { toast('☁️ 已從 Supabase 載入'); renderDashboard(); renderCurrentTab(); }
+      else { toast('☁️ 已從 Supabase 合併數據'); renderDashboard(); renderCurrentTab(); }
     } else { if (callback) callback(false); }
   })
   .catch(function(e){ clearTimeout(timeoutId); console.error('[loadFromSupabase]',e); if (callback) callback(false); });
@@ -896,9 +922,36 @@ function doLogin() {
         localStorage.setItem('insurance_role_'+encodeURIComponent(name), agentRole);
         localStorage.setItem('insurance_hpath_'+encodeURIComponent(name), agentHierarchyPath);
         if (assignedTeam) localStorage.setItem('insurance_team_'+encodeURIComponent(name), assignedTeam);
-        DB = {clients:[],policies:[],commissions:[],expenses:[],goals:[],schedules:[],pcs:[],incomes:[]};
-        ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k) { if (ad[k]) DB[k] = ad[k]; });
-        saveDB();
+
+        // v3.3.0: 保護本地數據 — 先載入本地，雲端有數據先合併
+        loadDB(); // 先載入本地數據
+        var localCount = DB.clients.length + DB.policies.length + DB.commissions.length + DB.expenses.length + DB.pcs.length;
+        var cloudCount = 0;
+        ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k) {
+          if (ad[k] && Array.isArray(ad[k]) && ad[k].length > 0) cloudCount += ad[k].length;
+        });
+        if (cloudCount > 0) {
+          // 雲端有數據：合併（雲端數據優先）
+          ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k) {
+            if (ad[k] && Array.isArray(ad[k])) {
+              // 按 ID 合併，避免重複
+              var localMap = {};
+              DB[k].forEach(function(item) { localMap[item.id] = item; });
+              ad[k].forEach(function(item) {
+                localMap[item.id] = item; // 雲端數據覆蓋本地
+              });
+              DB[k] = Object.values(localMap);
+            }
+          });
+          saveDB();
+          toast('登入成功！已從雲端合併 ' + cloudCount + ' 條數據');
+        } else if (localCount > 0) {
+          // 雲端無數據，保留本地數據
+          toast('登入成功！已保留本地 ' + localCount + ' 條數據（雲端無備份）');
+        } else {
+          // 兩邊都無數據
+          toast('登入成功！帳戶無數據');
+        }
         document.getElementById('nameModalBg').classList.remove('show');
         document.getElementById('agentNameDisplay').textContent = name;
         document.getElementById('sidebarAgentInfo').textContent = name+' | '+agentRole+(assignedManager?' | 經理：'+assignedManager:'');
