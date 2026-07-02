@@ -2491,19 +2491,21 @@ function fs(label, name, options, selected) {
 function normalizeTime(raw) {
   if (!raw) return '';
   var s = String(raw).trim();
+  // 已經係 HH:MM
   if (/^\d{1,2}:\d{2}$/.test(s)) return s;
-  if (s.indexOf('T') >= 0 || s.indexOf('-') >= 0) {
-    var d = new Date(s);
-    if (!isNaN(d.getTime())) {
-      var hh = d.getHours(), mm = d.getMinutes();
-      return String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0');
-    }
-  }
+  // 從 ISO 日期抽 HH:MM：1899-12-30T04:23:18.000Z → 04:23
+  var m = s.match(/T(\d{2}:\d{2})/);
+  if (m) return m[1];
+  // 從時間字串抽 HH:MM：04:23:18 → 04:23
+  var m2 = s.match(/(\d{2}:\d{2}):\d{2}/);
+  if (m2) return m2[1];
+  // Excel 序列日期（小數）：0.182986 → 04:24
   var n = parseFloat(s);
-  if (!isNaN(n) && n < 1 && n > 0) {
-    var totalMin = Math.round(n * 24 * 60);
-    var h2 = Math.floor(totalMin / 60), m2 = totalMin % 60;
-    return String(h2).padStart(2,'0')+':'+String(m2).padStart(2,'0');
+  if (!isNaN(n) && n > 0) {
+    var frac = n % 1;
+    var totalMin = Math.round(frac * 24 * 60);
+    var h2 = Math.floor(totalMin / 60) % 24, m3 = totalMin % 60;
+    return String(h2).padStart(2,'0')+':'+String(m3).padStart(2,'0');
   }
   return s;
 }
