@@ -691,6 +691,8 @@ function saveToSupabase(callback) {
   var team = assignedTeam || localStorage.getItem('insurance_team_'+encodeURIComponent(agentName)) || '';
   var controller = new AbortController();
   var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
+  // v3.6.0: 發送前修復所有壞時間格式
+  fixAllScheduleTimes(false);
   fetch(SUPA_URL + '/rest/v1/agents?on_conflict=name', {
     method:'POST',
     headers:{
@@ -732,6 +734,8 @@ function loadFromSupabase(callback) {
           DB[k] = Object.values(localMap);
         }
       });
+      // v3.6.0: 修復雲端帶入嘅壞時間格式（Excel/ISO 日期）
+      fixAllScheduleTimes(true);
       saveDB(); setLastSyncTime();
       if (callback) callback(true);
       else { toast('☁️ 已從 Supabase 合併數據'); renderDashboard(); renderCurrentTab(); }
@@ -789,6 +793,8 @@ function loadDB() {
     if (DB[k]) DB[k].forEach(function(x){ if (x.id > _id) _id = x.id; });
   });
   _id++;
+  // v3.6.0: 啟動時修復 localStorage 入面嘅壞時間格式
+  fixAllScheduleTimes(true);
 }
 
 function saveDB() {
@@ -2508,6 +2514,20 @@ function normalizeTime(raw) {
     return String(h2).padStart(2,'0')+':'+String(m3).padStart(2,'0');
   }
   return s;
+}
+// v3.6.0: 批量修復 DB 入面所有行程嘅壞時間格式
+function fixAllScheduleTimes(forceSave) {
+  if (!DB || !DB.schedules) return 0;
+  var fixed = 0;
+  DB.schedules.forEach(function(s){
+    var st = normalizeTime(s.startTime);
+    var et = normalizeTime(s.endTime);
+    // 只修復真正係壞格式（唔係 HH:MM）嘅記錄
+    if (s.startTime && s.startTime !== st && /^\d{1,2}:\d{2}$/.test(st)) { s.startTime = st; fixed++; }
+    if (s.endTime && s.endTime !== et && /^\d{1,2}:\d{2}$/.test(et)) { s.endTime = et; fixed++; }
+  });
+  if (fixed > 0 && forceSave !== false) saveDB();
+  return fixed;
 }
 function fTime(label, name, slots, selected) {
   var v = normalizeTime(selected) || '10:00';
