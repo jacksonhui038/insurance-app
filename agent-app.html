@@ -2570,9 +2570,10 @@ function normalizeTime(raw) {
   // 從時間字串抽 HH:MM：04:23:18 → 04:23
   var m2 = s.match(/(\d{2}:\d{2}):\d{2}/);
   if (m2) return m2[1];
-  // Excel 序列日期（小數）：0.182986 → 04:24
+  // Excel 序列日期（小數，0~1 之間）：0.182986 → 04:24
+  // 注意：必須 n < 1，因為 Excel 時間值係小數，整數係日期部分
   var n = parseFloat(s);
-  if (!isNaN(n) && n > 0) {
+  if (!isNaN(n) && n > 0 && n < 1) {
     var frac = n % 1;
     var totalMin = Math.round(frac * 24 * 60);
     var h2 = Math.floor(totalMin / 60) % 24, m3 = totalMin % 60;
