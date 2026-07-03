@@ -150,9 +150,9 @@ tr:hover td{background:var(--blue50)}
       </select>
       <label class="lock-label">PIN 碼</label>
       <input type="password" class="lock-input" id="mgrLoginPin" placeholder="••••" maxlength="6" inputmode="numeric" autocomplete="off" onkeydown="if(event.key==='Enter')doMgrLogin()">
-      <button class="lock-btn lock-btn-primary" onclick="doMgrLogin()" id="mgrLoginBtn">登入</button>
+      <button class="lock-btn lock-btn-primary" onclick="if(typeof doMgrLogin!=='function'){alert('頁面載入未完成，請 Ctrl+Shift+R 強制刷新');return;}try{doMgrLogin()}catch(e){console.error(e);alert('登入時發生錯誤：'+e.message);}" id="mgrLoginBtn">登入</button>
       <div class="lock-err" id="mgrLoginErr"></div>
-      <button class="lock-btn lock-btn-outline" onclick="showMgrChoice()">返回</button>
+      <button class="lock-btn lock-btn-outline" onclick="if(typeof showMgrChoice!=='function'){location.reload();return;}try{showMgrChoice()}catch(e){console.error(e);location.reload();}">返回</button>
       <p style="font-size:11px;color:var(--gray400);margin-top:10px;text-align:center">忘記 PIN？請聯絡系統管理員重置</p>
     </div>
     <!-- SETUP (first time) -->
@@ -370,6 +370,18 @@ tr:hover td{background:var(--blue50)}
 <div id="toastBox" style="position:fixed;bottom:24px;right:24px;z-index:2000"></div>
 
 <script>
+// v3.7.2: catch global errors to help diagnose button issues
+window.onerror = function(msg, url, line, col, err) {
+  console.error('[Global Error]', msg, 'at line', line, 'col', col, err);
+  var toastBox = document.getElementById('toastBox');
+  if (toastBox) {
+    var el = document.createElement('div');
+    el.style.cssText = 'background:#e74c3c;color:#fff;padding:10px 14px;border-radius:8px;margin-top:8px;font-size:13px;max-width:320px';
+    el.textContent = '腳本錯誤（行 ' + line + '）: ' + msg;
+    toastBox.appendChild(el);
+    setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, 5000);
+  }
+};
 // ============================================================
 // MANAGER PIN LOCK
 // ============================================================
@@ -1662,9 +1674,9 @@ if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(
   </div>
 </div>
 <script>
-// v3.7.1: 版本強制刷新 — 修正 Supabase URL
+// v3.7.2: 版本強制刷新 — 修正登入按鈕無反應 + 同步代理人版版本
 (function(){
-  var CURRENT_VER = 'v3.7.1';
+  var CURRENT_VER = 'v3.7.2';
   var cachedVer = localStorage.getItem('mgr_app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, reloading...');
