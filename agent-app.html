@@ -2,6 +2,9 @@
 <html lang="zh-HK">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>保經管家 - 代理人版</title>
 <link rel="manifest" href="manifest.json">
@@ -160,7 +163,7 @@ tr:hover td{background:var(--blue50)}
     <div id="loginMode" style="display:none">
       <h3>🔐 登入</h3>
       <p style="color:var(--gray500);margin-bottom:12px">輸入姓名同 PIN 碼</p>
-      <div class="form-group"><label>姓名</label><input type="text" id="loginName" placeholder="例如：陳大文" autocomplete="off"></div>
+      <div class="form-group"><label>姓名</label><input type="text" id="loginName" placeholder="例如：陳大文 或 CHAN TAI MAN" autocomplete="off" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"></div>
       <div class="form-group"><label>PIN 碼</label><input type="password" id="loginPin" placeholder="輸入 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off" onkeydown="if(event.key==='Enter')doLogin()"></div>
       <div class="modal-actions" style="justify-content:center;flex-wrap:wrap;gap:8px">
         <button class="btn btn-primary" onclick="doLogin()" id="loginBtn">登入</button>
@@ -173,7 +176,7 @@ tr:hover td{background:var(--blue50)}
     <div id="registerMode" style="display:none">
       <h3>📝 註冊新帳戶</h3>
       <p style="color:var(--gray500);margin-bottom:6px">設定你嘅姓名同 PIN 碼</p>
-      <div class="form-group"><label>姓名 <span style="color:var(--red500)">*</span> <span style="font-size:11px;color:var(--gray400)">⚠️ 確認後不可更改</span></label><input type="text" id="nameInput" placeholder="例如：陳大文"></div>
+      <div class="form-group"><label>姓名 <span style="color:var(--red500)">*</span> <span style="font-size:11px;color:var(--gray400)">⚠️ 確認後不可更改</span></label><input type="text" id="nameInput" placeholder="例如：陳大文 或 CHAN TAI MAN" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"></div>
       <div class="form-group"><label>PIN 碼（4-6 位數字）</label><input type="password" id="pinInput" placeholder="設定 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off"></div>
       <div class="form-group"><label>確認 PIN 碼</label><input type="password" id="pinConfirm" placeholder="再次輸入 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off"></div>
       <hr style="border:none;border-top:1px solid var(--gray200);margin:14px 0">
@@ -742,7 +745,7 @@ function loadFromSupabase(callback) {
   var controller = new AbortController();
   var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
   fetch(SUPA_URL + '/rest/v1/agents?name=eq.'+encodeURIComponent(agentName)+'&select=data', {
-    headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY},
+    headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Cache-Control':'no-cache','Pragma':'no-cache'},
     signal:controller.signal
   })
   .then(function(res){ clearTimeout(timeoutId); return res.json(); })
@@ -1917,6 +1920,23 @@ function afterLoginSync() {
 }
 
 document.addEventListener('DOMContentLoaded',function(){
+  // v3.6.0: 版本強制刷新 — 檢測到舊 cache 自動重載
+  var CURRENT_VER = 'v3.6.0';
+  var cachedVer = localStorage.getItem('app_version') || '';
+  if (cachedVer && cachedVer !== CURRENT_VER) {
+    console.log('[Cache] Version mismatch, clearing cache and reloading...');
+    localStorage.setItem('app_version', CURRENT_VER);
+    // 嘗試清除 HTTP cache（部分瀏覽器支援）
+    if (window.caches) {
+      caches.keys().then(function(names) {
+        names.forEach(function(name) { caches.delete(name); });
+      });
+    }
+    setTimeout(function(){ window.location.reload(true); }, 500);
+    return;
+  }
+  localStorage.setItem('app_version', CURRENT_VER);
+
   var mgrSel = document.getElementById('managerSelect');
   if (mgrSel) {
     mgrSel.addEventListener('change',function(){
