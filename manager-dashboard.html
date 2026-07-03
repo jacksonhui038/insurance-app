@@ -7,7 +7,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>經理團隊總覽</title>
-<link rel="manifest" href="manifest.json?v=3.7.3">
+<link rel="manifest" href="manifest.json?v=3.7.4">
 <meta name="theme-color" content="#2563eb">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -1570,7 +1570,6 @@ function whenReady(fn){ return _chartReady.then(function(){ fn(); }); }
 mgrLoadApiUrl();
 if (MGR_CLOUD_ENABLED && document.getElementById('mgrCloudBtn')) document.getElementById('mgrCloudBtn').style.display = '';
 initLock();
-})();
 </script>
 <script>
 if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(function(r){console.log('[PWA] Service Worker 已註冊:',r.scope);}).catch(function(e){console.warn('[PWA] SW 註冊失敗:',e);});}
@@ -1674,9 +1673,9 @@ if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(
   </div>
 </div>
 <script>
-// v3.7.3: 版本強制刷新 — 修正所有經理版按鈕無反應（cache 問題）
+// v3.7.4: 版本強制刷新 — 修正 script 結尾多餘 `})();` 導致全頁按鈕失效
 (function(){
-  var CURRENT_VER = 'v3.7.3';
+  var CURRENT_VER = 'v3.7.4';
   var cachedVer = localStorage.getItem('mgr_app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, reloading...');
