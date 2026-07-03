@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>經理團隊總覽</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#2563eb">
@@ -116,11 +119,17 @@ tr:hover td{background:var(--blue50)}
   <div class="lock-card" id="lockCard">
     <!-- CHOICE -->
     <div id="lockChoice">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <button onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/agent-app.html'" style="padding:6px 14px;border:1px solid var(--gray300);border-radius:8px;background:var(--gray100);color:var(--gray600);cursor:pointer;font-size:13px;display:flex;align-items:center;gap:4px">◀ 返回</button>
+        <span style="font-size:11px;color:var(--gray400)">經理版</span>
+      </div>
       <div class="lock-icon">📊</div>
-      <h2>經理系統</h2>
+      <h2 style="margin-top:0">經理系統</h2>
       <div class="lock-sub">請選擇</div>
       <button class="lock-btn lock-btn-primary" onclick="showMgrLogin()" style="margin-bottom:8px">🔐 登入</button>
       <button class="lock-btn lock-btn-outline" onclick="showMgrSetup()">📝 首次設定</button>
+      <hr style="border:none;border-top:1px solid var(--gray200);margin:14px 0">
+      <button class="lock-btn lock-btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/agent-app.html'" style="border:1px dashed var(--blue500);color:var(--blue700);background:var(--blue50)">🔄 切換到代理人版</button>
     </div>
     <!-- LOGIN (name + PIN + role, no confirm) -->
     <div id="lockLogin" style="display:none">
@@ -192,6 +201,7 @@ tr:hover td{background:var(--blue50)}
       <button class="btn btn-white" onclick="clearAll()">清除全部</button>
       <button class="btn btn-white" onclick="showAccountModal()">👤 帳號</button>
       <button class="btn btn-white" onclick="mgrShowCloudSetup()">⚙️ 設定</button>
+      <button class="btn btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/agent-app.html'" style="border:1px dashed var(--blue500);color:var(--blue700);background:var(--blue50)">🔄 切換到代理人版</button>
     </div>
   </div>
 
@@ -200,7 +210,7 @@ tr:hover td{background:var(--blue50)}
     <div style="font-size:64px;margin-bottom:16px">☁️</div>
     <h2 style="margin-bottom:8px;color:var(--gray600)">歡迎使用團隊總覽</h2>
     <p style="color:var(--gray400);margin-bottom:24px;max-width:600px;margin-left:auto;margin-right:auto;line-height:1.6">
-      🎯 <b>推薦方法</b>：按右上角 <b>「☁️ 載入團隊數據」</b>，即時讀取全團隊最新數據（來自 Google Sheets 雲端）。<br><br>
+      🎯 <b>推薦方法</b>：按右上角 <b>「☁️ 載入團隊數據」</b>，即時讀取全團隊最新數據（來自 Supabase 雲端）。<br><br>
       📝 <b>備用方法</b>：如果雲端載入失敗，可以手動匯入代理人匯出的 JSON 報告檔。
     </p>
     <button class="btn btn-primary" onclick="mgrLoadFromCloud()" style="font-size:16px;padding:12px 28px;margin-bottom:12px">☁️ 從雲端載入全團隊數據</button>
@@ -540,9 +550,9 @@ var chartInstances = {};
 var selectedAgent = null;
 var detailTab = 'clients';
 
-// ===== 雲端同步設定（已預設 Google Apps Script 網址）=====
-var MGR_API_URL = 'https://script.google.com/macros/s/AKfycbxgU-gqY_oFNj03Us28bcs6PK9vH0wchjgzic5lww4uc5nu8byTGbmrLp8kBOZ0nSU6/exec';
-var MGR_CLOUD_ENABLED = Boolean(MGR_API_URL && MGR_API_URL.length > 0);
+// ===== 雲端同步設定（Supabase 為主，Google Sheets 選填）=====
+var MGR_API_URL = '';
+var MGR_CLOUD_ENABLED = Boolean(MGR_SUPA_URL && MGR_SUPA_KEY);
 var MGR_SUPA_URL = 'https://wnyfvwaqdhddcxvgelu.supabase.co';
 var MGR_SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3bnlmd3FhcWRoZGRjeHZnZWx1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MTU4NTIsImV4cCI6MjA5ODM5MTg1Mn0.pzYPKK9rt-LuGV-sVtmHCzTjym1OXaHiDVbsZ9f0GQY';
 
@@ -607,6 +617,8 @@ function mgrLoadFromSupabase() {
       render();
       document.getElementById("noDataMsg").style.display = "none";
       document.getElementById("dataView").style.display = "block";
+      // 確保 Chart.js 已加載後再渲染圖表
+      whenReady(function(){ render(); });
       if (visibleCount === 0) {
         toast('⚠️ 你嘅下屬尚未註冊。請讓佢哋喺代理人版註冊時填寫你為直屬上司。', 'warning');
       } else {
@@ -614,9 +626,9 @@ function mgrLoadFromSupabase() {
       }
       return true;
     }
-    if (rows && rows.length === 0) {
-      toast('Supabase 無數據，嘗試 Google Sheets...', 'warning');
-    }
+      if (rows && rows.length === 0) {
+        toast('⚠️ Supabase 無數據。請確認團隊成員已在代理人版完成註冊並同步。', 'warning');
+      }
     return false;
   })
   .catch(function(e){
@@ -627,28 +639,45 @@ function mgrLoadFromSupabase() {
 }
 
 function mgrLoadFromCloud() {
-  if (!MGR_CLOUD_ENABLED) { toast('請先設定雲端', 'error'); mgrShowCloudSetup(); return; }
+  // 防止重複點擊
+  var btn = document.getElementById('mgrCloudBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '載入中...'; }
+  toast('☁️ 正在從 Supabase 載入團隊數據...', 'info');
+
+  function done() {
+    if (btn) { btn.disabled = false; btn.textContent = '☁️ 載入團隊數據'; }
+  }
 
   // 優先 Supabase
   if (MGR_SUPA_URL && MGR_SUPA_KEY) {
     mgrLoadFromSupabase().then(function(ok){
-      if (!ok && MGR_API_URL) { mgrLoadFromGoogleSheets(); }
+      done();
+      if (ok) {
+        document.getElementById("noDataMsg").style.display = "none";
+        document.getElementById("dataView").style.display = "block";
+      } else {
+        toast('⚠️ Supabase 載入失敗，請檢查網絡或 Supabase 設定', 'error');
+      }
+    }).catch(function(e){
+      done();
+      console.error('[mgrLoadFromCloud]', e);
+      toast('⚠️ 載入失敗：' + e.message, 'error');
     });
     return;
   }
-
-  // Fallback Google Sheets
+  // 只有手動設定咗 Google Sheets URL 先會用（選填）
   if (MGR_API_URL) {
     mgrLoadFromGoogleSheets();
+    done();
     return;
   }
-
-  toast('請先設定雲端網址', 'error'); mgrShowCloudSetup();
+  done();
+  toast('請先設定 Supabase 連線', 'error'); mgrShowCloudSetup();
 }
 
 function mgrLoadFromGoogleSheets() {
   var mgrName = localStorage.getItem(MGR_KEY) || '';
-  toast('☁️ 從 Google Sheets 載入數據...');
+  toast('⚠️ 正從 Google Sheets（備用）載入數據...');
   var qs = 'action=manager_load&key=MANAGER_SECRET_KEY';
   if (mgrName) qs += '&managerName=' + encodeURIComponent(mgrName);
   var controller = new AbortController();
@@ -1517,15 +1546,18 @@ function toast(msg,type){type=type||'success';var el=document.createElement('div
 // ============================================================
 // BOOT
 // ============================================================
-(function(){
+var _chartReady = new Promise(function(resolve){
+  var _resolved = false;
   var s=document.createElement('script');
   s.src='https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
-  s.onload=function(){chartLib=Chart;if(mgrUnlocked)render();};
-  s.onerror=function(){console.warn('Chart.js unavailable');};
+  s.onload=function(){chartLib=Chart;_resolved=true;resolve(true);};
+  s.onerror=function(){console.warn('Chart.js unavailable');_resolved=true;resolve(false);};
   document.head.appendChild(s);
-  mgrLoadApiUrl();
-  if (MGR_CLOUD_ENABLED && document.getElementById('mgrCloudBtn')) document.getElementById('mgrCloudBtn').style.display = '';
-  initLock();
+});
+function whenReady(fn){ return _chartReady.then(function(){ fn(); }); }
+mgrLoadApiUrl();
+if (MGR_CLOUD_ENABLED && document.getElementById('mgrCloudBtn')) document.getElementById('mgrCloudBtn').style.display = '';
+initLock();
 })();
 </script>
 <script>
@@ -1549,26 +1581,26 @@ if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(
   <div class="modal" style="max-width:520px">
     <h3>☁️ 雲端同步設定（經理版）</h3>
     <p style="color:var(--gray500);font-size:13px;margin-bottom:14px">
-      可同時設定 Google Sheets 同 Supabase。兩個都用最安全。
+      建議優先設定 Supabase（主要雲端）。Google Sheets 為選填兼容模式。
     </p>
-    <!-- Google Sheets 區塊 -->
-    <div class="acct-section">
-      <h4 style="font-size:13px;color:var(--gray600);margin-bottom:8px">📊 Google Sheets（兼容模式）</h4>
-      <div class="form-group">
-        <label>Google Apps Script 網址</label>
-        <input type="url" id="mgrApiUrlInput" placeholder="https://script.google.com/macros/s/..." style="font-size:12px">
-      </div>
-    </div>
-    <!-- Supabase 區塊 -->
-    <div class="acct-section">
-      <h4 style="font-size:13px;color:var(--green600);margin-bottom:8px">🚀 Supabase（推薦）</h4>
+    <!-- Supabase 區塊（主要） -->
+    <div class="acct-section" style="border:2px solid var(--blue500);border-radius:8px;padding:14px;background:var(--blue50)">
+      <h4 style="font-size:14px;color:var(--blue700);margin-bottom:10px">🚀 Supabase（推薦 · 主要雲端）</h4>
       <div class="form-group">
         <label>Supabase 專案網址</label>
-        <input type="url" id="mgrSupaUrlInput" placeholder="https://xxxxxxxxxxxx.supabase.co" style="font-size:12px">
+        <input type="url" id="mgrSupaUrlInput" value="https://wnyfvwaqdhddcxvgelu.supabase.co" placeholder="https://xxxxxxxxxxxx.supabase.co" style="font-size:13px;padding:10px 12px;border:1px solid var(--blue300);border-radius:6px">
       </div>
       <div class="form-group">
         <label>Supabase anon/public key</label>
-        <input type="text" id="mgrSupaKeyInput" placeholder="eyJhbGciOi..." style="font-size:12px">
+        <input type="text" id="mgrSupaKeyInput" placeholder="eyJhbGciOi..." style="font-size:13px;padding:10px 12px;border:1px solid var(--blue300);border-radius:6px">
+      </div>
+    </div>
+    <!-- Google Sheets 區塊（選填） -->
+    <div class="acct-section" style="opacity:0.7">
+      <h4 style="font-size:12px;color:var(--gray400);margin-bottom:6px">📊 Google Sheets（選填 · 兼容模式）</h4>
+      <div class="form-group">
+        <label>Google Apps Script 網址 <span style="font-size:11px;color:var(--gray400)">（選填）</span></label>
+        <input type="url" id="mgrApiUrlInput" placeholder="留空即只用 Supabase" style="font-size:12px;padding:8px 10px;border:1px solid var(--gray300);border-radius:6px">
       </div>
     </div>
     <div style="font-size:12px;color:var(--gray400);margin-bottom:14px">
@@ -1629,5 +1661,22 @@ if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(
     </div>
   </div>
 </div>
+<script>
+// v3.6.4: 版本強制刷新
+(function(){
+  var CURRENT_VER = 'v3.6.4';
+  var cachedVer = localStorage.getItem('mgr_app_version') || '';
+  if (cachedVer && cachedVer !== CURRENT_VER) {
+    console.log('[Cache] Version mismatch, reloading...');
+    localStorage.setItem('mgr_app_version', CURRENT_VER);
+    if (window.caches) {
+      caches.keys().then(function(names){ names.forEach(function(n){ caches.delete(n); }); });
+    }
+    setTimeout(function(){ window.location.reload(true); }, 500);
+  } else {
+    localStorage.setItem('mgr_app_version', CURRENT_VER);
+  }
+})();
+</script>
 </body>
 </html>
