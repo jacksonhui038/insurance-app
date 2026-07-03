@@ -163,7 +163,7 @@ tr:hover td{background:var(--blue50)}
       </div>
       <hr style="border:none;border-top:1px solid var(--gray200);margin:14px 0">
       <button class="btn btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="padding:10px;font-size:13px;width:100%">🔄 切換到經理版</button>
-      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.6.4</p>
+      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.6.6</p>
     </div>
     <!-- LOGIN MODE -->
     <div id="loginMode" style="display:none">
@@ -1097,14 +1097,38 @@ function doLogin() {
         btn.textContent = '登入'; btn.disabled = false;
       } else {
         // Not found in Supabase — try local login (offline)
-        tryLocalLogin(name, pin, errEl, btn, safetyTimer);
+        var localOk = tryLocalLogin(name, pin, errEl, btn, safetyTimer);
+        if (!localOk) {
+          clearTimeout(safetyTimer);
+          loginInProgress = false;
+          errEl.innerHTML = '此姓名未註冊或 PIN 錯誤。<br>請<a style="color:var(--blue500);cursor:pointer;text-decoration:underline" onclick="showRegisterMode()">註冊新帳戶</a>';
+          errEl.style.display = 'block';
+          btn.textContent = '登入'; btn.disabled = false;
+        }
       }
     })
     .catch(function(e) {
       clearTimeout(tid);
-      console.error('[doLogin]', e);
-      // Network error — try local login
-      tryLocalLogin(name, pin, errEl, btn, safetyTimer);
+      console.error('[doLogin] supabase fetch failed:', e);
+      // Network error — show clear message, don't confuse with "not registered"
+      var netMsg = String(e);
+      if (netMsg.indexOf('abort') >= 0 || netMsg.indexOf('timeout') >= 0) {
+        netMsg = '雲端連線超時';
+      } else if (netMsg.indexOf('Failed to fetch') >= 0 || netMsg.indexOf('NetworkError') >= 0) {
+        netMsg = '無法連接雲端伺服器';
+      } else {
+        netMsg = '雲端錯誤：' + netMsg;
+      }
+      // Try local login first
+      var localOk = tryLocalLogin(name, pin, errEl, btn, safetyTimer);
+      if (!localOk) {
+        // Local also failed — show combined error
+        clearTimeout(safetyTimer);
+        loginInProgress = false;
+        errEl.innerHTML = '<span style=color:red>⚠️ ' + netMsg + '</span><br><br>此設備無本地紀錄，需要網絡才能首次登入。<br>請檢查：<br>① 網絡連線<br>② 關閉 VPN<br>③ 改用手機數據<br><br>或者請<a style="color:var(--blue500);cursor:pointer;text-decoration:underline" onclick="showRegisterMode()">註冊新帳戶</a>';
+        errEl.style.display = 'block';
+        btn.textContent = '登入'; btn.disabled = false;
+      }
     });
   } else {
     // No Supabase config — try local login
@@ -1127,13 +1151,9 @@ function tryLocalLogin(name, pin, errEl, btn, safetyTimer) {
     renderDashboard(); renderCurrentTab();
     toast('登入成功！（離線模式）');
     btn.textContent = '登入'; btn.disabled = false;
-    return;
+    return true;  // Login succeeded
   }
-  if (safetyTimer) clearTimeout(safetyTimer);
-  loginInProgress = false;
-  errEl.innerHTML = '此姓名未註冊或 PIN 錯誤。<br>請<a style="color:var(--blue500);cursor:pointer;text-decoration:underline" onclick="showRegisterMode()">註冊新帳戶</a>';
-  errEl.style.display = 'block';
-  btn.textContent = '登入'; btn.disabled = false;
+  return false;  // Login failed — caller should handle error display
 }
 
 
@@ -2078,7 +2098,7 @@ function afterLoginSync() {
 
 document.addEventListener('DOMContentLoaded',function(){
   // v3.6.0: 版本強制刷新 — 檢測到舊 cache 自動重載
-  var CURRENT_VER = 'v3.6.4';
+  var CURRENT_VER = 'v3.6.6';
   var cachedVer = localStorage.getItem('app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, clearing cache and reloading...');
