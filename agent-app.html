@@ -163,7 +163,7 @@ tr:hover td{background:var(--blue50)}
       </div>
       <hr style="border:none;border-top:1px solid var(--gray200);margin:14px 0">
       <button class="btn btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="padding:10px;font-size:13px;width:100%">🔄 切換到經理版</button>
-      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.7.1</p>
+      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.7.2</p>
     </div>
     <!-- LOGIN MODE -->
     <div id="loginMode" style="display:none">
@@ -2368,7 +2368,7 @@ function afterLoginSync() {
 
 document.addEventListener('DOMContentLoaded',function(){
   // v3.7.1: 版本強制刷新 — 加入 Supabase 診斷 + 離線登入 + 修正 URL
-  var CURRENT_VER = 'v3.7.1';
+  var CURRENT_VER = 'v3.7.2';
   var cachedVer = localStorage.getItem('app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, clearing cache and reloading...');
@@ -2568,25 +2568,21 @@ function renderIncomes() {
 
 function renderExpenses() {
   var h = '';
-  // v3.6.0: 計算戶口結餘
-  var totalIncome = 0, totalPC = 0, totalCommission = 0, totalExpense = 0;
-  // 收入（incomes 中非支出分類）
+  // v3.7.2: 修正 — PC 不計入收入/結餘；commissions 已在 incomes 內，不加第二次
+  var totalIncome = 0, totalExpense = 0;
+  // 收入（incomes 中屬於收入分類）
   (DB.incomes || []).forEach(function(item){
     if (INCOME_CATS.indexOf(item.category) >= 0) totalIncome += Number(item.amount) || 0;
   });
-  // PC
-  (DB.pcs || []).forEach(function(item){ totalPC += Number(item.amount) || 0; });
-  // 佣金
-  (DB.commissions || []).forEach(function(item){ totalCommission += Number(item.amount) || 0; });
   // 支出
   (DB.expenses || []).forEach(function(item){ totalExpense += Number(item.amount) || 0; });
-  var balance = totalIncome + totalPC + totalCommission - totalExpense;
+  var balance = totalIncome - totalExpense;
   
   // 更新結餘卡片
   var balanceCard = document.getElementById('expenseBalanceCard');
   if (balanceCard) {
     balanceCard.innerHTML = 
-      '<div style="flex:1;text-align:center"><div style="font-size:11px;color:var(--gray400)">總收入</div><div style="font-size:18px;font-weight:700;color:var(--green500)">'+money(totalIncome+totalPC+totalCommission)+'</div></div>'+
+      '<div style="flex:1;text-align:center"><div style="font-size:11px;color:var(--gray400)">總收入</div><div style="font-size:18px;font-weight:700;color:var(--green500)">'+money(totalIncome)+'</div></div>'+
       '<div style="flex:1;text-align:center"><div style="font-size:11px;color:var(--gray400)">總支出</div><div style="font-size:18px;font-weight:700;color:var(--red500)">'+money(totalExpense)+'</div></div>'+
       '<div style="flex:1;text-align:center"><div style="font-size:11px;color:var(--gray400)">戶口結餘</div><div style="font-size:20px;font-weight:700;color:'+(balance>=0?'var(--blue700)':'var(--red500)')+'">'+money(balance)+'</div></div>';
   }
@@ -2604,7 +2600,7 @@ function renderExpenses() {
   
   // 計算每行嘅流水結餘
   allItems.sort(function(a,b){ return (a.date||'').localeCompare(b.date||''); });
-  var runningBalance = totalIncome + totalPC + totalCommission;
+  var runningBalance = totalIncome;
   var balanceMap = {};
   allItems.forEach(function(item){
     runningBalance -= (Number(item.amount)||0);
