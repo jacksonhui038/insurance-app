@@ -163,7 +163,7 @@ tr:hover td{background:var(--blue50)}
       </div>
       <hr style="border:none;border-top:1px solid var(--gray200);margin:14px 0">
       <button class="btn btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="padding:10px;font-size:13px;width:100%">🔄 切換到經理版</button>
-      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.7.0</p>
+      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.7.1</p>
     </div>
     <!-- LOGIN MODE -->
     <div id="loginMode" style="display:none">
@@ -721,7 +721,7 @@ function getCachedAgentList() {
 // ===== 雲端同步設定 =====
 var API_URL = 'https://script.google.com/macros/s/AKfycbxgU-gqY_oFNj03Us28bcs6PK9vH0wchjgzic5lww4uc5nu8byTGbmrLp8kBOZ0nSU6/exec';
 var CLOUD_ENABLED = Boolean(API_URL && API_URL.length > 0);
-var SUPA_URL = 'https://wnyfvwaqdhddcxvgelu.supabase.co';
+var SUPA_URL = 'https://wwnyfvwaqdhddcxvgelu.supabase.co';
 var SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3bnlmd3FhcWRoZGRjeHZnZWx1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MTU4NTIsImV4cCI6MjA5ODM5MTg1Mn0.pzYPKK9rt-LuGV-sVtmHCzTjym1OXaHiDVbsZ9f0GQY';
 
 function setApiUrl(url) {
@@ -2367,8 +2367,8 @@ function afterLoginSync() {
 }
 
 document.addEventListener('DOMContentLoaded',function(){
-  // v3.7.0: 版本強制刷新 — 加入 Supabase 診斷 + 離線登入
-  var CURRENT_VER = 'v3.7.0';
+  // v3.7.1: 版本強制刷新 — 加入 Supabase 診斷 + 離線登入 + 修正 URL
+  var CURRENT_VER = 'v3.7.1';
   var cachedVer = localStorage.getItem('app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, clearing cache and reloading...');
