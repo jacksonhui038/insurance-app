@@ -553,7 +553,7 @@ var detailTab = 'clients';
 // ===== 雲端同步設定（Supabase 為主，Google Sheets 選填）=====
 var MGR_API_URL = '';
 var MGR_CLOUD_ENABLED = Boolean(MGR_SUPA_URL && MGR_SUPA_KEY);
-var MGR_SUPA_URL = 'https://wnyfvwaqdhddcxvgelu.supabase.co';
+var MGR_SUPA_URL = 'https://wwnyfvwaqdhddcxvgelu.supabase.co';
 var MGR_SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3bnlmd3FhcWRoZGRjeHZnZWx1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MTU4NTIsImV4cCI6MjA5ODM5MTg1Mn0.pzYPKK9rt-LuGV-sVtmHCzTjym1OXaHiDVbsZ9f0GQY';
 
 function mgrSetApiUrl(url) {
@@ -1588,7 +1588,7 @@ if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(
       <h4 style="font-size:14px;color:var(--blue700);margin-bottom:10px">🚀 Supabase（推薦 · 主要雲端）</h4>
       <div class="form-group">
         <label>Supabase 專案網址</label>
-        <input type="url" id="mgrSupaUrlInput" value="https://wnyfvwaqdhddcxvgelu.supabase.co" placeholder="https://xxxxxxxxxxxx.supabase.co" style="font-size:13px;padding:10px 12px;border:1px solid var(--blue300);border-radius:6px">
+        <input type="url" id="mgrSupaUrlInput" value="https://wwnyfvwaqdhddcxvgelu.supabase.co" placeholder="https://xxxxxxxxxxxx.supabase.co" style="font-size:13px;padding:10px 12px;border:1px solid var(--blue300);border-radius:6px">
       </div>
       <div class="form-group">
         <label>Supabase anon/public key</label>
@@ -1662,9 +1662,9 @@ if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(
   </div>
 </div>
 <script>
-// v3.6.6: 版本強制刷新
+// v3.7.1: 版本強制刷新 — 修正 Supabase URL
 (function(){
-  var CURRENT_VER = 'v3.6.6';
+  var CURRENT_VER = 'v3.7.1';
   var cachedVer = localStorage.getItem('mgr_app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, reloading...');
