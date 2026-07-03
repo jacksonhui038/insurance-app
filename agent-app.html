@@ -151,19 +151,25 @@ tr:hover td{background:var(--blue50)}
   <div class="modal name-modal" id="nameModal">
     <!-- CHOICE: Login or Register -->
     <div id="choiceMode">
-      <h3>👋 歡迎使用保經管家</h3>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <button onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="padding:6px 14px;border:1px solid var(--gray300);border-radius:8px;background:var(--gray100);color:var(--gray600);cursor:pointer;font-size:13px;display:flex;align-items:center;gap:4px">◀ 返回</button>
+        <span style="font-size:11px;color:var(--gray400)">代理人版</span>
+      </div>
+      <h3 style="margin-top:0">👋 歡迎使用保經管家</h3>
       <p style="color:var(--gray500);margin-bottom:16px">請選擇</p>
       <div style="display:flex;flex-direction:column;gap:10px">
         <button class="btn btn-primary" onclick="showLoginMode()" style="padding:14px;font-size:15px">🔐 登入已有帳戶</button>
         <button class="btn btn-outline" onclick="showRegisterMode()" style="padding:14px;font-size:15px">📝 註冊新帳戶</button>
       </div>
-      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.6.1</p>
+      <hr style="border:none;border-top:1px solid var(--gray200);margin:14px 0">
+      <button class="btn btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="padding:10px;font-size:13px;width:100%">🔄 切換到經理版</button>
+      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.6.4</p>
     </div>
     <!-- LOGIN MODE -->
     <div id="loginMode" style="display:none">
       <h3>🔐 登入</h3>
       <p style="color:var(--gray500);margin-bottom:12px">輸入姓名同 PIN 碼</p>
-      <div class="form-group"><label>姓名</label><input type="text" id="loginName" placeholder="例如：陳大文 或 CHAN TAI MAN" autocomplete="off"></div>
+      <div class="form-group"><label>姓名</label><input type="text" id="loginName" placeholder="例如：CHAN TAI MAN" autocomplete="off" style="text-transform:uppercase" oninput="this.value=this.value.replace(/[^a-zA-Z\s]/g,'').toUpperCase()" onkeypress="return /[a-zA-Z\s]/.test(event.key)"></div>
       <div class="form-group"><label>PIN 碼</label><input type="password" id="loginPin" placeholder="輸入 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off" onkeydown="if(event.key==='Enter')doLogin()"></div>
       <div class="modal-actions" style="justify-content:center;flex-wrap:wrap;gap:8px">
         <button class="btn btn-primary" onclick="doLogin()" id="loginBtn">登入</button>
@@ -176,7 +182,7 @@ tr:hover td{background:var(--blue50)}
     <div id="registerMode" style="display:none">
       <h3>📝 註冊新帳戶</h3>
       <p style="color:var(--gray500);margin-bottom:6px">設定你嘅姓名同 PIN 碼</p>
-      <div class="form-group"><label>姓名 <span style="color:var(--red500)">*</span> <span style="font-size:11px;color:var(--gray400)">⚠️ 確認後不可更改</span></label><input type="text" id="nameInput" placeholder="例如：陳大文 或 CHAN TAI MAN"></div>
+      <div class="form-group"><label>姓名 <span style="color:var(--red500)">*</span> <span style="font-size:11px;color:var(--gray400)">⚠️ 確認後不可更改（英文全大寫）</span></label><input type="text" id="nameInput" placeholder="例如：CHAN TAI MAN" style="text-transform:uppercase" oninput="this.value=this.value.replace(/[^a-zA-Z\s]/g,'').toUpperCase()" onkeypress="return /[a-zA-Z\s]/.test(event.key)"></div>
       <div class="form-group"><label>PIN 碼（4-6 位數字）</label><input type="password" id="pinInput" placeholder="設定 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off"></div>
       <div class="form-group"><label>確認 PIN 碼</label><input type="password" id="pinConfirm" placeholder="再次輸入 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off"></div>
       <hr style="border:none;border-top:1px solid var(--gray200);margin:14px 0">
@@ -221,12 +227,13 @@ tr:hover td{background:var(--blue50)}
     </div>
     <!-- SWITCH: confirm PIN before switching -->
     <div id="switchMode" style="display:none">
-      <h3>⚠️ 切換代理人</h3>
+      <h3>⚠️ 切換帳戶</h3>
       <p style="color:var(--gray500);margin-bottom:6px">請先輸入 <b id="switchAgentName">—</b> 嘅 PIN 碼確認身份</p>
       <div class="form-group"><input type="password" id="switchPin" placeholder="請輸入 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off" onkeydown="if(event.key==='Enter')confirmSwitch()"></div>
-      <div class="modal-actions" style="justify-content:center;gap:8px">
+      <div class="modal-actions" style="justify-content:center;gap:8px;flex-wrap:wrap">
         <button class="btn btn-primary" onclick="confirmSwitch()">確認切換</button>
         <button class="btn btn-outline" onclick="cancelSwitch()">取消</button>
+        <button class="btn btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="border-color:var(--blue500);color:var(--blue500)">🔄 直接去經理版</button>
       </div>
     </div>
   </div>
@@ -322,6 +329,11 @@ tr:hover td{background:var(--blue50)}
     <button class="nav-btn" onclick="switchTab('reports',this)"><span class="nav-icon">📈</span> 業績報表</button>
     <button class="nav-btn" onclick="switchTab('goals',this)"><span class="nav-icon">🎯</span> 目標管理</button>
   </nav>
+  <div style="margin-top:auto;padding:12px 8px 16px">
+    <button class="nav-btn" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="width:100%;border:1px dashed var(--blue500);color:var(--blue700);background:var(--blue50)">
+      <span class="nav-icon">🔄</span> 切換到經理版
+    </button>
+  </div>
 </aside>
 
 <!-- MAIN -->
@@ -333,6 +345,7 @@ tr:hover td{background:var(--blue50)}
         <span style="color:var(--green500);font-size:14px">☁️</span>
         <span id="lastSyncTime" style="color:var(--gray400)">尚未同步</span>
         <button onclick="manualSync()" style="padding:3px 10px;border:none;background:var(--blue500);color:#fff;border-radius:10px;font-size:11px;cursor:pointer">同步</button>
+        <button onclick="forceUploadToSupabase()" style="padding:3px 10px;border:none;background:var(--orange500);color:#fff;border-radius:10px;font-size:11px;cursor:pointer" title="強制將本地數據上傳到 Supabase（修復遺漏）">⬆️ 強制上傳</button>
       </div>
       <div class="agent-badge" id="agentBadgeBtn" title="切換代理人">
         <span class="dot"></span> <span id="agentNameDisplay">—</span>
@@ -739,6 +752,49 @@ function saveToSupabase(callback) {
     }
   })
   .catch(function(e){ clearTimeout(timeoutId); console.error('[saveToSupabase]',e); if (callback) callback(false, String(e)); });
+}
+function forceUploadToSupabase() {
+  if (!SUPA_URL || !SUPA_KEY) { toast('⚠️ 請先設定 Supabase（右上角 ☁️ 雲端）', 'error'); return; }
+  if (!agentName) { toast('⚠️ 請先登入', 'error'); return; }
+  toast('⬆️ 正在強制上傳到 Supabase...', 'info');
+  fixAllScheduleTimes(false);
+  var mgr = assignedManager || localStorage.getItem('insurance_mgr_'+encodeURIComponent(agentName)) || '';
+  var team = assignedTeam || localStorage.getItem('insurance_team_'+encodeURIComponent(agentName)) || '';
+  var payload = JSON.stringify({name:agentName,data:Object.assign({},DB,{_pinHash:agentPIN?hashPin(agentPIN):'',_forceUpload:new Date().toISOString()}),manager:mgr,team:team});
+  var controller = new AbortController();
+  var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
+  fetch(SUPA_URL + '/rest/v1/agents?on_conflict=name', {
+    method:'POST',
+    headers:{
+      'apikey':SUPA_KEY,
+      'Authorization':'Bearer '+SUPA_KEY,
+      'Content-Type':'application/json',
+      'Prefer':'resolution=merge-duplicates,return=representation'
+    },
+    body:payload,
+    signal:controller.signal
+  })
+  .then(function(res){
+    clearTimeout(timeoutId);
+    if (res.ok) {
+      return res.json().then(function(rows){
+        setLastSyncTime();
+        document.getElementById('lastSyncTime').textContent = getLastSyncTime();
+        toast('✅ 強制上傳成功！' + agentName + ' 已同步到 Supabase', 'success');
+        console.log('[forceUpload] ✅ 上傳成功', agentName, rows);
+      });
+    } else {
+      res.text().then(function(t){
+        console.error('[forceUpload] ❌ HTTP', res.status, t.substring(0,300));
+        toast('❌ 上傳失敗（HTTP ' + res.status + '）：' + t.substring(0,100), 'error');
+      });
+    }
+  })
+  .catch(function(e){
+    clearTimeout(timeoutId);
+    console.error('[forceUpload] ❌', e);
+    toast('❌ 上傳失敗：' + e.message, 'error');
+  });
 }
 function loadFromSupabase(callback) {
   if (!SUPA_URL || !SUPA_KEY || !agentName) { if (callback) callback(false); return; }
@@ -1321,15 +1377,47 @@ function checkAgentExistsGS(name, callback) {
 function registerToCloudWithPin(name, manager, team, pinH, role, hPath) {
   if (API_URL) {
     var qs = 'action=register_agent&agentId='+encodeURIComponent(name)+'&agentName='+encodeURIComponent(name)+'&managerName='+encodeURIComponent(manager||'')+'&team='+encodeURIComponent(team||'')+'&pinHash='+encodeURIComponent(pinH)+'&role='+encodeURIComponent(role||'Agent')+'&hierarchyPath='+encodeURIComponent(hPath||name);
-    fetch(API_URL + '?' + qs).then(function(r){return r.json();}).then(function(r){console.log('[reg]',r);}).catch(function(e){console.error('[reg]',e);});
+    fetch(API_URL + '?' + qs)
+      .then(function(r){return r.json();})
+      .then(function(r){ console.log('[reg]', r); })
+      .catch(function(e){ console.error('[reg]', e); });
   }
   if (SUPA_URL && SUPA_KEY) {
     var dwp = Object.assign({}, DB, {_pinHash: pinH, role: role||'Agent', hierarchyPath: hPath||name, supervisor: manager||''});
+    var controller = new AbortController();
+    var timeoutId = setTimeout(function(){ controller.abort(); }, 20000);
     fetch(SUPA_URL + '/rest/v1/agents?on_conflict=name', {
       method:'POST',
-      headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
-      body:JSON.stringify({name:name,data:dwp,manager:manager,team:team})
-    }).then(function(r){console.log('[supa-reg]',r.ok);}).catch(function(e){console.error('[supa-reg]',e);});
+      headers:{
+        'apikey':SUPA_KEY,
+        'Authorization':'Bearer '+SUPA_KEY,
+        'Content-Type':'application/json',
+        'Prefer':'resolution=merge-duplicates,return=minimal'
+      },
+      body:JSON.stringify([{name:name,data:dwp,manager:manager,team:team}]),
+      signal:controller.signal
+    })
+    .then(function(res){
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        console.log('[supa-reg] ✅ 註冊成功保存到 Supabase', name);
+        toast('✅ 帳戶已同步到雲端', 'success');
+      } else {
+        res.text().then(function(t){
+          console.error('[supa-reg] ❌ HTTP', res.status, t.substring(0,300));
+          toast('⚠️ 雲端同步失敗（' + res.status + '），請檢查網絡後手動同步', 'error');
+        });
+      }
+    })
+    .catch(function(e){
+      clearTimeout(timeoutId);
+      console.error('[supa-reg] ❌', e);
+      if (e.name === 'AbortError') {
+        toast('⚠️ 雲端同步超時，請稍後手動同步', 'error');
+      } else {
+        toast('⚠️ 雲端同步失敗：' + e.message + '，請稍後手動同步', 'error');
+      }
+    });
   }
 }
 
@@ -1946,13 +2034,22 @@ function afterLoginSync() {
   if (CLOUD_ENABLED && agentName) {
     document.getElementById('cloudStatus').style.display = 'flex';
     document.getElementById('lastSyncTime').textContent = getLastSyncTime();
-    loadFromCloud();
+    // 1. 先從雲端下載（合併最新數據）
+    loadFromCloud(function(){
+      // 2. 下載完畢後，立即上傳本地數據到 Supabase（確保新用戶/遺漏數據能補上）
+      if (SUPA_URL && SUPA_KEY) {
+        setTimeout(function(){ saveToSupabase(function(ok){
+          if (ok) { setLastSyncTime(); document.getElementById('lastSyncTime').textContent = getLastSyncTime(); }
+          else { console.warn('[afterLoginSync] 上傳 Supabase 失敗，下次登入會自動重試'); }
+        }); }, 1500);
+      }
+    });
   }
 }
 
 document.addEventListener('DOMContentLoaded',function(){
   // v3.6.0: 版本強制刷新 — 檢測到舊 cache 自動重載
-  var CURRENT_VER = 'v3.6.1';
+  var CURRENT_VER = 'v3.6.4';
   var cachedVer = localStorage.getItem('app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, clearing cache and reloading...');
