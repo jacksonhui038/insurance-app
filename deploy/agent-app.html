@@ -159,7 +159,7 @@ tr:hover td{background:var(--blue50)}
       </div>
       <hr style="border:none;border-top:1px solid var(--gray200);margin:14px 0">
       <button class="btn btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="padding:10px;font-size:13px;width:100%">🔄 切換到經理版</button>
-      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.6.3</p>
+      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.6.4</p>
     </div>
     <!-- LOGIN MODE -->
     <div id="loginMode" style="display:none">
@@ -223,12 +223,13 @@ tr:hover td{background:var(--blue50)}
     </div>
     <!-- SWITCH: confirm PIN before switching -->
     <div id="switchMode" style="display:none">
-      <h3>⚠️ 切換代理人</h3>
+      <h3>⚠️ 切換帳戶</h3>
       <p style="color:var(--gray500);margin-bottom:6px">請先輸入 <b id="switchAgentName">—</b> 嘅 PIN 碼確認身份</p>
       <div class="form-group"><input type="password" id="switchPin" placeholder="請輸入 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off" onkeydown="if(event.key==='Enter')confirmSwitch()"></div>
-      <div class="modal-actions" style="justify-content:center;gap:8px">
+      <div class="modal-actions" style="justify-content:center;gap:8px;flex-wrap:wrap">
         <button class="btn btn-primary" onclick="confirmSwitch()">確認切換</button>
         <button class="btn btn-outline" onclick="cancelSwitch()">取消</button>
+        <button class="btn btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="border-color:var(--blue500);color:var(--blue500)">🔄 直接去經理版</button>
       </div>
     </div>
   </div>
@@ -2044,7 +2045,7 @@ function afterLoginSync() {
 
 document.addEventListener('DOMContentLoaded',function(){
   // v3.6.0: 版本強制刷新 — 檢測到舊 cache 自動重載
-  var CURRENT_VER = 'v3.6.3';
+  var CURRENT_VER = 'v3.6.4';
   var cachedVer = localStorage.getItem('app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, clearing cache and reloading...');
