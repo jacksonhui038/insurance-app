@@ -126,7 +126,7 @@ tr:hover td{background:var(--blue50)}
       <div class="lock-icon">📊</div>
       <h2 style="margin-top:0">經理系統</h2>
       <div class="lock-sub">請選擇</div>
-      <button class="lock-btn lock-btn-primary" onclick="showMgrLogin()" style="margin-bottom:8px">🔐 登入</button>
+      <button class="lock-btn lock-btn-primary" onclick="try{showMgrLogin()}catch(e){console.error(e);document.getElementById('lockChoice').style.display='none';document.getElementById('lockLogin').style.display='block'}" style="margin-bottom:8px">🔐 登入</button>
       <button class="lock-btn lock-btn-outline" onclick="showMgrSetup()">📝 首次設定</button>
       <hr style="border:none;border-top:1px solid var(--gray200);margin:14px 0">
       <button class="lock-btn lock-btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/agent-app.html'" style="border:1px dashed var(--blue500);color:var(--blue700);background:var(--blue50)">🔄 切換到代理人版</button>
