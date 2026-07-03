@@ -163,7 +163,7 @@ tr:hover td{background:var(--blue50)}
       </div>
       <hr style="border:none;border-top:1px solid var(--gray200);margin:14px 0">
       <button class="btn btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="padding:10px;font-size:13px;width:100%">🔄 切換到經理版</button>
-      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.6.6</p>
+      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.7.0</p>
     </div>
     <!-- LOGIN MODE -->
     <div id="loginMode" style="display:none">
@@ -305,6 +305,10 @@ tr:hover td{background:var(--blue50)}
     </div>
     <div style="font-size:12px;color:var(--gray400);margin-bottom:14px">
       💡 兩個都留空即可關閉雲端同步
+    </div>
+    <div style="margin-top:10px;padding:10px;background:var(--blue50);border-radius:8px;border:1px solid var(--blue200)">
+      <button class="btn btn-outline btn-sm" onclick="runSupabaseDiagnostic()" style="width:100%;border-color:var(--blue500);color:var(--blue600)">🔬 診斷 Supabase 連線</button>
+      <div id="diagResult" style="font-size:11px;color:var(--gray600);margin-top:8px;white-space:pre-wrap;display:none"></div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="hideCloudSetup()">取消</button>
@@ -511,6 +515,208 @@ var assignedTeam = '';
 var agentRole = '';
 var agentHierarchyPath = '';
 var _id = 0;
+
+// ===== Supabase 診斷工具 =====
+function runSupabaseDiagnostic() {
+  var el = document.getElementById('diagResult');
+  el.style.display = 'block';
+  el.innerHTML = '🔬 開始診斷...\n';
+  
+  // 先讀取輸入框的值（如果用戶剛改了但未儲存）
+  var urlInput = document.getElementById('supaUrlInput');
+  var keyInput = document.getElementById('supaKeyInput');
+  var testUrl = (urlInput && urlInput.value) ? urlInput.value.trim() : SUPA_URL;
+  var testKey = (keyInput && keyInput.value) ? keyInput.value.trim() : SUPA_KEY;
+  
+  // 移除尾部斜線
+  testUrl = testUrl.replace(/\/+$/,'');
+  
+  el.innerHTML += '📍 URL: ' + testUrl + '\n';
+  el.innerHTML += '🔑 Key: ' + (testKey ? testKey.substring(0,20) + '...' : '(空)') + '\n';
+  el.innerHTML += '━━━━━━━━━━━━━━━━━━\n';
+  
+  if (!testUrl || !testKey) {
+    el.innerHTML += '❌ URL 或 Key 為空\n';
+    el.innerHTML += '👉 請去 Supabase Dashboard → Settings → API 複製\n';
+    return;
+  }
+  
+  // 檢查 URL 格式
+  if (testUrl.indexOf('.supabase.co') < 0) {
+    el.innerHTML += '⚠️ URL 格式可疑：應該係 https://xxxx.supabase.co\n';
+  }
+  var ref = testUrl.replace('https://','').replace('http://','').split('.')[0];
+  el.innerHTML += '📋 Project Ref: ' + ref + ' (' + ref.length + ' 字符)\n';
+  if (ref.length !== 20) {
+    el.innerHTML += '⚠️ Project Ref 應該係 20 個字符，依家得 ' + ref.length + ' 個\n';
+    el.innerHTML += '👉 檢查有冇打錯或漏字\n';
+  }
+  
+  el.innerHTML += '━━━━━━━━━━━━━━━━━━\n';
+  el.innerHTML += '⏳ 測試連線中（最多 15 秒）...\n';
+  
+  var ctrl = new AbortController();
+  var tid = setTimeout(function(){ ctrl.abort(); }, 15000);
+  var startTime = Date.now();
+  
+  fetch(testUrl + '/rest/v1/agents?select=name&limit=1', {
+    method: 'GET',
+    headers: { 'apikey': testKey, 'Authorization': 'Bearer ' + testKey },
+    signal: ctrl.signal
+  })
+  .then(function(res) {
+    clearTimeout(tid);
+    var elapsed = Date.now() - startTime;
+    el.innerHTML += '📡 HTTP 狀態: ' + res.status + ' (' + elapsed + 'ms)\n';
+    
+    if (res.ok) {
+      return res.json().then(function(data) {
+        el.innerHTML += '✅ 連線成功！\n';
+        el.innerHTML += '📊 Agents 表可讀取，找到 ' + (data ? data.length : 0) + ' 筆記錄\n';
+        el.innerHTML += '━━━━━━━━━━━━━━━━━━\n';
+        el.innerHTML += '下一步：測試寫入權限...\n';
+        testSupabaseWrite(testUrl, testKey, el);
+      });
+    } else if (res.status === 401) {
+      el.innerHTML += '❌ 401 未授權 — API Key 不正確\n';
+      el.innerHTML += '👉 去 Supabase → Settings → API 確認 anon key\n';
+    } else if (res.status === 403) {
+      el.innerHTML += '❌ 403 禁止存取 — RLS 政策阻擋\n';
+      el.innerHTML += '👉 去 Supabase → SQL Editor 執行：\n';
+      el.innerHTML += '   ALTER TABLE agents DISABLE ROW LEVEL SECURITY;\n';
+      el.innerHTML += '   （或加入適當的 RLS 政策）\n';
+    } else if (res.status === 404) {
+      el.innerHTML += '❌ 404 找不到 — URL 可能錯誤\n';
+      el.innerHTML += '👉 檢查 Project URL 是否正確\n';
+    } else if (res.status === 500) {
+      el.innerHTML += '❌ 500 伺服器錯誤 — Supabase 可能暫停了\n';
+      el.innerHTML += '👉 去 Supabase Dashboard 檢查項目狀態\n';
+    } else {
+      el.innerHTML += '⚠️ HTTP ' + res.status + '\n';
+      return res.text().then(function(t) {
+        el.innerHTML += '回應: ' + t.substring(0,200) + '\n';
+      });
+    }
+  })
+  .catch(function(e) {
+    clearTimeout(tid);
+    var elapsed = Date.now() - startTime;
+    var msg = String(e);
+    el.innerHTML += '❌ 連線失敗 (' + elapsed + 'ms)\n';
+    
+    if (msg.indexOf('abort') >= 0 || msg.indexOf('timeout') >= 0 || elapsed >= 14000) {
+      el.innerHTML += '原因：連線超時（15秒）\n';
+      el.innerHTML += '━━━━━━━━━━━━━━━━━━\n';
+      el.innerHTML += '可能原因：\n';
+      el.innerHTML += '1️⃣ Supabase 項目已暫停（免費版 7 天無活動自動暫停）\n';
+      el.innerHTML += '   👉 去 supabase.com → Dashboard → Resume\n';
+      el.innerHTML += '2️⃣ 網絡問題（VPN / 防火牆 / DNS）\n';
+      el.innerHTML += '   👉 試關閉 VPN 或改用手機數據\n';
+      el.innerHTML += '3️⃣ URL 拼寫錯誤\n';
+      el.innerHTML += '   👉 去 Supabase Dashboard → Settings → API\n';
+      el.innerHTML += '   複製正確的 Project URL\n';
+    } else if (msg.indexOf('Failed to fetch') >= 0 || msg.indexOf('NetworkError') >= 0) {
+      el.innerHTML += '原因：網絡層錯誤 — DNS 解析失敗或連線被拒\n';
+      el.innerHTML += '━━━━━━━━━━━━━━━━━━\n';
+      el.innerHTML += '🚨 重要：URL 可能不正確！\n';
+      el.innerHTML += '當前 URL: ' + testUrl + '\n';
+      el.innerHTML += 'Project Ref: ' + ref + '\n';
+      if (ref.length !== 20) {
+        el.innerHTML += '⚠️ Ref 只有 ' + ref.length + ' 字符（標準係 20）\n';
+        el.innerHTML += '👉 很可能有打字錯誤！\n';
+      }
+      el.innerHTML += '━━━━━━━━━━━━━━━━━━\n';
+      el.innerHTML += '解決步驟：\n';
+      el.innerHTML += '1. 登入 https://supabase.com/dashboard\n';
+      el.innerHTML += '2. 選擇你的項目\n';
+      el.innerHTML += '3. 去 Settings → API\n';
+      el.innerHTML += '4. 複製 Project URL（應該係 https://xxxx.supabase.co）\n';
+      el.innerHTML += '5. 貼到上面的輸入框\n';
+      el.innerHTML += '6. 同時複製 anon public key 貼到 Key 框\n';
+      el.innerHTML += '7. 按「儲存設定」再按「診斷」\n';
+    } else {
+      el.innerHTML += '錯誤詳情: ' + msg + '\n';
+    }
+  });
+}
+
+function testSupabaseWrite(url, key, el) {
+  // 測試寫入權限（用一個不會影響數據的 HEAD 請求）
+  var ctrl = new AbortController();
+  var tid = setTimeout(function(){ ctrl.abort(); }, 10000);
+  fetch(url + '/rest/v1/agents?select=name&limit=1', {
+    method: 'POST',
+    headers: {
+      'apikey': key,
+      'Authorization': 'Bearer ' + key,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=minimal'
+    },
+    body: JSON.stringify({ name: '__test_connection__', data: {} }),
+    signal: ctrl.signal
+  })
+  .then(function(res) {
+    clearTimeout(tid);
+    if (res.ok) {
+      el.innerHTML += '✅ 寫入權限正常\n';
+      el.innerHTML += '━━━━━━━━━━━━━━━━━━\n';
+      el.innerHTML += '🎉 所有測試通過！Supabase 設定正確。\n';
+      // 清理測試記錄
+      cleanupTestRecord(url, key);
+    } else if (res.status === 403) {
+      el.innerHTML += '❌ 403 寫入被拒 — RLS 政策阻擋寫入\n';
+      el.innerHTML += '━━━━━━━━━━━━━━━━━━\n';
+      el.innerHTML += '修復步驟：\n';
+      el.innerHTML += '1. 去 Supabase → SQL Editor\n';
+      el.innerHTML += '2. 執行以下 SQL：\n';
+      el.innerHTML += '\n';
+      el.innerHTML += '   ALTER TABLE agents DISABLE ROW LEVEL SECURITY;\n';
+      el.innerHTML += '\n';
+      el.innerHTML += '3. 或者加入允許政策：\n';
+      el.innerHTML += '\n';
+      el.innerHTML += '   CREATE POLICY "allow_all" ON agents\n';
+      el.innerHTML += '   FOR ALL USING (true) WITH CHECK (true);\n';
+      el.innerHTML += '\n';
+    } else {
+      el.innerHTML += '⚠️ 寫入測試 HTTP ' + res.status + '\n';
+    }
+  })
+  .catch(function(e) {
+    clearTimeout(tid);
+    el.innerHTML += '⚠️ 寫入測試失敗: ' + String(e) + '\n';
+  });
+}
+
+function cleanupTestRecord(url, key) {
+  var ctrl = new AbortController();
+  var tid = setTimeout(function(){ ctrl.abort(); }, 5000);
+  fetch(url + '/rest/v1/agents?name=eq.__test_connection__', {
+    method: 'DELETE',
+    headers: { 'apikey': key, 'Authorization': 'Bearer ' + key },
+    signal: ctrl.signal
+  }).catch(function(){});
+}
+
+// ===== 離線登入：快取 Agent 列表 =====
+function cacheAgentList(rows) {
+  try {
+    localStorage.setItem('insurance_cached_agents', JSON.stringify(rows));
+    localStorage.setItem('insurance_cached_agents_time', new Date().toISOString());
+  } catch(e) { console.warn('[cacheAgentList]', e); }
+}
+
+function getCachedAgentList() {
+  try {
+    var raw = localStorage.getItem('insurance_cached_agents');
+    if (!raw) return null;
+    var cachedTime = localStorage.getItem('insurance_cached_agents_time');
+    if (cachedTime) {
+      var age = Date.now() - new Date(cachedTime).getTime();
+      if (age > 7 * 24 * 60 * 60 * 1000) return null; // 7天過期
+    }
+    return JSON.parse(raw);
+  } catch(e) { return null; }
+}
 
 // ===== 雲端同步設定 =====
 var API_URL = 'https://script.google.com/macros/s/AKfycbxgU-gqY_oFNj03Us28bcs6PK9vH0wchjgzic5lww4uc5nu8byTGbmrLp8kBOZ0nSU6/exec';
@@ -1033,6 +1239,8 @@ function doLogin() {
     .then(function(res) { clearTimeout(tid); return res.json(); })
     .then(function(rows) {
       clearTimeout(safetyTimer);
+      // v3.7.0: 快取 agent 列表供離線登入用
+      if (rows && rows.length > 0) cacheAgentList(rows);
       // Client-side match: case-insensitive + trim whitespace + Chinese-friendly
       var matched = null;
       if (rows && rows.length > 0) {
@@ -1119,13 +1327,75 @@ function doLogin() {
       } else {
         netMsg = '雲端錯誤：' + netMsg;
       }
-      // Try local login first
+      // 先嘗試離線快取登入（用之前快取嘅 agent 列表）
+      var cachedAgents = getCachedAgentList();
+      if (cachedAgents && cachedAgents.length > 0) {
+        var searchName = name.toLowerCase().trim();
+        var matched = null;
+        for (var i = 0; i < cachedAgents.length; i++) {
+          var rname = (cachedAgents[i].name || '').toLowerCase().trim();
+          if (rname === searchName) { matched = cachedAgents[i]; break; }
+        }
+        if (!matched) {
+          for (var i = 0; i < cachedAgents.length; i++) {
+            var rname2 = (cachedAgents[i].name || '').replace(/\s+/g,'').toLowerCase();
+            var sname2 = searchName.replace(/\s+/g,'').toLowerCase();
+            if (rname2 === sname2) { matched = cachedAgents[i]; break; }
+          }
+        }
+        if (matched) {
+          if (matched.pinHash && matched.pinHash !== pinH) {
+            clearTimeout(safetyTimer);
+            loginInProgress = false;
+            errEl.innerHTML = "<span style=color:red>PIN 碼錯誤</span>，請重新輸入";
+            errEl.style.display = 'block';
+            pinInput.value = '';
+            btn.textContent = '登入'; btn.disabled = false;
+            return;
+          }
+          // 離線登入成功
+          clearTimeout(safetyTimer);
+          loginInProgress = false;
+          agentName = name; agentPIN = pin;
+          assignedManager = matched.manager || '';
+          assignedTeam = matched.team || '';
+          agentRole = matched.role || 'Agent';
+          agentHierarchyPath = matched.hierarchyPath || name;
+          localStorage.setItem(AGENT_KEY, name);
+          localStorage.setItem(AGENT_PIN_KEY, pin);
+          localStorage.setItem('insurance_agent_name_locked', 'true');
+          localStorage.setItem('insurance_mgr_'+encodeURIComponent(name), assignedManager);
+          localStorage.setItem('insurance_role_'+encodeURIComponent(name), agentRole);
+          localStorage.setItem('insurance_hpath_'+encodeURIComponent(name), agentHierarchyPath);
+          if (assignedTeam) localStorage.setItem('insurance_team_'+encodeURIComponent(name), assignedTeam);
+          loadDB();
+          if (matched.data) {
+            ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k) {
+              if (matched.data[k] && Array.isArray(matched.data[k])) {
+                var localMap = {};
+                DB[k].forEach(function(item) { localMap[item.id] = item; });
+                matched.data[k].forEach(function(item) { localMap[item.id] = item; });
+                DB[k] = Object.values(localMap);
+              }
+            });
+            saveDB();
+          }
+          document.getElementById('nameModalBg').classList.remove('show');
+          document.getElementById('agentNameDisplay').textContent = name;
+          document.getElementById('sidebarAgentInfo').textContent = name+' | '+agentRole+(assignedManager?' | 經理：'+assignedManager:'');
+          renderDashboard(); renderCurrentTab(); afterLoginSync();
+          toast('⚠️ ' + netMsg + ' — 已用離線快取登入');
+          btn.textContent = '登入'; btn.disabled = false;
+          return;
+        }
+      }
+      // 快取都搵唔到 — 試 local login
       var localOk = tryLocalLogin(name, pin, errEl, btn, safetyTimer);
       if (!localOk) {
         // Local also failed — show combined error
         clearTimeout(safetyTimer);
         loginInProgress = false;
-        errEl.innerHTML = '<span style=color:red>⚠️ ' + netMsg + '</span><br><br>此設備無本地紀錄，需要網絡才能首次登入。<br>請檢查：<br>① 網絡連線<br>② 關閉 VPN<br>③ 改用手機數據<br><br>或者請<a style="color:var(--blue500);cursor:pointer;text-decoration:underline" onclick="showRegisterMode()">註冊新帳戶</a>';
+        errEl.innerHTML = '<span style=color:red>⚠️ ' + netMsg + '</span><br><br>此設備無本地紀錄，需要網絡才能首次登入。<br>請檢查：<br>① 網絡連線<br>② 關閉 VPN<br>③ 改用手機數據<br>④ 確認 Supabase URL 正確（☁️ 雲端 → 🔬 診斷）<br><br>或者請<a style="color:var(--blue500);cursor:pointer;text-decoration:underline" onclick="showRegisterMode()">註冊新帳戶</a>';
         errEl.style.display = 'block';
         btn.textContent = '登入'; btn.disabled = false;
       }
@@ -2097,8 +2367,8 @@ function afterLoginSync() {
 }
 
 document.addEventListener('DOMContentLoaded',function(){
-  // v3.6.0: 版本強制刷新 — 檢測到舊 cache 自動重載
-  var CURRENT_VER = 'v3.6.6';
+  // v3.7.0: 版本強制刷新 — 加入 Supabase 診斷 + 離線登入
+  var CURRENT_VER = 'v3.7.0';
   var cachedVer = localStorage.getItem('app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, clearing cache and reloading...');
