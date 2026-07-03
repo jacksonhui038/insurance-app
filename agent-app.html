@@ -761,6 +761,35 @@ function forceUploadToSupabase() {
   var mgr = assignedManager || localStorage.getItem('insurance_mgr_'+encodeURIComponent(agentName)) || '';
   var team = assignedTeam || localStorage.getItem('insurance_team_'+encodeURIComponent(agentName)) || '';
   var payload = JSON.stringify({name:agentName,data:Object.assign({},DB,{_pinHash:agentPIN?hashPin(agentPIN):'',_forceUpload:new Date().toISOString()}),manager:mgr,team:team});
+  // 先做連線測試
+  var testController = new AbortController();
+  var testTimeout = setTimeout(function(){ testController.abort(); }, 10000);
+  fetch(SUPA_URL + '/rest/v1/agents?limit=1&select=name', {
+    method:'GET',
+    headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY},
+    signal:testController.signal
+  })
+  .then(function(res){
+    clearTimeout(testTimeout);
+    if (!res.ok) throw new Error('HTTP '+res.status);
+    // 連線成功，開始上傳
+    doForceUpload(payload, mgr, team);
+  })
+  .catch(function(e){
+    clearTimeout(testTimeout);
+    console.error('[forceUpload] connection test failed:', e);
+    var msg = String(e);
+    if (msg.indexOf('abort') >= 0 || msg.indexOf('timeout') >= 0) {
+      msg = '連線超時（10秒）— 請檢查網絡或確認 Supabase 未暫停';
+    } else if (msg.indexOf('Failed to fetch') >= 0 || msg.indexOf('NetworkError') >= 0) {
+      msg = '網絡錯誤 — 請檢查：① 網絡連接 ② Supabase 是否已暫停（免費版7天無活動會暫停）③ 是否有 VPN/防火牆阻擋';
+    } else if (msg.indexOf('CORS') >= 0) {
+      msg = 'CORS 錯誤 — Supabase 可能未允許此域名存取';
+    }
+    toast('✕ 上傳失敗：' + msg, 'error');
+  });
+}
+function doForceUpload(payload, mgr, team) {
   var controller = new AbortController();
   var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
   fetch(SUPA_URL + '/rest/v1/agents?on_conflict=name', {
