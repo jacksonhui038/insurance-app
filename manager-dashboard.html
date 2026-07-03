@@ -7,7 +7,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>經理團隊總覽</title>
-<link rel="manifest" href="manifest.json">
+<link rel="manifest" href="manifest.json?v=3.7.3">
 <meta name="theme-color" content="#2563eb">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -120,14 +120,14 @@ tr:hover td{background:var(--blue50)}
     <!-- CHOICE -->
     <div id="lockChoice">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <button onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/agent-app.html'" style="padding:6px 14px;border:1px solid var(--gray300);border-radius:8px;background:var(--gray100);color:var(--gray600);cursor:pointer;font-size:13px;display:flex;align-items:center;gap:4px">◀ 返回</button>
+        <button onclick="try{window.location.href='https://jacksonhui038.github.io/insurance-app/agent-app.html'}catch(e){location.href='https://jacksonhui038.github.io/insurance-app/agent-app.html'}" style="padding:6px 14px;border:1px solid var(--gray300);border-radius:8px;background:var(--gray100);color:var(--gray600);cursor:pointer;font-size:13px;display:flex;align-items:center;gap:4px">◀ 返回</button>
         <span style="font-size:11px;color:var(--gray400)">經理版</span>
       </div>
       <div class="lock-icon">📊</div>
       <h2 style="margin-top:0">經理系統</h2>
       <div class="lock-sub">請選擇</div>
-      <button class="lock-btn lock-btn-primary" onclick="try{showMgrLogin()}catch(e){console.error(e);document.getElementById('lockChoice').style.display='none';document.getElementById('lockLogin').style.display='block'}" style="margin-bottom:8px">🔐 登入</button>
-      <button class="lock-btn lock-btn-outline" onclick="showMgrSetup()">📝 首次設定</button>
+      <button class="lock-btn lock-btn-primary" onclick="if(typeof showMgrLogin!=='function'){alert('頁面載入未完成，請 Ctrl+Shift+R 強制刷新');return;}try{showMgrLogin()}catch(e){console.error(e);alert('登入畫面錯誤：'+e.message);}" style="margin-bottom:8px">🔐 登入</button>
+      <button class="lock-btn lock-btn-outline" onclick="if(typeof showMgrSetup!=='function'){alert('頁面載入未完成，請 Ctrl+Shift+R 強制刷新');return;}try{showMgrSetup()}catch(e){console.error(e);alert('設定畫面錯誤：'+e.message);}">📝 首次設定</button>
       <hr style="border:none;border-top:1px solid var(--gray200);margin:14px 0">
       <button class="lock-btn lock-btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/agent-app.html'" style="border:1px dashed var(--blue500);color:var(--blue700);background:var(--blue50)">🔄 切換到代理人版</button>
     </div>
@@ -166,9 +166,9 @@ tr:hover td{background:var(--blue50)}
       <input type="password" class="lock-input" id="mgrPinSetup" placeholder="••••" maxlength="6" inputmode="numeric" autocomplete="off" onkeydown="if(event.key==='Enter')document.getElementById('mgrPinConfirm').focus()">
       <label class="lock-label">確認 PIN 碼</label>
       <input type="password" class="lock-input" id="mgrPinConfirm" placeholder="••••" maxlength="6" inputmode="numeric" autocomplete="off" onkeydown="if(event.key==='Enter')doSetupPin()">
-      <button class="lock-btn lock-btn-primary" onclick="doSetupPin()">設定並進入</button>
+      <button class="lock-btn lock-btn-primary" onclick="if(typeof doSetupPin!=='function'){alert('頁面載入未完成，請 Ctrl+Shift+R 強制刷新');return;}try{doSetupPin()}catch(e){console.error(e);alert('設定錯誤：'+e.message);}">設定並進入</button>
       <div class="lock-err" id="setupErr"></div>
-      <button class="lock-btn lock-btn-outline" onclick="showMgrChoice()">返回</button>
+      <button class="lock-btn lock-btn-outline" onclick="if(typeof showMgrChoice!=='function'){location.reload();return;}try{showMgrChoice()}catch(e){console.error(e);location.reload();}">返回</button>
     </div>
     <!-- UNLOCK (returning user same device) -->
     <div id="lockUnlock" style="display:none">
@@ -177,9 +177,9 @@ tr:hover td{background:var(--blue50)}
       <div class="lock-sub" id="lockSubUnlock">請輸入 PIN 碼解鎖</div>
       <p style="font-size:14px;color:var(--gray600);margin-bottom:16px">歡迎回來，<b id="lockMgrName">—</b></p>
       <input type="password" class="lock-input" id="mgrPinUnlock" placeholder="輸入 PIN 碼" maxlength="6" inputmode="numeric" autocomplete="off" onkeydown="if(event.key==='Enter')doUnlock()" autofocus>
-      <button class="lock-btn lock-btn-primary" onclick="doUnlock()">解鎖</button>
+      <button class="lock-btn lock-btn-primary" onclick="if(typeof doUnlock!=='function'){alert('頁面載入未完成，請 Ctrl+Shift+R 強制刷新');return;}try{doUnlock()}catch(e){console.error(e);alert('解鎖錯誤：'+e.message);}">解鎖</button>
       <div class="lock-err" id="unlockErr"></div>
-      <button class="lock-btn lock-btn-outline" onclick="showMgrChoice()">切換帳戶</button>
+      <button class="lock-btn lock-btn-outline" onclick="if(typeof showMgrChoice!=='function'){location.reload();return;}try{showMgrChoice()}catch(e){console.error(e);location.reload();}">切換帳戶</button>
       <p style="font-size:11px;color:var(--gray400);margin-top:10px;text-align:center">忘記 PIN？請聯絡系統管理員重置</p>
     </div>
   </div>
@@ -1674,9 +1674,9 @@ if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(
   </div>
 </div>
 <script>
-// v3.7.2: 版本強制刷新 — 修正登入按鈕無反應 + 同步代理人版版本
+// v3.7.3: 版本強制刷新 — 修正所有經理版按鈕無反應（cache 問題）
 (function(){
-  var CURRENT_VER = 'v3.7.2';
+  var CURRENT_VER = 'v3.7.3';
   var cachedVer = localStorage.getItem('mgr_app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, reloading...');
