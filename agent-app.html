@@ -157,7 +157,7 @@ tr:hover td{background:var(--blue50)}
         <button class="btn btn-primary" onclick="showLoginMode()" style="padding:14px;font-size:15px">🔐 登入已有帳戶</button>
         <button class="btn btn-outline" onclick="showRegisterMode()" style="padding:14px;font-size:15px">📝 註冊新帳戶</button>
       </div>
-      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.6.0</p>
+      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.6.1</p>
     </div>
     <!-- LOGIN MODE -->
     <div id="loginMode" style="display:none">
@@ -940,15 +940,33 @@ function doLogin() {
   if (SUPA_URL && SUPA_KEY) {
     var ctrl = new AbortController();
     var tid = setTimeout(function(){ ctrl.abort(); }, 10000);
-    fetch(SUPA_URL + '/rest/v1/agents?name=ilike.' + encodeURIComponent(name) + '&select=*', {
+    // v3.6.1: fetch all agents, client-side match (handles Chinese + case-insensitive)
+    fetch(SUPA_URL + '/rest/v1/agents?select=*', {
       headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY },
       signal: ctrl.signal
     })
     .then(function(res) { clearTimeout(tid); return res.json(); })
     .then(function(rows) {
       clearTimeout(safetyTimer);
+      // Client-side match: case-insensitive + trim whitespace + Chinese-friendly
+      var matched = null;
       if (rows && rows.length > 0) {
-        var ad = rows[0];
+        var searchName = name.toLowerCase().trim();
+        for (var i = 0; i < rows.length; i++) {
+          var rname = (rows[i].name || '').toLowerCase().trim();
+          if (rname === searchName) { matched = rows[i]; break; }
+        }
+        // If not found, try partial match (handles whitespace/encoding issues)
+        if (!matched) {
+          for (var i = 0; i < rows.length; i++) {
+            var rname2 = (rows[i].name || '').replace(/\s+/g,'').toLowerCase();
+            var sname2 = searchName.replace(/\s+/g,'').toLowerCase();
+            if (rname2 === sname2) { matched = rows[i]; break; }
+          }
+        }
+      }
+      if (matched) {
+        var ad = matched;
         // Verify PIN
         if (ad.pinHash && ad.pinHash !== pinH) {
           loginInProgress = false;
@@ -1594,15 +1612,28 @@ function forceRegister(name, pin, role, supervisor, team) {
   var pinH = hashPin(pin);
   if (!pinH) { toast('請先輸入 PIN', 'error'); return; }
 
-  // Fetch existing cloud data FIRST
+  // v3.6.1: fetch all agents, client-side match (handles Chinese + case-insensitive)
   if (SUPA_URL && SUPA_KEY) {
-    fetch(SUPA_URL + '/rest/v1/agents?name=ilike.' + encodeURIComponent(name) + '&select=*', {
+    fetch(SUPA_URL + '/rest/v1/agents?select=*', {
       headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}
     })
     .then(function(r){ return r.json(); })
     .then(function(rows){
+      // v3.6.1: client-side match for forceRegister
       var existingData = {};
-      if (rows && rows.length > 0 && rows[0].data) existingData = rows[0].data;
+      if (rows && rows.length > 0) {
+        var searchName = name.toLowerCase().trim();
+        var matchedRow = null;
+        for (var i = 0; i < rows.length; i++) {
+          if ((rows[i].name || '').toLowerCase().trim() === searchName) { matchedRow = rows[i]; break; }
+        }
+        if (!matchedRow) {
+          for (var i = 0; i < rows.length; i++) {
+            if ((rows[i].name || '').replace(/\s+/g,'').toLowerCase() === searchName.replace(/\s+/g,'').toLowerCase()) { matchedRow = rows[i]; break; }
+          }
+        }
+        if (matchedRow && matchedRow.data) existingData = matchedRow.data;
+      }
 
       // Clear local storage
       var keysToRemove = [];
@@ -1921,7 +1952,7 @@ function afterLoginSync() {
 
 document.addEventListener('DOMContentLoaded',function(){
   // v3.6.0: 版本強制刷新 — 檢測到舊 cache 自動重載
-  var CURRENT_VER = 'v3.6.0';
+  var CURRENT_VER = 'v3.6.1';
   var cachedVer = localStorage.getItem('app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, clearing cache and reloading...');
