@@ -7,7 +7,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>經理團隊總覽</title>
-<link rel="manifest" href="manifest.json?v=3.8.2">
+<link rel="manifest" href="manifest.json?v=3.8.3">
 <meta name="theme-color" content="#2563eb">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -603,6 +603,31 @@ function mgrLoadFromSupabase() {
       return false;
     }
     if (rows && rows.length > 0) {
+      // Build manager→agents map for transitive downline lookup
+      var mgrMap = {};
+      rows.forEach(function(r){
+        var mgr = r.manager || '';
+        if (!mgrMap[mgr]) mgrMap[mgr] = [];
+        mgrMap[mgr].push(r.name);
+      });
+      // Recursively find all downline names
+      function getDownline(mgrName, visited) {
+        visited = visited || {};
+        var result = [];
+        var direct = mgrMap[mgrName] || [];
+        direct.forEach(function(n){
+          if (!visited[n]) {
+            visited[n] = true;
+            result.push(n);
+            result = result.concat(getDownline(n, visited));
+          }
+        });
+        return result;
+      }
+      var myDownline = getDownline(myName, {});
+      var downlineSet = {};
+      myDownline.forEach(function(n){ downlineSet[n] = true; });
+
       TEAM = {};
       var visibleCount = 0;
       rows.forEach(function(r){
@@ -610,10 +635,14 @@ function mgrLoadFromSupabase() {
         var aData = r.data || {};
         var aRole = aData.role || 'Agent';
         var aPath = aData.hierarchyPath || aName;
-        // Filter: show agent if their hierarchyPath contains my name
-        // (means they are in my downline) OR they are me
+        var aMgr = r.manager || '';
+        // Show agent if:
+        // 1. They are me (isMe)
+        // 2. Their hierarchyPath contains my name (legacy)
+        // 3. Their manager field is me (direct report)
+        // 4. They are in my transitive downline (via manager chain)
         var isMe = (aName === myName);
-        var isInMyDownline = (aPath.indexOf(myName) >= 0);
+        var isInMyDownline = (aPath.indexOf(myName) >= 0) || downlineSet[aName] || (aMgr === myName);
         if (!isMe && !isInMyDownline) return; // skip agents not in my downline
         TEAM[aName] = {
           clients: [], policies: [], commissions: [],
@@ -1765,9 +1794,9 @@ if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(
   </div>
 </div>
 <script>
-// v3.8.2: 修正 Supabase URL 錯字（fv→fw）+ 診斷顯示版本號
+// v3.8.3: 修正團隊載入邏輯 — 用 manager 欄位建立遞歸下屬關係，唔再依賴 hierarchyPath
 (function(){
-  var CURRENT_VER = 'v3.8.2';
+  var CURRENT_VER = 'v3.8.3';
   window.MGR_CURRENT_VER = CURRENT_VER;
   var cachedVer = localStorage.getItem('mgr_app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
