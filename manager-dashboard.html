@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="zh-HK">
 <head>
-<script>// v3.8.6 強制破 cache：sync script 喺一切之前執行
-var MGR_VER='v3.8.6',MGR_VER_KEY='mgr_app_version';
+<script>// v3.8.7 強制破 cache + 繞過 SW 攔截 Supabase：sync script 喺一切之前執行
+var MGR_VER='v3.8.7',MGR_VER_KEY='mgr_app_version';
 (function(){
   var v=localStorage.getItem(MGR_VER_KEY)||'';
   if(v&&v!==MGR_VER){console.log('[CacheBuster] '+v+'→'+MGR_VER);localStorage.setItem(MGR_VER_KEY,MGR_VER);location.replace(location.href.split('?')[0]+'?v='+Date.now());}
@@ -15,7 +15,7 @@ var MGR_VER='v3.8.6',MGR_VER_KEY='mgr_app_version';
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>經理團隊總覽</title>
-<link rel="manifest" href="manifest.json?v=3.8.6">
+<link rel="manifest" href="manifest.json?v=3.8.7">
 <meta name="theme-color" content="#2563eb">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -204,7 +204,7 @@ tr:hover td{background:var(--blue50)}
   <!-- HEADER -->
   <div class="header">
     <div>
-      <h1>📊 團隊總覽 <span style="font-size:11px;opacity:0.6;font-weight:400">v3.8.6</span></h1>
+      <h1>📊 團隊總覽 <span style="font-size:11px;opacity:0.6;font-weight:400">v3.8.7</span></h1>
       <div class="sub" id="mgrNameDisplay">保險經紀業務管理系統 · 經理視角</div>
     </div>
     <div class="header-actions">
@@ -635,7 +635,7 @@ function mgrLoadFromSupabase() {
   var controller = new AbortController();
   var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
   // Load ALL agents, then filter client-side by manager field
-  return fetch(MGR_SUPA_URL + '/rest/v1/agents?select=name,data,manager,team', {
+  return fetch(MGR_SUPA_URL + '/rest/v1/agents?select=name,data,manager,team&apikey=' + encodeURIComponent(MGR_SUPA_KEY), {
     headers:{'apikey':MGR_SUPA_KEY,'Authorization':'Bearer '+MGR_SUPA_KEY},
     signal:controller.signal
   })
@@ -787,6 +787,12 @@ function mgrRunSupabaseDiagnostic() {
   }
   el.innerHTML += '━━━━━━━━━━━━━━━━━━\n';
   el.innerHTML += '⏳ 測試連線中（最多 15 秒）...\n';
+  // v3.8.7: 顯示 SW 狀態
+  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+    el.innerHTML += '🔧 Service Worker: ' + navigator.serviceWorker.controller.scriptURL + '\n';
+  } else {
+    el.innerHTML += '🔧 Service Worker: 未啟用\n';
+  }
   var ctrl = new AbortController();
   var tid = setTimeout(function(){ ctrl.abort(); }, 15000);
   var startTime = Date.now();
@@ -806,6 +812,29 @@ function mgrRunSupabaseDiagnostic() {
       });
     } else if (res.status === 401) {
       el.innerHTML += '❌ 401 未授權 — API Key 不正確\n';
+      // v3.8.7: 顯示實際回應內容
+      return res.text().then(function(t) {
+        el.innerHTML += '📄 回應內容: ' + t.substring(0,300) + '\n';
+        // v3.8.7: 再試一次只送 apikey（唔送 Authorization）
+        el.innerHTML += '\n⏳ 再試：只送 apikey header（唔送 Authorization）...\n';
+        return fetch(testUrl + '/rest/v1/agents?select=name&limit=1', {
+          method: 'GET',
+          headers: { 'apikey': testKey },
+          signal: ctrl.signal
+        }).then(function(res2) {
+          el.innerHTML += '📡 第二次 HTTP 狀態: ' + res2.status + '\n';
+          if (res2.ok) {
+            return res2.json().then(function(data2) {
+              el.innerHTML += '✅ 只送 apikey 成功！代表 Authorization header 可能導致問題\n';
+              el.innerHTML += '📊 找到 ' + (data2 ? data2.length : 0) + ' 筆記錄\n';
+            });
+          } else {
+            return res2.text().then(function(t2) {
+              el.innerHTML += '❌ 只送 apikey 都失敗: ' + t2.substring(0,200) + '\n';
+            });
+          }
+        });
+      });
     } else if (res.status === 403) {
       el.innerHTML += '❌ 403 禁止存取 — RLS 政策阻擋\n';
       el.innerHTML += '👉 去 Supabase → SQL Editor 執行：\n';
@@ -1890,9 +1919,9 @@ if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(
   </div>
 </div>
 <script>
-// v3.8.6: 強制破 cache sync script + header 顯示版本號
+// v3.8.7: SW 不再攔截 Supabase + 診斷顯示詳細回應
 (function(){
-  var CURRENT_VER = 'v3.8.6';
+  var CURRENT_VER = 'v3.8.7';
   window.MGR_CURRENT_VER = CURRENT_VER;
   // sync script 已經處理咗 cache，呢度只係 fallback
   var cachedVer = localStorage.getItem('mgr_app_version') || '';
