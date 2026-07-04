@@ -94,7 +94,15 @@ tr:hover td{background:var(--blue50)}
 .period-btns{display:flex;gap:8px;margin-bottom:16px}
 .period-btn{padding:6px 14px;border-radius:20px;font-size:12px;cursor:pointer;border:1px solid var(--gray300);background:var(--white);color:var(--gray500);font-weight:500;transition:all .15s}
 .period-btn.active{background:var(--blue500);color:#fff;border-color:var(--blue500)}
-@media(max-width:768px){.charts-row,.charts-row-3{grid-template-columns:1fr}.container{padding:12px}}
+@media(max-width:768px){
+  .header{flex-direction:column;align-items:flex-start;gap:12px;padding:16px}
+  .header h1{font-size:18px}
+  .header-actions{width:100%;overflow-x:auto;gap:8px;padding-bottom:4px;white-space:nowrap;display:flex;flex-wrap:nowrap}
+  .header-actions .btn{white-space:nowrap;padding:7px 12px;font-size:12px}
+  .charts-row,.charts-row-3{grid-template-columns:1fr}
+  .container{padding:12px}
+  .lock-card{padding:24px 20px;width:92%}
+}
 /* LOCK SCREEN */
 .lock-bg{display:flex;position:fixed;top:0;left:0;right:0;bottom:0;background:linear-gradient(135deg,#1e3a5f,#2563eb);z-index:9999;justify-content:center;align-items:center}
 .lock-bg.hide{display:none}
@@ -579,16 +587,34 @@ function mgrLoadApiUrl() {
   if (saved) { MGR_API_URL = saved; MGR_CLOUD_ENABLED = true; }
   var savedSupaUrl = localStorage.getItem('mgr_supa_url') || '';
   var savedSupaKey = localStorage.getItem('mgr_supa_key') || '';
-  // v3.8.4: 自動清除舊嘅錯 URL（fv 錯字版本）
-  if (savedSupaUrl && savedSupaUrl.indexOf('wwnyfvwaqdhddcxvgelu') >= 0) {
-    console.warn('[mgrLoadApiUrl] 偵測到舊錯 URL，自動清除:', savedSupaUrl);
+  // v3.8.5: 自動清除舊嘅錯 URL / 無效 key
+  function isValidSupabaseUrl(u) {
+    if (!u) return false;
+    if (u.indexOf('wwnyfvwaqdhddcxvgelu') >= 0) return false; // 舊錯字 URL
+    if (u.indexOf('.supabase.co') < 0) return false;
+    var ref = u.replace('https://','').replace('http://','').split('.')[0];
+    return ref.length === 20;
+  }
+  function isValidSupabaseKey(k) {
+    if (!k || typeof k !== 'string') return false;
+    k = k.trim();
+    if (k.length < 80) return false; // JWT 通常超過 100 字符
+    var parts = k.split('.');
+    return parts.length === 3 && !!parts[0] && !!parts[1] && !!parts[2];
+  }
+  if (savedSupaUrl && !isValidSupabaseUrl(savedSupaUrl)) {
+    console.warn('[mgrLoadApiUrl] 無效 URL，自動清除:', savedSupaUrl);
     localStorage.removeItem('mgr_supa_url');
     localStorage.removeItem('mgr_supa_key');
-    savedSupaUrl = '';
+    savedSupaUrl = ''; savedSupaKey = '';
+  }
+  if (savedSupaKey && !isValidSupabaseKey(savedSupaKey)) {
+    console.warn('[mgrLoadApiUrl] 無效 key，自動清除（長度 ' + savedSupaKey.length + '）');
+    localStorage.removeItem('mgr_supa_key');
     savedSupaKey = '';
   }
-  if (savedSupaUrl) { MGR_SUPA_URL = savedSupaUrl; MGR_SUPA_KEY = savedSupaKey; }
-  MGR_CLOUD_ENABLED = (MGR_API_URL && MGR_API_URL.length > 0) || (MGR_SUPA_URL && MGR_SUPA_URL.length > 0);
+  if (savedSupaUrl && savedSupaKey) { MGR_SUPA_URL = savedSupaUrl; MGR_SUPA_KEY = savedSupaKey; }
+  MGR_CLOUD_ENABLED = (MGR_API_URL && MGR_API_URL.length > 0) || (MGR_SUPA_URL && MGR_SUPA_KEY.length > 0);
   console.log('[mgrLoadApiUrl] URL:', MGR_SUPA_URL, '| Enabled:', MGR_CLOUD_ENABLED);
 }
 
@@ -694,7 +720,19 @@ function mgrLoadFromSupabase() {
   .catch(function(e){
     clearTimeout(timeoutId);
     console.error('[mgrLoadFromSupabase]',e);
-    toast('⚠️ Supabase 載入失敗：' + (e.message || '請檢查網絡或 Supabase 設定'), 'error');
+    var msg = e.message || String(e) || '請檢查網絡或 Supabase 設定';
+    // v3.8.5: 401 時自動清除壞 key 並重設為正確預設值
+    if (msg.indexOf('401') >= 0 || msg.indexOf('Invalid') >= 0) {
+      console.warn('[mgrLoadFromSupabase] 偵測到 401，自動清除 localStorage 並重設預設值');
+      localStorage.removeItem('mgr_supa_url');
+      localStorage.removeItem('mgr_supa_key');
+      MGR_SUPA_URL = 'https://wwnyfwqaqdhddcxvgelu.supabase.co';
+      MGR_SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3bnlmd2FxcWRoZGRjeHZnZWx1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MTU4NTIsImV4cCI6MjA5ODM5MTg1Mn0.pzYPKK9rt-LuGV-sVtmHCzTjym1OXaHiDVbsZ9f0GQY';
+      MGR_CLOUD_ENABLED = true;
+      toast('⚠️ Supabase key 無效，已自動重設。請再按「載入團隊數據」。', 'error');
+    } else {
+      toast('⚠️ Supabase 載入失敗：' + msg, 'error');
+    }
     return false;
   });
 }
@@ -706,12 +744,18 @@ function mgrRunSupabaseDiagnostic() {
   el.style.display = 'block';
   el.innerHTML = '🔬 開始診斷...\n';
   el.innerHTML += '🔖 經理版版本: ' + (window.MGR_CURRENT_VER || CURRENT_VER || '未知') + '\n';
-  // v3.8.4: 顯示 localStorage 中的設定
+  // v3.8.5: 顯示 localStorage 中的設定（連長度都顯示）
   var lsUrl = localStorage.getItem('mgr_supa_url') || '(空)';
   var lsKey = localStorage.getItem('mgr_supa_key') || '(空)';
   el.innerHTML += '📦 localStorage URL: ' + lsUrl + '\n';
-  el.innerHTML += '📦 localStorage Key: ' + (lsKey !== '(空)' ? lsKey.substring(0,20) + '...' : '(空)') + '\n';
+  if (lsKey !== '(空)') {
+    var parts = lsKey.split('.');
+    el.innerHTML += '📦 localStorage Key: 長度 ' + lsKey.length + '，' + parts.length + ' 段（' + (parts.length===3?'✅ 似 JWT':'❌ 唔似 JWT') + '）\n';
+  } else {
+    el.innerHTML += '📦 localStorage Key: (空)\n';
+  }
   el.innerHTML += '📦 代碼預設 URL: ' + MGR_SUPA_URL + '\n';
+  el.innerHTML += '🔑 代碼預設 Key: 長度 ' + MGR_SUPA_KEY.length + '，' + MGR_SUPA_KEY.split('.').length + ' 段\n';
   el.innerHTML += '━━━━━━━━━━━━━━━━━━\n';
   var urlInput = document.getElementById('mgrSupaUrlInput');
   var keyInput = document.getElementById('mgrSupaKeyInput');
@@ -785,19 +829,29 @@ function mgrRunSupabaseDiagnostic() {
 function mgrResetSupabaseDefaults() {
   var correctUrl = 'https://wwnyfwqaqdhddcxvgelu.supabase.co';
   var correctKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3bnlmd2FxcWRoZGRjeHZnZWx1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MTU4NTIsImV4cCI6MjA5ODM5MTg1Mn0.pzYPKK9rt-LuGV-sVtmHCzTjym1OXaHiDVbsZ9f0GQY';
-  // v3.8.4: 直接存 localStorage，唔使再撳「儲存並載入」
+  // v3.8.5: 先強制清除可能壞咗嘅 localStorage，再寫入正確值
+  localStorage.removeItem('mgr_supa_url');
+  localStorage.removeItem('mgr_supa_key');
   MGR_SUPA_URL = correctUrl;
   MGR_SUPA_KEY = correctKey;
   localStorage.setItem('mgr_supa_url', correctUrl);
   localStorage.setItem('mgr_supa_key', correctKey);
   MGR_CLOUD_ENABLED = true;
   // 同時更新 input
-  document.getElementById('mgrSupaUrlInput').value = correctUrl;
-  document.getElementById('mgrSupaKeyInput').value = correctKey;
-  toast('✅ 已重設並儲存正確 Supabase 設定，開始載入...');
+  var urlInput = document.getElementById('mgrSupaUrlInput');
+  var keyInput = document.getElementById('mgrSupaKeyInput');
+  if (urlInput) urlInput.value = correctUrl;
+  if (keyInput) keyInput.value = correctKey;
+  toast('✅ 已清除舊設定並重設正確 Supabase 設定，開始載入...');
   console.log('[mgrResetSupabaseDefaults] URL saved:', correctUrl);
   // 自動載入
   mgrLoadFromCloud();
+}
+
+// v3.8.5: 一鍵修復（清除本地設定並重載）
+function mgrRepairSupabase() {
+  mgrResetSupabaseDefaults();
+  mgrHideCloudSetup();
 }
 
 function mgrLoadFromCloud() {
@@ -1770,6 +1824,7 @@ if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(
     <pre id="mgrDiagResult" style="display:none;background:#1e293b;color:#e2e8f0;padding:12px;border-radius:8px;font-size:12px;max-height:240px;overflow:auto;white-space:pre-wrap;margin-bottom:14px"></pre>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="mgrHideCloudSetup()">取消</button>
+      <button class="btn btn-outline" onclick="mgrRepairSupabase()">🧹 清除並修復</button>
       <button class="btn btn-outline" onclick="mgrResetSupabaseDefaults()">⚡ 重設預設並載入</button>
       <button class="btn btn-outline" onclick="mgrRunSupabaseDiagnostic()">🔬 診斷</button>
       <button class="btn btn-outline" onclick="window.MGR_SHOW_ALL_AGENTS=true;mgrLoadFromCloud();mgrHideCloudSetup();">👁️ 顯示全部</button>
@@ -1827,9 +1882,9 @@ if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(
   </div>
 </div>
 <script>
-// v3.8.4: 修正團隊載入 — 清除舊錯 URL、直接儲存重設、顯示全部代理人、debug log
+// v3.8.5: 修正 401 自動清除壞 key + 加強診斷
 (function(){
-  var CURRENT_VER = 'v3.8.4';
+  var CURRENT_VER = 'v3.8.5';
   window.MGR_CURRENT_VER = CURRENT_VER;
   var cachedVer = localStorage.getItem('mgr_app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
