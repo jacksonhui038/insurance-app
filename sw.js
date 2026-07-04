@@ -1,5 +1,5 @@
-// 保經管家 Service Worker — PWA 緩存策略
-var CACHE_NAME = 'baojing-v1';
+// 保經管家 Service Worker — PWA 緩存策略 v3.8.7
+var CACHE_NAME = 'baojing-v3.8.7';
 var CACHE_URLS = [
   './',
   './index.html',
@@ -15,7 +15,6 @@ self.addEventListener('install', function(event) {
     caches.open(CACHE_NAME).then(function(cache) {
       console.log('[SW] 預緩存核心資源');
       return cache.addAll(CACHE_URLS).catch(function(e) {
-        // CDN 資源可能失敗，忽略不阻塞安裝
         console.warn('[SW] 部分資源緩存失敗（可忽略）:', e);
         return Promise.resolve();
       });
@@ -42,9 +41,11 @@ self.addEventListener('fetch', function(event) {
   // 只處理 GET 請求
   if (event.request.method !== 'GET') return;
 
-  // 雲端 API 請求不緩存（確保即時同步）
+  // 雲端 API 請求完全唔經 SW 攔截（避免 iOS 改動 headers 導致 401）
   var url = new URL(event.request.url);
-  if (url.pathname.indexOf('exec') !== -1 || url.hostname === 'script.google.com') {
+  if (url.hostname.indexOf('supabase.co') !== -1 ||
+      url.pathname.indexOf('exec') !== -1 ||
+      url.hostname === 'script.google.com') {
     return;
   }
 
@@ -62,7 +63,6 @@ self.addEventListener('fetch', function(event) {
       // 網絡失敗 → 從緩存取
       return caches.match(event.request).then(function(cached) {
         if (cached) return cached;
-        // 如果緩存也沒有，返回離線頁面
         return caches.match('./index.html');
       });
     })
