@@ -135,13 +135,29 @@ tr:hover td{background:var(--blue50)}
 .sync-bar .last-sync{color:var(--gray500)}
 .sync-btn{cursor:pointer;background:var(--green500);color:#fff;border:none;padding:4px 14px;border-radius:12px;font-size:12px;font-weight:500;transition:all .15s}
 .sync-btn:hover{background:#16a34a}
+.bottom-nav{display:none}
 @media(max-width:768px){
-  .sidebar{width:60px}
-  .sidebar .nav-btn span:not(.nav-icon){display:none}
-  .sidebar-head h1{font-size:12px}
+  .sidebar{display:none}
+  .bottom-nav{position:fixed;bottom:0;left:0;right:0;display:flex;justify-content:space-around;align-items:center;background:var(--white);border-top:1px solid var(--gray200);padding:6px 0 8px;padding-bottom:calc(8px + env(safe-area-inset-bottom));z-index:1000}
+  .bottom-nav-btn{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:6px 2px;border:none;background:none;color:var(--gray500);font-size:10px;cursor:pointer;transition:all .15s}
+  .bottom-nav-btn.active{color:var(--blue600)}
+  .bottom-nav-icon{font-size:20px;line-height:1}
+  .bottom-nav-label{white-space:nowrap;overflow:hidden;text-overflow:clip;font-size:10px}
+  .main{padding-bottom:calc(72px + env(safe-area-inset-bottom))}
+  .topbar{padding:10px 14px;gap:8px;overflow-x:auto;white-space:nowrap}
+  .topbar h2{font-size:16px}
+  .topbar-right{flex-shrink:0;gap:6px}
+  .topbar-right .btn{padding:6px 10px;font-size:11px}
+  .agent-badge{white-space:nowrap}
+  .content{padding:16px}
   .charts-grid,.charts-grid-2{grid-template-columns:1fr}
   .form-row{grid-template-columns:1fr}
   #scheduleWeekView > div{grid-template-columns:1fr 1fr !important}
+  .cards-grid{grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+  .stat-card{padding:14px}
+  .stat-card .value{font-size:22px}
+  .table-wrap{overflow-x:auto}
+  table{min-width:640px}
 }
 </style>
 </head>
@@ -164,7 +180,7 @@ tr:hover td{background:var(--blue50)}
       </div>
       <hr style="border:none;border-top:1px solid var(--gray200);margin:14px 0">
       <button class="btn btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="padding:10px;font-size:13px;width:100%">🔄 切換到經理版</button>
-      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.8.2</p>
+      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.8.5</p>
     </div>
     <!-- LOGIN MODE -->
     <div id="loginMode" style="display:none">
@@ -340,6 +356,19 @@ tr:hover td{background:var(--blue50)}
     </button>
   </div>
 </aside>
+
+<!-- BOTTOM NAV (mobile) -->
+<nav class="bottom-nav" id="bottomNav">
+  <button class="bottom-nav-btn active" onclick="switchTab('dashboard',this)"><span class="bottom-nav-icon">📋</span><span class="bottom-nav-label">總覽</span></button>
+  <button class="bottom-nav-btn" onclick="switchTab('schedules',this)"><span class="bottom-nav-icon">📅</span><span class="bottom-nav-label">行程</span></button>
+  <button class="bottom-nav-btn" onclick="switchTab('clients',this)"><span class="bottom-nav-icon">👥</span><span class="bottom-nav-label">資料</span></button>
+  <button class="bottom-nav-btn" onclick="switchTab('income',this)"><span class="bottom-nav-icon">💰</span><span class="bottom-nav-label">收入</span></button>
+  <button class="bottom-nav-btn" onclick="switchTab('expenses',this)"><span class="bottom-nav-icon">💳</span><span class="bottom-nav-label">支出</span></button>
+  <button class="bottom-nav-btn" onclick="switchTab('pcs',this)"><span class="bottom-nav-icon">📊</span><span class="bottom-nav-label">PC</span></button>
+  <button class="bottom-nav-btn" onclick="switchTab('reports',this)"><span class="bottom-nav-icon">📈</span><span class="bottom-nav-label">報表</span></button>
+  <button class="bottom-nav-btn" onclick="switchTab('goals',this)"><span class="bottom-nav-icon">🎯</span><span class="bottom-nav-label">目標</span></button>
+  <button class="bottom-nav-btn" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'"><span class="bottom-nav-icon">🔄</span><span class="bottom-nav-label">經理</span></button>
+</nav>
 
 <!-- MAIN -->
 <main class="main">
@@ -2368,8 +2397,8 @@ function afterLoginSync() {
 }
 
 document.addEventListener('DOMContentLoaded',function(){
-  // v3.8.2: 修正 Supabase URL 錯字（fv→fw）
-  var CURRENT_VER = 'v3.8.2';
+  // v3.8.5: 手機介面改底部導航
+  var CURRENT_VER = 'v3.8.5';
   var cachedVer = localStorage.getItem('app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, clearing cache and reloading...');
@@ -2433,9 +2462,18 @@ var TYPES = {
 };
 
 function switchTab(tab, btnEl) {
-  var btns = document.querySelectorAll('#sidebarNav .nav-btn');
+  var btns = document.querySelectorAll('#sidebarNav .nav-btn, #bottomNav .nav-btn');
   for (var i = 0; i < btns.length; i++) btns[i].classList.remove('active');
   if (btnEl) btnEl.classList.add('active');
+  // 如果冇傳入按鈕元素，根據 tab 自動標記
+  if (!btnEl) {
+    var allBtns = document.querySelectorAll('#bottomNav .nav-btn, #sidebarNav .nav-btn');
+    for (var k = 0; k < allBtns.length; k++) {
+      if (allBtns[k].getAttribute('onclick') && allBtns[k].getAttribute('onclick').indexOf("'"+tab+"'") >= 0) {
+        allBtns[k].classList.add('active');
+      }
+    }
+  }
   var panels = document.querySelectorAll('.tab-panel');
   for (var j = 0; j < panels.length; j++) panels[j].classList.remove('active');
   var target = document.getElementById('panel-'+tab);
