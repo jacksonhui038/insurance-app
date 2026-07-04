@@ -7,7 +7,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>經理團隊總覽</title>
-<link rel="manifest" href="manifest.json?v=3.8.0">
+<link rel="manifest" href="manifest.json?v=3.8.2">
 <meta name="theme-color" content="#2563eb">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -564,7 +564,7 @@ var detailTab = 'clients';
 
 // ===== 雲端同步設定（Supabase 為主，Google Sheets 選填）=====
 var MGR_API_URL = '';
-var MGR_SUPA_URL = 'https://wwnyfvwaqdhddcxvgelu.supabase.co';
+var MGR_SUPA_URL = 'https://wwnyfwqaqdhddcxvgelu.supabase.co';
 var MGR_SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3bnlmd2FxcWRoZGRjeHZnZWx1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MTU4NTIsImV4cCI6MjA5ODM5MTg1Mn0.pzYPKK9rt-LuGV-sVtmHCzTjym1OXaHiDVbsZ9f0GQY';
 var MGR_CLOUD_ENABLED = Boolean(MGR_SUPA_URL && MGR_SUPA_KEY);
 
@@ -734,7 +734,7 @@ function mgrRunSupabaseDiagnostic() {
 }
 
 function mgrResetSupabaseDefaults() {
-  document.getElementById('mgrSupaUrlInput').value = 'https://wwnyfvwaqdhddcxvgelu.supabase.co';
+  document.getElementById('mgrSupaUrlInput').value = 'https://wwnyfwqaqdhddcxvgelu.supabase.co';
   document.getElementById('mgrSupaKeyInput').value = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3bnlmd2FxcWRoZGRjeHZnZWx1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MTU4NTIsImV4cCI6MjA5ODM5MTg1Mn0.pzYPKK9rt-LuGV-sVtmHCzTjym1OXaHiDVbsZ9f0GQY';
   toast('已重設為預設 Supabase 設定');
 }
@@ -1688,7 +1688,7 @@ if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(
       <h4 style="font-size:14px;color:var(--blue700);margin-bottom:10px">🚀 Supabase（推薦 · 主要雲端）</h4>
       <div class="form-group">
         <label>Supabase 專案網址</label>
-        <input type="url" id="mgrSupaUrlInput" value="https://wwnyfvwaqdhddcxvgelu.supabase.co" placeholder="https://xxxxxxxxxxxx.supabase.co" style="font-size:13px;padding:10px 12px;border:1px solid var(--blue300);border-radius:6px">
+        <input type="url" id="mgrSupaUrlInput" value="https://wwnyfwqaqdhddcxvgelu.supabase.co" placeholder="https://xxxxxxxxxxxx.supabase.co" style="font-size:13px;padding:10px 12px;border:1px solid var(--blue300);border-radius:6px">
       </div>
       <div class="form-group">
         <label>Supabase anon/public key</label>
@@ -1765,9 +1765,9 @@ if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(
   </div>
 </div>
 <script>
-// v3.8.1: 修正經理版 Supabase Key 錯字 + 診斷顯示版本號
+// v3.8.2: 修正 Supabase URL 錯字（fv→fw）+ 診斷顯示版本號
 (function(){
-  var CURRENT_VER = 'v3.8.1';
+  var CURRENT_VER = 'v3.8.2';
   window.MGR_CURRENT_VER = CURRENT_VER;
   var cachedVer = localStorage.getItem('mgr_app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
