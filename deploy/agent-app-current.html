@@ -2,6 +2,9 @@
 <html lang="zh-HK">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>保經管家 - 代理人版</title>
 <link rel="manifest" href="manifest.json">
@@ -79,6 +82,7 @@ tr:hover td{background:var(--blue50)}
 .badge-yellow{background:#fef9c3;color:#a16207}
 .badge-red{background:#fee2e2;color:#dc2626}
 .badge-blue{background:var(--blue100);color:var(--blue700)}
+.badge-purple{background:#f3e8ff;color:#9333ea}
 .badge-gray{background:var(--gray100);color:var(--gray500)}
 /* FORMS */
 .form-group{margin-bottom:14px}
@@ -131,13 +135,29 @@ tr:hover td{background:var(--blue50)}
 .sync-bar .last-sync{color:var(--gray500)}
 .sync-btn{cursor:pointer;background:var(--green500);color:#fff;border:none;padding:4px 14px;border-radius:12px;font-size:12px;font-weight:500;transition:all .15s}
 .sync-btn:hover{background:#16a34a}
+.bottom-nav{display:none}
 @media(max-width:768px){
-  .sidebar{width:60px}
-  .sidebar .nav-btn span:not(.nav-icon){display:none}
-  .sidebar-head h1{font-size:12px}
+  .sidebar{display:none}
+  .bottom-nav{position:fixed;bottom:0;left:0;right:0;display:flex;justify-content:space-around;align-items:center;background:var(--white);border-top:1px solid var(--gray200);padding:6px 0 8px;padding-bottom:calc(8px + env(safe-area-inset-bottom));z-index:1000}
+  .bottom-nav-btn{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:6px 2px;border:none;background:none;color:var(--gray500);font-size:10px;cursor:pointer;transition:all .15s}
+  .bottom-nav-btn.active{color:var(--blue600)}
+  .bottom-nav-icon{font-size:20px;line-height:1}
+  .bottom-nav-label{white-space:nowrap;overflow:hidden;text-overflow:clip;font-size:10px}
+  .main{padding-bottom:calc(72px + env(safe-area-inset-bottom))}
+  .topbar{padding:10px 14px;gap:8px;overflow-x:auto;white-space:nowrap}
+  .topbar h2{font-size:16px}
+  .topbar-right{flex-shrink:0;gap:6px}
+  .topbar-right .btn{padding:6px 10px;font-size:11px}
+  .agent-badge{white-space:nowrap}
+  .content{padding:16px}
   .charts-grid,.charts-grid-2{grid-template-columns:1fr}
   .form-row{grid-template-columns:1fr}
   #scheduleWeekView > div{grid-template-columns:1fr 1fr !important}
+  .cards-grid{grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+  .stat-card{padding:14px}
+  .stat-card .value{font-size:22px}
+  .table-wrap{overflow-x:auto}
+  table{min-width:640px}
 }
 </style>
 </head>
@@ -148,19 +168,25 @@ tr:hover td{background:var(--blue50)}
   <div class="modal name-modal" id="nameModal">
     <!-- CHOICE: Login or Register -->
     <div id="choiceMode">
-      <h3>👋 歡迎使用保經管家</h3>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <button onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="padding:6px 14px;border:1px solid var(--gray300);border-radius:8px;background:var(--gray100);color:var(--gray600);cursor:pointer;font-size:13px;display:flex;align-items:center;gap:4px">◀ 返回</button>
+        <span style="font-size:11px;color:var(--gray400)">代理人版</span>
+      </div>
+      <h3 style="margin-top:0">👋 歡迎使用保經管家</h3>
       <p style="color:var(--gray500);margin-bottom:16px">請選擇</p>
       <div style="display:flex;flex-direction:column;gap:10px">
         <button class="btn btn-primary" onclick="showLoginMode()" style="padding:14px;font-size:15px">🔐 登入已有帳戶</button>
         <button class="btn btn-outline" onclick="showRegisterMode()" style="padding:14px;font-size:15px">📝 註冊新帳戶</button>
       </div>
-      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.4.3</p>
+      <hr style="border:none;border-top:1px solid var(--gray200);margin:14px 0">
+      <button class="btn btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="padding:10px;font-size:13px;width:100%">🔄 切換到經理版</button>
+      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.8.5</p>
     </div>
     <!-- LOGIN MODE -->
     <div id="loginMode" style="display:none">
       <h3>🔐 登入</h3>
       <p style="color:var(--gray500);margin-bottom:12px">輸入姓名同 PIN 碼</p>
-      <div class="form-group"><label>姓名</label><input type="text" id="loginName" placeholder="例如：陳大文" autocomplete="off"></div>
+      <div class="form-group"><label>姓名</label><input type="text" id="loginName" placeholder="例如：CHAN TAI MAN" autocomplete="off" style="text-transform:uppercase" oninput="this.value=this.value.replace(/[^a-zA-Z\s]/g,'').toUpperCase()" onkeypress="return /[a-zA-Z\s]/.test(event.key)"></div>
       <div class="form-group"><label>PIN 碼</label><input type="password" id="loginPin" placeholder="輸入 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off" onkeydown="if(event.key==='Enter')doLogin()"></div>
       <div class="modal-actions" style="justify-content:center;flex-wrap:wrap;gap:8px">
         <button class="btn btn-primary" onclick="doLogin()" id="loginBtn">登入</button>
@@ -173,7 +199,7 @@ tr:hover td{background:var(--blue50)}
     <div id="registerMode" style="display:none">
       <h3>📝 註冊新帳戶</h3>
       <p style="color:var(--gray500);margin-bottom:6px">設定你嘅姓名同 PIN 碼</p>
-      <div class="form-group"><label>姓名 <span style="color:var(--red500)">*</span> <span style="font-size:11px;color:var(--gray400)">⚠️ 確認後不可更改</span></label><input type="text" id="nameInput" placeholder="例如：陳大文"></div>
+      <div class="form-group"><label>姓名 <span style="color:var(--red500)">*</span> <span style="font-size:11px;color:var(--gray400)">⚠️ 確認後不可更改（英文全大寫）</span></label><input type="text" id="nameInput" placeholder="例如：CHAN TAI MAN" style="text-transform:uppercase" oninput="this.value=this.value.replace(/[^a-zA-Z\s]/g,'').toUpperCase()" onkeypress="return /[a-zA-Z\s]/.test(event.key)"></div>
       <div class="form-group"><label>PIN 碼（4-6 位數字）</label><input type="password" id="pinInput" placeholder="設定 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off"></div>
       <div class="form-group"><label>確認 PIN 碼</label><input type="password" id="pinConfirm" placeholder="再次輸入 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off"></div>
       <hr style="border:none;border-top:1px solid var(--gray200);margin:14px 0">
@@ -218,12 +244,13 @@ tr:hover td{background:var(--blue50)}
     </div>
     <!-- SWITCH: confirm PIN before switching -->
     <div id="switchMode" style="display:none">
-      <h3>⚠️ 切換代理人</h3>
+      <h3>⚠️ 切換帳戶</h3>
       <p style="color:var(--gray500);margin-bottom:6px">請先輸入 <b id="switchAgentName">—</b> 嘅 PIN 碼確認身份</p>
       <div class="form-group"><input type="password" id="switchPin" placeholder="請輸入 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off" onkeydown="if(event.key==='Enter')confirmSwitch()"></div>
-      <div class="modal-actions" style="justify-content:center;gap:8px">
+      <div class="modal-actions" style="justify-content:center;gap:8px;flex-wrap:wrap">
         <button class="btn btn-primary" onclick="confirmSwitch()">確認切換</button>
         <button class="btn btn-outline" onclick="cancelSwitch()">取消</button>
+        <button class="btn btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="border-color:var(--blue500);color:var(--blue500)">🔄 直接去經理版</button>
       </div>
     </div>
   </div>
@@ -296,6 +323,10 @@ tr:hover td{background:var(--blue50)}
     <div style="font-size:12px;color:var(--gray400);margin-bottom:14px">
       💡 兩個都留空即可關閉雲端同步
     </div>
+    <div style="margin-top:10px;padding:10px;background:var(--blue50);border-radius:8px;border:1px solid var(--blue200)">
+      <button class="btn btn-outline btn-sm" onclick="runSupabaseDiagnostic()" style="width:100%;border-color:var(--blue500);color:var(--blue600)">🔬 診斷 Supabase 連線</button>
+      <div id="diagResult" style="font-size:11px;color:var(--gray600);margin-top:8px;white-space:pre-wrap;display:none"></div>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="hideCloudSetup()">取消</button>
       <button class="btn btn-primary" onclick="saveCloudSetup()">儲存設定</button>
@@ -319,7 +350,25 @@ tr:hover td{background:var(--blue50)}
     <button class="nav-btn" onclick="switchTab('reports',this)"><span class="nav-icon">📈</span> 業績報表</button>
     <button class="nav-btn" onclick="switchTab('goals',this)"><span class="nav-icon">🎯</span> 目標管理</button>
   </nav>
+  <div style="margin-top:auto;padding:12px 8px 16px">
+    <button class="nav-btn" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="width:100%;border:1px dashed var(--blue500);color:var(--blue700);background:var(--blue50)">
+      <span class="nav-icon">🔄</span> 切換到經理版
+    </button>
+  </div>
 </aside>
+
+<!-- BOTTOM NAV (mobile) -->
+<nav class="bottom-nav" id="bottomNav">
+  <button class="bottom-nav-btn active" onclick="switchTab('dashboard',this)"><span class="bottom-nav-icon">📋</span><span class="bottom-nav-label">總覽</span></button>
+  <button class="bottom-nav-btn" onclick="switchTab('schedules',this)"><span class="bottom-nav-icon">📅</span><span class="bottom-nav-label">行程</span></button>
+  <button class="bottom-nav-btn" onclick="switchTab('clients',this)"><span class="bottom-nav-icon">👥</span><span class="bottom-nav-label">資料</span></button>
+  <button class="bottom-nav-btn" onclick="switchTab('income',this)"><span class="bottom-nav-icon">💰</span><span class="bottom-nav-label">收入</span></button>
+  <button class="bottom-nav-btn" onclick="switchTab('expenses',this)"><span class="bottom-nav-icon">💳</span><span class="bottom-nav-label">支出</span></button>
+  <button class="bottom-nav-btn" onclick="switchTab('pcs',this)"><span class="bottom-nav-icon">📊</span><span class="bottom-nav-label">PC</span></button>
+  <button class="bottom-nav-btn" onclick="switchTab('reports',this)"><span class="bottom-nav-icon">📈</span><span class="bottom-nav-label">報表</span></button>
+  <button class="bottom-nav-btn" onclick="switchTab('goals',this)"><span class="bottom-nav-icon">🎯</span><span class="bottom-nav-label">目標</span></button>
+  <button class="bottom-nav-btn" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'"><span class="bottom-nav-icon">🔄</span><span class="bottom-nav-label">經理</span></button>
+</nav>
 
 <!-- MAIN -->
 <main class="main">
@@ -330,6 +379,7 @@ tr:hover td{background:var(--blue50)}
         <span style="color:var(--green500);font-size:14px">☁️</span>
         <span id="lastSyncTime" style="color:var(--gray400)">尚未同步</span>
         <button onclick="manualSync()" style="padding:3px 10px;border:none;background:var(--blue500);color:#fff;border-radius:10px;font-size:11px;cursor:pointer">同步</button>
+        <button onclick="forceUploadToSupabase()" style="padding:3px 10px;border:none;background:var(--orange500);color:#fff;border-radius:10px;font-size:11px;cursor:pointer" title="強制將本地數據上傳到 Supabase（修復遺漏）">⬆️ 強制上傳</button>
       </div>
       <div class="agent-badge" id="agentBadgeBtn" title="切換代理人">
         <span class="dot"></span> <span id="agentNameDisplay">—</span>
@@ -411,14 +461,16 @@ tr:hover td{background:var(--blue50)}
     <div class="tab-panel" id="panel-expenses">
       <div class="table-wrap">
         <div class="table-head"><h3>💳 支出記錄</h3><button class="btn btn-primary" onclick="openForm('expense')">+ 新增支出</button></div>
-        <table><thead><tr><th>日期</th><th>分類</th><th>金額</th><th>付款方式</th><th>備註</th><th>操作</th></tr></thead><tbody id="expenseTable"></tbody></table>
+        <!-- v3.6.0: 戶口結餘卡片 -->
+        <div id="expenseBalanceCard" style="display:flex;gap:16px;padding:16px 20px;border-bottom:1px solid var(--gray200);background:var(--gray50)"></div>
+        <table><thead><tr><th>日期</th><th>分類</th><th>金額</th><th>付款方式</th><th>結餘</th><th>備註</th><th>操作</th></tr></thead><tbody id="expenseTable"></tbody></table>
       </div>
     </div>
     <!-- PC 記錄 -->
     <div class="tab-panel" id="panel-pcs">
       <div class="table-wrap">
         <div class="table-head"><h3>📊 PC 記錄</h3><button class="btn btn-primary" onclick="openForm('pc')">+ 新增 PC</button></div>
-        <table><thead><tr><th>日期</th><th>客戶</th><th>保單編號</th><th>金額</th><th>備註</th><th>操作</th></tr></thead><tbody id="pcTable"></tbody></table>
+        <table><thead><tr><th>日期</th><th>類型</th><th>客戶</th><th>保單編號</th><th>金額</th><th>備註</th><th>操作</th></tr></thead><tbody id="pcTable"></tbody></table>
       </div>
     </div>
     <!-- REPORTS -->
@@ -494,10 +546,212 @@ var agentRole = '';
 var agentHierarchyPath = '';
 var _id = 0;
 
+// ===== Supabase 診斷工具 =====
+function runSupabaseDiagnostic() {
+  var el = document.getElementById('diagResult');
+  el.style.display = 'block';
+  el.innerHTML = '🔬 開始診斷...\n';
+  
+  // 先讀取輸入框的值（如果用戶剛改了但未儲存）
+  var urlInput = document.getElementById('supaUrlInput');
+  var keyInput = document.getElementById('supaKeyInput');
+  var testUrl = (urlInput && urlInput.value) ? urlInput.value.trim() : SUPA_URL;
+  var testKey = (keyInput && keyInput.value) ? keyInput.value.trim() : SUPA_KEY;
+  
+  // 移除尾部斜線
+  testUrl = testUrl.replace(/\/+$/,'');
+  
+  el.innerHTML += '📍 URL: ' + testUrl + '\n';
+  el.innerHTML += '🔑 Key: ' + (testKey ? testKey.substring(0,20) + '...' : '(空)') + '\n';
+  el.innerHTML += '━━━━━━━━━━━━━━━━━━\n';
+  
+  if (!testUrl || !testKey) {
+    el.innerHTML += '❌ URL 或 Key 為空\n';
+    el.innerHTML += '👉 請去 Supabase Dashboard → Settings → API 複製\n';
+    return;
+  }
+  
+  // 檢查 URL 格式
+  if (testUrl.indexOf('.supabase.co') < 0) {
+    el.innerHTML += '⚠️ URL 格式可疑：應該係 https://xxxx.supabase.co\n';
+  }
+  var ref = testUrl.replace('https://','').replace('http://','').split('.')[0];
+  el.innerHTML += '📋 Project Ref: ' + ref + ' (' + ref.length + ' 字符)\n';
+  if (ref.length !== 20) {
+    el.innerHTML += '⚠️ Project Ref 應該係 20 個字符，依家得 ' + ref.length + ' 個\n';
+    el.innerHTML += '👉 檢查有冇打錯或漏字\n';
+  }
+  
+  el.innerHTML += '━━━━━━━━━━━━━━━━━━\n';
+  el.innerHTML += '⏳ 測試連線中（最多 15 秒）...\n';
+  
+  var ctrl = new AbortController();
+  var tid = setTimeout(function(){ ctrl.abort(); }, 15000);
+  var startTime = Date.now();
+  
+  fetch(testUrl + '/rest/v1/agents?select=name&limit=1', {
+    method: 'GET',
+    headers: { 'apikey': testKey, 'Authorization': 'Bearer ' + testKey },
+    signal: ctrl.signal
+  })
+  .then(function(res) {
+    clearTimeout(tid);
+    var elapsed = Date.now() - startTime;
+    el.innerHTML += '📡 HTTP 狀態: ' + res.status + ' (' + elapsed + 'ms)\n';
+    
+    if (res.ok) {
+      return res.json().then(function(data) {
+        el.innerHTML += '✅ 連線成功！\n';
+        el.innerHTML += '📊 Agents 表可讀取，找到 ' + (data ? data.length : 0) + ' 筆記錄\n';
+        el.innerHTML += '━━━━━━━━━━━━━━━━━━\n';
+        el.innerHTML += '下一步：測試寫入權限...\n';
+        testSupabaseWrite(testUrl, testKey, el);
+      });
+    } else if (res.status === 401) {
+      el.innerHTML += '❌ 401 未授權 — API Key 不正確\n';
+      el.innerHTML += '👉 去 Supabase → Settings → API 確認 anon key\n';
+    } else if (res.status === 403) {
+      el.innerHTML += '❌ 403 禁止存取 — RLS 政策阻擋\n';
+      el.innerHTML += '👉 去 Supabase → SQL Editor 執行：\n';
+      el.innerHTML += '   ALTER TABLE agents DISABLE ROW LEVEL SECURITY;\n';
+      el.innerHTML += '   （或加入適當的 RLS 政策）\n';
+    } else if (res.status === 404) {
+      el.innerHTML += '❌ 404 找不到 — URL 可能錯誤\n';
+      el.innerHTML += '👉 檢查 Project URL 是否正確\n';
+    } else if (res.status === 500) {
+      el.innerHTML += '❌ 500 伺服器錯誤 — Supabase 可能暫停了\n';
+      el.innerHTML += '👉 去 Supabase Dashboard 檢查項目狀態\n';
+    } else {
+      el.innerHTML += '⚠️ HTTP ' + res.status + '\n';
+      return res.text().then(function(t) {
+        el.innerHTML += '回應: ' + t.substring(0,200) + '\n';
+      });
+    }
+  })
+  .catch(function(e) {
+    clearTimeout(tid);
+    var elapsed = Date.now() - startTime;
+    var msg = String(e);
+    el.innerHTML += '❌ 連線失敗 (' + elapsed + 'ms)\n';
+    
+    if (msg.indexOf('abort') >= 0 || msg.indexOf('timeout') >= 0 || elapsed >= 14000) {
+      el.innerHTML += '原因：連線超時（15秒）\n';
+      el.innerHTML += '━━━━━━━━━━━━━━━━━━\n';
+      el.innerHTML += '可能原因：\n';
+      el.innerHTML += '1️⃣ Supabase 項目已暫停（免費版 7 天無活動自動暫停）\n';
+      el.innerHTML += '   👉 去 supabase.com → Dashboard → Resume\n';
+      el.innerHTML += '2️⃣ 網絡問題（VPN / 防火牆 / DNS）\n';
+      el.innerHTML += '   👉 試關閉 VPN 或改用手機數據\n';
+      el.innerHTML += '3️⃣ URL 拼寫錯誤\n';
+      el.innerHTML += '   👉 去 Supabase Dashboard → Settings → API\n';
+      el.innerHTML += '   複製正確的 Project URL\n';
+    } else if (msg.indexOf('Failed to fetch') >= 0 || msg.indexOf('NetworkError') >= 0) {
+      el.innerHTML += '原因：網絡層錯誤 — DNS 解析失敗或連線被拒\n';
+      el.innerHTML += '━━━━━━━━━━━━━━━━━━\n';
+      el.innerHTML += '🚨 重要：URL 可能不正確！\n';
+      el.innerHTML += '當前 URL: ' + testUrl + '\n';
+      el.innerHTML += 'Project Ref: ' + ref + '\n';
+      if (ref.length !== 20) {
+        el.innerHTML += '⚠️ Ref 只有 ' + ref.length + ' 字符（標準係 20）\n';
+        el.innerHTML += '👉 很可能有打字錯誤！\n';
+      }
+      el.innerHTML += '━━━━━━━━━━━━━━━━━━\n';
+      el.innerHTML += '解決步驟：\n';
+      el.innerHTML += '1. 登入 https://supabase.com/dashboard\n';
+      el.innerHTML += '2. 選擇你的項目\n';
+      el.innerHTML += '3. 去 Settings → API\n';
+      el.innerHTML += '4. 複製 Project URL（應該係 https://xxxx.supabase.co）\n';
+      el.innerHTML += '5. 貼到上面的輸入框\n';
+      el.innerHTML += '6. 同時複製 anon public key 貼到 Key 框\n';
+      el.innerHTML += '7. 按「儲存設定」再按「診斷」\n';
+    } else {
+      el.innerHTML += '錯誤詳情: ' + msg + '\n';
+    }
+  });
+}
+
+function testSupabaseWrite(url, key, el) {
+  // 測試寫入權限（用一個不會影響數據的 HEAD 請求）
+  var ctrl = new AbortController();
+  var tid = setTimeout(function(){ ctrl.abort(); }, 10000);
+  fetch(url + '/rest/v1/agents?select=name&limit=1', {
+    method: 'POST',
+    headers: {
+      'apikey': key,
+      'Authorization': 'Bearer ' + key,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=minimal'
+    },
+    body: JSON.stringify({ name: '__test_connection__', data: {} }),
+    signal: ctrl.signal
+  })
+  .then(function(res) {
+    clearTimeout(tid);
+    if (res.ok) {
+      el.innerHTML += '✅ 寫入權限正常\n';
+      el.innerHTML += '━━━━━━━━━━━━━━━━━━\n';
+      el.innerHTML += '🎉 所有測試通過！Supabase 設定正確。\n';
+      // 清理測試記錄
+      cleanupTestRecord(url, key);
+    } else if (res.status === 403) {
+      el.innerHTML += '❌ 403 寫入被拒 — RLS 政策阻擋寫入\n';
+      el.innerHTML += '━━━━━━━━━━━━━━━━━━\n';
+      el.innerHTML += '修復步驟：\n';
+      el.innerHTML += '1. 去 Supabase → SQL Editor\n';
+      el.innerHTML += '2. 執行以下 SQL：\n';
+      el.innerHTML += '\n';
+      el.innerHTML += '   ALTER TABLE agents DISABLE ROW LEVEL SECURITY;\n';
+      el.innerHTML += '\n';
+      el.innerHTML += '3. 或者加入允許政策：\n';
+      el.innerHTML += '\n';
+      el.innerHTML += '   CREATE POLICY "allow_all" ON agents\n';
+      el.innerHTML += '   FOR ALL USING (true) WITH CHECK (true);\n';
+      el.innerHTML += '\n';
+    } else {
+      el.innerHTML += '⚠️ 寫入測試 HTTP ' + res.status + '\n';
+    }
+  })
+  .catch(function(e) {
+    clearTimeout(tid);
+    el.innerHTML += '⚠️ 寫入測試失敗: ' + String(e) + '\n';
+  });
+}
+
+function cleanupTestRecord(url, key) {
+  var ctrl = new AbortController();
+  var tid = setTimeout(function(){ ctrl.abort(); }, 5000);
+  fetch(url + '/rest/v1/agents?name=eq.__test_connection__', {
+    method: 'DELETE',
+    headers: { 'apikey': key, 'Authorization': 'Bearer ' + key },
+    signal: ctrl.signal
+  }).catch(function(){});
+}
+
+// ===== 離線登入：快取 Agent 列表 =====
+function cacheAgentList(rows) {
+  try {
+    localStorage.setItem('insurance_cached_agents', JSON.stringify(rows));
+    localStorage.setItem('insurance_cached_agents_time', new Date().toISOString());
+  } catch(e) { console.warn('[cacheAgentList]', e); }
+}
+
+function getCachedAgentList() {
+  try {
+    var raw = localStorage.getItem('insurance_cached_agents');
+    if (!raw) return null;
+    var cachedTime = localStorage.getItem('insurance_cached_agents_time');
+    if (cachedTime) {
+      var age = Date.now() - new Date(cachedTime).getTime();
+      if (age > 7 * 24 * 60 * 60 * 1000) return null; // 7天過期
+    }
+    return JSON.parse(raw);
+  } catch(e) { return null; }
+}
+
 // ===== 雲端同步設定 =====
 var API_URL = 'https://script.google.com/macros/s/AKfycbxgU-gqY_oFNj03Us28bcs6PK9vH0wchjgzic5lww4uc5nu8byTGbmrLp8kBOZ0nSU6/exec';
 var CLOUD_ENABLED = Boolean(API_URL && API_URL.length > 0);
-var SUPA_URL = 'https://wnyfvwaqdhddcxvgelu.supabase.co';
+var SUPA_URL = 'https://wwnyfwqaqdhddcxvgelu.supabase.co';
 var SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3bnlmd3FhcWRoZGRjeHZnZWx1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MTU4NTIsImV4cCI6MjA5ODM5MTg1Mn0.pzYPKK9rt-LuGV-sVtmHCzTjym1OXaHiDVbsZ9f0GQY';
 
 function setApiUrl(url) {
@@ -547,6 +801,9 @@ function loadApiUrl() {
 }
 
 // ===== 雲端同步函數（雙寫：Supabase + Google Sheets）=====
+var _syncRetryCount = 0;
+var _syncMaxRetry = 3;
+var _syncTimer = null;
 function saveToCloud(callback, retry) {
   if (!CLOUD_ENABLED || !agentName) { if (callback) callback(false); return; }
   var mgr = assignedManager || localStorage.getItem('insurance_mgr_'+encodeURIComponent(agentName)) || '';
@@ -557,7 +814,7 @@ function saveToCloud(callback, retry) {
   function checkDone() {
     if (done) return;
     if (supaOk || gsOk) {
-      done = true; setLastSyncTime();
+      done = true; _syncRetryCount = 0; setLastSyncTime();
       if (callback) callback(true);
       else toast('☁️ 已同步到雲端');
     }
@@ -565,7 +822,7 @@ function saveToCloud(callback, retry) {
 
   // 寫入 Supabase
   if (SUPA_URL && SUPA_KEY) {
-    saveToSupabase(function(ok){ supaOk=ok; checkDone(); });
+    saveToSupabase(function(ok, errMsg){ supaOk=ok; if (!ok) console.error('[saveToCloud Supabase]', errMsg||'unknown'); checkDone(); });
   }
 
   // 寫入 Google Sheets
@@ -597,12 +854,27 @@ function saveToCloud(callback, retry) {
   // 兩個都冇設定
   if (!API_URL && !SUPA_URL) { if (callback) callback(false); return; }
 
-  // 8 秒後 retry
+  // 重試邏輯：最多 3 次，間隔逐步增加
   if (!retry) {
-    setTimeout(function(){
-      if (!done) { saveToCloud(callback, true); }
-    }, 8000);
-  } else { if (callback) callback(false); }
+    _syncRetryCount = 0;
+    _scheduleRetry(callback);
+  } else {
+    if (_syncRetryCount < _syncMaxRetry) {
+      _syncRetryCount++;
+      _scheduleRetry(callback);
+    } else {
+      // 所有重試失敗
+      if (callback) callback(false);
+      else toast('⚠️ 同步失敗，請檢查網絡後重試','error');
+    }
+  }
+}
+function _scheduleRetry(callback) {
+  if (_syncTimer) clearTimeout(_syncTimer);
+  var delay = Math.min(8000 * Math.pow(1.5, _syncRetryCount), 60000); // 8s, 12s, 18s, 最多 60s
+  _syncTimer = setTimeout(function(){
+    if (!done) { saveToCloud(callback, true); }
+  }, delay);
 }
 
 function loadFromCloud(callback, retry) {
@@ -636,7 +908,7 @@ function loadFromGoogleSheets(callback, retry) {
     .then(function(res){ clearTimeout(timeoutId); return res.json(); })
     .then(function(r){
       if (r.success && r.data) {
-        // v3.4.3: 徹底簡化登入流程 + 修復 race condition
+        // v3.6.0: 徹底簡化登入流程 + 修復 race condition
         var hasData = false;
         ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k){
           if (r.data[k] && Array.isArray(r.data[k]) && r.data[k].length > 0) {
@@ -689,6 +961,11 @@ function saveToSupabase(callback) {
   if (!SUPA_URL || !SUPA_KEY || !agentName) { if (callback) callback(false); return; }
   var mgr = assignedManager || localStorage.getItem('insurance_mgr_'+encodeURIComponent(agentName)) || '';
   var team = assignedTeam || localStorage.getItem('insurance_team_'+encodeURIComponent(agentName)) || '';
+  // v3.6.0: 發送前修復所有壞時間格式
+  fixAllScheduleTimes(false);
+  var payload = JSON.stringify({name:agentName,data:Object.assign({},DB,{_pinHash:agentPIN?hashPin(agentPIN):''}),manager:mgr,team:team});
+  var payloadSize = new Blob([payload]).size;
+  if (payloadSize > 5 * 1024 * 1024) console.warn('[saveToSupabase] Payload size:', Math.round(payloadSize/1024), 'KB');
   var controller = new AbortController();
   var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
   fetch(SUPA_URL + '/rest/v1/agents?on_conflict=name', {
@@ -697,26 +974,105 @@ function saveToSupabase(callback) {
       'apikey':SUPA_KEY,
       'Authorization':'Bearer '+SUPA_KEY,
       'Content-Type':'application/json',
-      'Prefer':'resolution=merge-duplicates'
+      'Prefer':'resolution=merge-duplicates,return=minimal'
     },
-    body:JSON.stringify({name:agentName,data:Object.assign({},DB,{_pinHash:agentPIN?hashPin(agentPIN):''}),manager:mgr,team:team}),
+    body:payload,
     signal:controller.signal
   })
-  .then(function(res){ clearTimeout(timeoutId); if(res.ok) { if(callback) callback(true); } else { console.error('[saveToSupabase] HTTP',res.status); if(callback) callback(false); } })
-  .catch(function(e){ clearTimeout(timeoutId); console.error('[saveToSupabase]',e); if(callback) callback(false); });
+  .then(function(res){
+    clearTimeout(timeoutId);
+    if (res.ok) { if (callback) callback(true); }
+    else {
+      res.text().then(function(t){ console.error('[saveToSupabase] HTTP',res.status, t.substring(0,200)); });
+      if (callback) callback(false, 'HTTP '+res.status);
+    }
+  })
+  .catch(function(e){ clearTimeout(timeoutId); console.error('[saveToSupabase]',e); if (callback) callback(false, String(e)); });
+}
+function forceUploadToSupabase() {
+  if (!SUPA_URL || !SUPA_KEY) { toast('⚠️ 請先設定 Supabase（右上角 ☁️ 雲端）', 'error'); return; }
+  if (!agentName) { toast('⚠️ 請先登入', 'error'); return; }
+  toast('⬆️ 正在強制上傳到 Supabase...', 'info');
+  fixAllScheduleTimes(false);
+  var mgr = assignedManager || localStorage.getItem('insurance_mgr_'+encodeURIComponent(agentName)) || '';
+  var team = assignedTeam || localStorage.getItem('insurance_team_'+encodeURIComponent(agentName)) || '';
+  var payload = JSON.stringify({name:agentName,data:Object.assign({},DB,{_pinHash:agentPIN?hashPin(agentPIN):'',_forceUpload:new Date().toISOString()}),manager:mgr,team:team});
+  // 先做連線測試
+  var testController = new AbortController();
+  var testTimeout = setTimeout(function(){ testController.abort(); }, 10000);
+  fetch(SUPA_URL + '/rest/v1/agents?limit=1&select=name', {
+    method:'GET',
+    headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY},
+    signal:testController.signal
+  })
+  .then(function(res){
+    clearTimeout(testTimeout);
+    if (!res.ok) throw new Error('HTTP '+res.status);
+    // 連線成功，開始上傳
+    doForceUpload(payload, mgr, team);
+  })
+  .catch(function(e){
+    clearTimeout(testTimeout);
+    console.error('[forceUpload] connection test failed:', e);
+    var msg = String(e);
+    if (msg.indexOf('abort') >= 0 || msg.indexOf('timeout') >= 0) {
+      msg = '連線超時（10秒）— 請檢查網絡或確認 Supabase 未暫停';
+    } else if (msg.indexOf('Failed to fetch') >= 0 || msg.indexOf('NetworkError') >= 0) {
+      msg = '網絡錯誤 — 請檢查：① 網絡連接 ② Supabase 是否已暫停（免費版7天無活動會暫停）③ 是否有 VPN/防火牆阻擋';
+    } else if (msg.indexOf('CORS') >= 0) {
+      msg = 'CORS 錯誤 — Supabase 可能未允許此域名存取';
+    }
+    toast('✕ 上傳失敗：' + msg, 'error');
+  });
+}
+function doForceUpload(payload, mgr, team) {
+  var controller = new AbortController();
+  var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
+  fetch(SUPA_URL + '/rest/v1/agents?on_conflict=name', {
+    method:'POST',
+    headers:{
+      'apikey':SUPA_KEY,
+      'Authorization':'Bearer '+SUPA_KEY,
+      'Content-Type':'application/json',
+      'Prefer':'resolution=merge-duplicates,return=representation'
+    },
+    body:payload,
+    signal:controller.signal
+  })
+  .then(function(res){
+    clearTimeout(timeoutId);
+    if (res.ok) {
+      return res.json().then(function(rows){
+        setLastSyncTime();
+        document.getElementById('lastSyncTime').textContent = getLastSyncTime();
+        toast('✅ 強制上傳成功！' + agentName + ' 已同步到 Supabase', 'success');
+        console.log('[forceUpload] ✅ 上傳成功', agentName, rows);
+      });
+    } else {
+      res.text().then(function(t){
+        console.error('[forceUpload] ❌ HTTP', res.status, t.substring(0,300));
+        toast('❌ 上傳失敗（HTTP ' + res.status + '）：' + t.substring(0,100), 'error');
+      });
+    }
+  })
+  .catch(function(e){
+    clearTimeout(timeoutId);
+    console.error('[forceUpload] ❌', e);
+    toast('❌ 上傳失敗：' + e.message, 'error');
+  });
 }
 function loadFromSupabase(callback) {
   if (!SUPA_URL || !SUPA_KEY || !agentName) { if (callback) callback(false); return; }
   var controller = new AbortController();
   var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
   fetch(SUPA_URL + '/rest/v1/agents?name=eq.'+encodeURIComponent(agentName)+'&select=data', {
-    headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY},
+    headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Cache-Control':'no-cache','Pragma':'no-cache'},
     signal:controller.signal
   })
   .then(function(res){ clearTimeout(timeoutId); return res.json(); })
   .then(function(rows){
     if (rows && rows.length>0 && rows[0].data) {
-      // v3.4.3: 徹底簡化登入流程 + 修復 race condition
+      // v3.6.0: 徹底簡化登入流程 + 修復 race condition
       var hasData = false;
       ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k){
         if (rows[0].data[k] && Array.isArray(rows[0].data[k]) && rows[0].data[k].length > 0) {
@@ -732,6 +1088,8 @@ function loadFromSupabase(callback) {
           DB[k] = Object.values(localMap);
         }
       });
+      // v3.6.0: 修復雲端帶入嘅壞時間格式（Excel/ISO 日期）
+      fixAllScheduleTimes(true);
       saveDB(); setLastSyncTime();
       if (callback) callback(true);
       else { toast('☁️ 已從 Supabase 合併數據'); renderDashboard(); renderCurrentTab(); }
@@ -789,6 +1147,8 @@ function loadDB() {
     if (DB[k]) DB[k].forEach(function(x){ if (x.id > _id) _id = x.id; });
   });
   _id++;
+  // v3.6.0: 啟動時修復 localStorage 入面嘅壞時間格式
+  fixAllScheduleTimes(true);
 }
 
 function saveDB() {
@@ -901,15 +1261,35 @@ function doLogin() {
   if (SUPA_URL && SUPA_KEY) {
     var ctrl = new AbortController();
     var tid = setTimeout(function(){ ctrl.abort(); }, 10000);
-    fetch(SUPA_URL + '/rest/v1/agents?name=eq.' + encodeURIComponent(name) + '&select=*', {
+    // v3.6.1: fetch all agents, client-side match (handles Chinese + case-insensitive)
+    fetch(SUPA_URL + '/rest/v1/agents?select=*', {
       headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY },
       signal: ctrl.signal
     })
     .then(function(res) { clearTimeout(tid); return res.json(); })
     .then(function(rows) {
       clearTimeout(safetyTimer);
+      // v3.7.0: 快取 agent 列表供離線登入用
+      if (rows && rows.length > 0) cacheAgentList(rows);
+      // Client-side match: case-insensitive + trim whitespace + Chinese-friendly
+      var matched = null;
       if (rows && rows.length > 0) {
-        var ad = rows[0];
+        var searchName = name.toLowerCase().trim();
+        for (var i = 0; i < rows.length; i++) {
+          var rname = (rows[i].name || '').toLowerCase().trim();
+          if (rname === searchName) { matched = rows[i]; break; }
+        }
+        // If not found, try partial match (handles whitespace/encoding issues)
+        if (!matched) {
+          for (var i = 0; i < rows.length; i++) {
+            var rname2 = (rows[i].name || '').replace(/\s+/g,'').toLowerCase();
+            var sname2 = searchName.replace(/\s+/g,'').toLowerCase();
+            if (rname2 === sname2) { matched = rows[i]; break; }
+          }
+        }
+      }
+      if (matched) {
+        var ad = matched;
         // Verify PIN
         if (ad.pinHash && ad.pinHash !== pinH) {
           loginInProgress = false;
@@ -955,14 +1335,100 @@ function doLogin() {
         btn.textContent = '登入'; btn.disabled = false;
       } else {
         // Not found in Supabase — try local login (offline)
-        tryLocalLogin(name, pin, errEl, btn, safetyTimer);
+        var localOk = tryLocalLogin(name, pin, errEl, btn, safetyTimer);
+        if (!localOk) {
+          clearTimeout(safetyTimer);
+          loginInProgress = false;
+          errEl.innerHTML = '此姓名未註冊或 PIN 錯誤。<br>請<a style="color:var(--blue500);cursor:pointer;text-decoration:underline" onclick="showRegisterMode()">註冊新帳戶</a>';
+          errEl.style.display = 'block';
+          btn.textContent = '登入'; btn.disabled = false;
+        }
       }
     })
     .catch(function(e) {
       clearTimeout(tid);
-      console.error('[doLogin]', e);
-      // Network error — try local login
-      tryLocalLogin(name, pin, errEl, btn, safetyTimer);
+      console.error('[doLogin] supabase fetch failed:', e);
+      // Network error — show clear message, don't confuse with "not registered"
+      var netMsg = String(e);
+      if (netMsg.indexOf('abort') >= 0 || netMsg.indexOf('timeout') >= 0) {
+        netMsg = '雲端連線超時';
+      } else if (netMsg.indexOf('Failed to fetch') >= 0 || netMsg.indexOf('NetworkError') >= 0) {
+        netMsg = '無法連接雲端伺服器';
+      } else {
+        netMsg = '雲端錯誤：' + netMsg;
+      }
+      // 先嘗試離線快取登入（用之前快取嘅 agent 列表）
+      var cachedAgents = getCachedAgentList();
+      if (cachedAgents && cachedAgents.length > 0) {
+        var searchName = name.toLowerCase().trim();
+        var matched = null;
+        for (var i = 0; i < cachedAgents.length; i++) {
+          var rname = (cachedAgents[i].name || '').toLowerCase().trim();
+          if (rname === searchName) { matched = cachedAgents[i]; break; }
+        }
+        if (!matched) {
+          for (var i = 0; i < cachedAgents.length; i++) {
+            var rname2 = (cachedAgents[i].name || '').replace(/\s+/g,'').toLowerCase();
+            var sname2 = searchName.replace(/\s+/g,'').toLowerCase();
+            if (rname2 === sname2) { matched = cachedAgents[i]; break; }
+          }
+        }
+        if (matched) {
+          if (matched.pinHash && matched.pinHash !== pinH) {
+            clearTimeout(safetyTimer);
+            loginInProgress = false;
+            errEl.innerHTML = "<span style=color:red>PIN 碼錯誤</span>，請重新輸入";
+            errEl.style.display = 'block';
+            pinInput.value = '';
+            btn.textContent = '登入'; btn.disabled = false;
+            return;
+          }
+          // 離線登入成功
+          clearTimeout(safetyTimer);
+          loginInProgress = false;
+          agentName = name; agentPIN = pin;
+          assignedManager = matched.manager || '';
+          assignedTeam = matched.team || '';
+          agentRole = matched.role || 'Agent';
+          agentHierarchyPath = matched.hierarchyPath || name;
+          localStorage.setItem(AGENT_KEY, name);
+          localStorage.setItem(AGENT_PIN_KEY, pin);
+          localStorage.setItem('insurance_agent_name_locked', 'true');
+          localStorage.setItem('insurance_mgr_'+encodeURIComponent(name), assignedManager);
+          localStorage.setItem('insurance_role_'+encodeURIComponent(name), agentRole);
+          localStorage.setItem('insurance_hpath_'+encodeURIComponent(name), agentHierarchyPath);
+          if (assignedTeam) localStorage.setItem('insurance_team_'+encodeURIComponent(name), assignedTeam);
+          loadDB();
+          if (matched.data) {
+            ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k) {
+              if (matched.data[k] && Array.isArray(matched.data[k])) {
+                var localMap = {};
+                DB[k].forEach(function(item) { localMap[item.id] = item; });
+                matched.data[k].forEach(function(item) { localMap[item.id] = item; });
+                DB[k] = Object.values(localMap);
+              }
+            });
+            saveDB();
+          }
+          document.getElementById('nameModalBg').classList.remove('show');
+          document.getElementById('agentNameDisplay').textContent = name;
+          document.getElementById('sidebarAgentInfo').textContent = name+' | '+agentRole+(assignedManager?' | 經理：'+assignedManager:'');
+          renderDashboard(); renderCurrentTab(); afterLoginSync();
+          toast('⚠️ ' + netMsg + ' — 已用離線快取登入');
+          btn.textContent = '登入'; btn.disabled = false;
+          return;
+        }
+      }
+      // 快取都搵唔到 — 試 local login
+      var localOk = tryLocalLogin(name, pin, errEl, btn, safetyTimer);
+      if (!localOk) {
+        // Local also failed — show combined error
+        clearTimeout(safetyTimer);
+        loginInProgress = false;
+        errEl.innerHTML = '<span style=color:red>⚠️ ' + netMsg + '</span><br><br>此設備無本地紀錄，需要網絡才能首次登入。<br>請檢查：<br>① 網絡連線<br>② 關閉 VPN<br>③ 改用手機數據<br>④ 確認 Supabase URL 正確（☁️ 雲端 → 🔬 診斷）<br><br>或者請<a style="color:var(--blue500);cursor:pointer;text-decoration:underline" onclick="showRegisterMode()">註冊新帳戶</a>';
+        errEl.style.display = 'block';
+        btn.textContent = '登入'; btn.disabled = false;
+      }
     });
   } else {
     // No Supabase config — try local login
@@ -985,13 +1451,9 @@ function tryLocalLogin(name, pin, errEl, btn, safetyTimer) {
     renderDashboard(); renderCurrentTab();
     toast('登入成功！（離線模式）');
     btn.textContent = '登入'; btn.disabled = false;
-    return;
+    return true;  // Login succeeded
   }
-  if (safetyTimer) clearTimeout(safetyTimer);
-  loginInProgress = false;
-  errEl.innerHTML = '此姓名未註冊或 PIN 錯誤。<br>請<a style="color:var(--blue500);cursor:pointer;text-decoration:underline" onclick="showRegisterMode()">註冊新帳戶</a>';
-  errEl.style.display = 'block';
-  btn.textContent = '登入'; btn.disabled = false;
+  return false;  // Login failed — caller should handle error display
 }
 
 
@@ -1264,15 +1726,47 @@ function checkAgentExistsGS(name, callback) {
 function registerToCloudWithPin(name, manager, team, pinH, role, hPath) {
   if (API_URL) {
     var qs = 'action=register_agent&agentId='+encodeURIComponent(name)+'&agentName='+encodeURIComponent(name)+'&managerName='+encodeURIComponent(manager||'')+'&team='+encodeURIComponent(team||'')+'&pinHash='+encodeURIComponent(pinH)+'&role='+encodeURIComponent(role||'Agent')+'&hierarchyPath='+encodeURIComponent(hPath||name);
-    fetch(API_URL + '?' + qs).then(function(r){return r.json();}).then(function(r){console.log('[reg]',r);}).catch(function(e){console.error('[reg]',e);});
+    fetch(API_URL + '?' + qs)
+      .then(function(r){return r.json();})
+      .then(function(r){ console.log('[reg]', r); })
+      .catch(function(e){ console.error('[reg]', e); });
   }
   if (SUPA_URL && SUPA_KEY) {
     var dwp = Object.assign({}, DB, {_pinHash: pinH, role: role||'Agent', hierarchyPath: hPath||name, supervisor: manager||''});
+    var controller = new AbortController();
+    var timeoutId = setTimeout(function(){ controller.abort(); }, 20000);
     fetch(SUPA_URL + '/rest/v1/agents?on_conflict=name', {
       method:'POST',
-      headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
-      body:JSON.stringify({name:name,data:dwp,manager:manager,team:team})
-    }).then(function(r){console.log('[supa-reg]',r.ok);}).catch(function(e){console.error('[supa-reg]',e);});
+      headers:{
+        'apikey':SUPA_KEY,
+        'Authorization':'Bearer '+SUPA_KEY,
+        'Content-Type':'application/json',
+        'Prefer':'resolution=merge-duplicates,return=minimal'
+      },
+      body:JSON.stringify([{name:name,data:dwp,manager:manager,team:team}]),
+      signal:controller.signal
+    })
+    .then(function(res){
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        console.log('[supa-reg] ✅ 註冊成功保存到 Supabase', name);
+        toast('✅ 帳戶已同步到雲端', 'success');
+      } else {
+        res.text().then(function(t){
+          console.error('[supa-reg] ❌ HTTP', res.status, t.substring(0,300));
+          toast('⚠️ 雲端同步失敗（' + res.status + '），請檢查網絡後手動同步', 'error');
+        });
+      }
+    })
+    .catch(function(e){
+      clearTimeout(timeoutId);
+      console.error('[supa-reg] ❌', e);
+      if (e.name === 'AbortError') {
+        toast('⚠️ 雲端同步超時，請稍後手動同步', 'error');
+      } else {
+        toast('⚠️ 雲端同步失敗：' + e.message + '，請稍後手動同步', 'error');
+      }
+    });
   }
 }
 
@@ -1555,15 +2049,28 @@ function forceRegister(name, pin, role, supervisor, team) {
   var pinH = hashPin(pin);
   if (!pinH) { toast('請先輸入 PIN', 'error'); return; }
 
-  // Fetch existing cloud data FIRST
+  // v3.6.1: fetch all agents, client-side match (handles Chinese + case-insensitive)
   if (SUPA_URL && SUPA_KEY) {
-    fetch(SUPA_URL + '/rest/v1/agents?name=eq.' + encodeURIComponent(name) + '&select=*', {
+    fetch(SUPA_URL + '/rest/v1/agents?select=*', {
       headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}
     })
     .then(function(r){ return r.json(); })
     .then(function(rows){
+      // v3.6.1: client-side match for forceRegister
       var existingData = {};
-      if (rows && rows.length > 0 && rows[0].data) existingData = rows[0].data;
+      if (rows && rows.length > 0) {
+        var searchName = name.toLowerCase().trim();
+        var matchedRow = null;
+        for (var i = 0; i < rows.length; i++) {
+          if ((rows[i].name || '').toLowerCase().trim() === searchName) { matchedRow = rows[i]; break; }
+        }
+        if (!matchedRow) {
+          for (var i = 0; i < rows.length; i++) {
+            if ((rows[i].name || '').replace(/\s+/g,'').toLowerCase() === searchName.replace(/\s+/g,'').toLowerCase()) { matchedRow = rows[i]; break; }
+          }
+        }
+        if (matchedRow && matchedRow.data) existingData = matchedRow.data;
+      }
 
       // Clear local storage
       var keysToRemove = [];
@@ -1876,11 +2383,37 @@ function afterLoginSync() {
   if (CLOUD_ENABLED && agentName) {
     document.getElementById('cloudStatus').style.display = 'flex';
     document.getElementById('lastSyncTime').textContent = getLastSyncTime();
-    loadFromCloud();
+    // 1. 先從雲端下載（合併最新數據）
+    loadFromCloud(function(){
+      // 2. 下載完畢後，立即上傳本地數據到 Supabase（確保新用戶/遺漏數據能補上）
+      if (SUPA_URL && SUPA_KEY) {
+        setTimeout(function(){ saveToSupabase(function(ok){
+          if (ok) { setLastSyncTime(); document.getElementById('lastSyncTime').textContent = getLastSyncTime(); }
+          else { console.warn('[afterLoginSync] 上傳 Supabase 失敗，下次登入會自動重試'); }
+        }); }, 1500);
+      }
+    });
   }
 }
 
 document.addEventListener('DOMContentLoaded',function(){
+  // v3.8.5: 手機介面改底部導航
+  var CURRENT_VER = 'v3.8.5';
+  var cachedVer = localStorage.getItem('app_version') || '';
+  if (cachedVer && cachedVer !== CURRENT_VER) {
+    console.log('[Cache] Version mismatch, clearing cache and reloading...');
+    localStorage.setItem('app_version', CURRENT_VER);
+    // 嘗試清除 HTTP cache（部分瀏覽器支援）
+    if (window.caches) {
+      caches.keys().then(function(names) {
+        names.forEach(function(name) { caches.delete(name); });
+      });
+    }
+    setTimeout(function(){ window.location.reload(true); }, 500);
+    return;
+  }
+  localStorage.setItem('app_version', CURRENT_VER);
+
   var mgrSel = document.getElementById('managerSelect');
   if (mgrSel) {
     mgrSel.addEventListener('change',function(){
@@ -1924,13 +2457,23 @@ var TYPES = {
   commission: ['首年佣金','續年佣金','花紅','轉介費'],
   incomeCat: ['佣金收入','轉介費','花紅','其他收入','餐飲','交通','娛樂','購物','家居','醫療','教育','通訊','保險','其他支出'],
   expenseCat: ['餐飲','交通','娛樂','購物','家居','醫療','教育','通訊','保險','其他'],
-  payment: ['現金','信用卡','銀行轉帳','電子錢包','其他']
+  payment: ['現金','信用卡','銀行轉帳','電子錢包','其他'],
+  pcType: ['H&P','ILAS','SAVING','PENSION','Others']
 };
 
 function switchTab(tab, btnEl) {
-  var btns = document.querySelectorAll('#sidebarNav .nav-btn');
+  var btns = document.querySelectorAll('#sidebarNav .nav-btn, #bottomNav .nav-btn');
   for (var i = 0; i < btns.length; i++) btns[i].classList.remove('active');
   if (btnEl) btnEl.classList.add('active');
+  // 如果冇傳入按鈕元素，根據 tab 自動標記
+  if (!btnEl) {
+    var allBtns = document.querySelectorAll('#bottomNav .nav-btn, #sidebarNav .nav-btn');
+    for (var k = 0; k < allBtns.length; k++) {
+      if (allBtns[k].getAttribute('onclick') && allBtns[k].getAttribute('onclick').indexOf("'"+tab+"'") >= 0) {
+        allBtns[k].classList.add('active');
+      }
+    }
+  }
   var panels = document.querySelectorAll('.tab-panel');
   for (var j = 0; j < panels.length; j++) panels[j].classList.remove('active');
   var target = document.getElementById('panel-'+tab);
@@ -2065,6 +2608,25 @@ function renderIncomes() {
 
 function renderExpenses() {
   var h = '';
+  // v3.7.2: 修正 — PC 不計入收入/結餘；commissions 已在 incomes 內，不加第二次
+  var totalIncome = 0, totalExpense = 0;
+  // 收入（incomes 中屬於收入分類）
+  (DB.incomes || []).forEach(function(item){
+    if (INCOME_CATS.indexOf(item.category) >= 0) totalIncome += Number(item.amount) || 0;
+  });
+  // 支出
+  (DB.expenses || []).forEach(function(item){ totalExpense += Number(item.amount) || 0; });
+  var balance = totalIncome - totalExpense;
+  
+  // 更新結餘卡片
+  var balanceCard = document.getElementById('expenseBalanceCard');
+  if (balanceCard) {
+    balanceCard.innerHTML = 
+      '<div style="flex:1;text-align:center"><div style="font-size:11px;color:var(--gray400)">總收入</div><div style="font-size:18px;font-weight:700;color:var(--green500)">'+money(totalIncome)+'</div></div>'+
+      '<div style="flex:1;text-align:center"><div style="font-size:11px;color:var(--gray400)">總支出</div><div style="font-size:18px;font-weight:700;color:var(--red500)">'+money(totalExpense)+'</div></div>'+
+      '<div style="flex:1;text-align:center"><div style="font-size:11px;color:var(--gray400)">戶口結餘</div><div style="font-size:20px;font-weight:700;color:'+(balance>=0?'var(--blue700)':'var(--red500)')+'">'+money(balance)+'</div></div>';
+  }
+  
   // 合併 DB.expenses + DB.incomes 中屬於支出的項目，按 id 去重
   var allItems = [];
   var seenIds = {};
@@ -2075,11 +2637,23 @@ function renderExpenses() {
   expFromIncome.forEach(function(item){
     if (!seenIds[item.id]) { seenIds[item.id] = true; allItems.push(item); }
   });
-  if (allItems.length === 0) h = '<tr><td colspan="6" class="empty">尚無支出記錄</td></tr>';
+  
+  // 計算每行嘅流水結餘
+  allItems.sort(function(a,b){ return (a.date||'').localeCompare(b.date||''); });
+  var runningBalance = totalIncome;
+  var balanceMap = {};
+  allItems.forEach(function(item){
+    runningBalance -= (Number(item.amount)||0);
+    balanceMap[item.id] = runningBalance;
+  });
+  
+  allItems.sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); }); // 顯示時最新喺上面
+  
+  if (allItems.length === 0) h = '<tr><td colspan="7" class="empty">尚無支出記錄</td></tr>';
   else {
-    allItems.sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
     allItems.forEach(function(item){
-      h += '<tr><td>'+esc(dFmt(item.date))+'</td><td><span class="badge badge-gray">'+esc(item.category)+'</span></td><td class="amt-neg">'+money(item.amount)+'</td><td>'+esc(item.payment||'—')+'</td><td>'+esc(item.notes||'—')+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'expense\','+item.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'expenses\','+item.id+')">刪除</button></td></tr>';
+      var bal = balanceMap[item.id] || 0;
+      h += '<tr><td>'+esc(dFmt(item.date))+'</td><td><span class="badge badge-gray">'+esc(item.category)+'</span></td><td class="amt-neg">'+money(item.amount)+'</td><td>'+esc(item.payment||'—')+'</td><td style="font-weight:600;color:'+(bal>=0?'var(--blue700)':'var(--red500)')+'">'+money(bal)+'</td><td>'+esc(item.notes||'—')+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'expense\','+item.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'expenses\','+item.id+')">刪除</button></td></tr>';
     });
   }
   document.getElementById('expenseTable').innerHTML = h;
@@ -2090,9 +2664,10 @@ function renderExpenses() {
 // ===================================================================
 function renderPCs() {
   var h = '';
-  if (DB.pcs.length === 0) h = '<tr><td colspan="6" class="empty">尚無 PC 記錄</td></tr>';
+  if (DB.pcs.length === 0) h = '<tr><td colspan="7" class="empty">尚無 PC 記錄</td></tr>';
   else DB.pcs.forEach(function(pc){
-    h += '<tr><td>'+esc(dFmt(pc.date))+'</td><td>'+esc(pc.clientName||'—')+'</td><td>'+esc(pc.policyNo||'—')+'</td><td class="amt-pos">'+pcMoney(pc.amount)+'</td><td>'+esc(pc.notes||'—')+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'pc\','+pc.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'pcs\','+pc.id+')">刪除</button></td></tr>';
+    var tc = pc.pcType==='H&P'?'badge-blue':pc.pcType==='ILAS'?'badge-purple':pc.pcType==='SAVING'?'badge-green':pc.pcType==='PENSION'?'badge-yellow':'badge-gray';
+    h += '<tr><td>'+esc(dFmt(pc.date))+'</td><td><span class="badge '+tc+'">'+esc(pc.pcType||'—')+'</span></td><td>'+esc(pc.clientName||'—')+'</td><td>'+esc(pc.policyNo||'—')+'</td><td class="amt-pos">'+pcMoney(pc.amount)+'</td><td>'+esc(pc.notes||'—')+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'pc\','+pc.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'pcs\','+pc.id+')">刪除</button></td></tr>';
   });
   document.getElementById('pcTable').innerHTML = h;
 }
@@ -2157,12 +2732,35 @@ function renderGoals() {
   else DB.goals.forEach(function(g){
     var mn=['','1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
     var pl = g.period==='monthly'?g.year+'年'+mn[g.month]:g.period==='quarterly'?g.year+'年Q'+g.quarter:g.year+'年度目標';
+    var isPC = g.type === 'PC';
+    var dataSource = isPC ? DB.pcs : DB.commissions;
     var actual = 0;
-    if (g.period==='monthly') { actual = DB.commissions.filter(function(c){var d=new Date(c.date);return d.getMonth()===(g.month-1)&&d.getFullYear()===g.year;}).reduce(function(s,c){return s+(Number(c.amount)||0);},0); }
-    else { var s2,e2; if (g.period==='quarterly') { s2=new Date(g.year,(g.quarter-1)*3,1); e2=new Date(g.year,(g.quarter-1)*3+3,0); } else { s2=new Date(g.year,0,1); e2=new Date(g.year,11,31); } actual=DB.commissions.filter(function(c){var d=new Date(c.date);return d>=s2&&d<=e2;}).reduce(function(s,c){return s+(Number(c.amount)||0);},0); }
-    var pct = Math.round(actual/g.target*100); if (pct>100) pct=100;
+    if (g.period==='monthly') {
+      actual = dataSource.filter(function(c){
+        var d=new Date(c.date);
+        if (d.getMonth()===(g.month-1)&&d.getFullYear()===g.year) {
+          if (isPC && g.pcType && g.pcType !== '全部') return c.pcType === g.pcType;
+          return true;
+        }
+        return false;
+      }).reduce(function(s,c){return s+(Number(c.amount)||0);},0);
+    } else {
+      var s2,e2;
+      if (g.period==='quarterly') { s2=new Date(g.year,(g.quarter-1)*3,1); e2=new Date(g.year,(g.quarter-1)*3+3,0); }
+      else { s2=new Date(g.year,0,1); e2=new Date(g.year,11,31); }
+      actual = dataSource.filter(function(c){
+        var d=new Date(c.date);
+        if (d>=s2 && d<=e2) {
+          if (isPC && g.pcType && g.pcType !== '全部') return c.pcType === g.pcType;
+          return true;
+        }
+        return false;
+      }).reduce(function(s,c){return s+(Number(c.amount)||0);},0);
+    }
+    var pct = g.target>0 ? Math.round(actual/g.target*100) : 0; if (pct>100) pct=100;
     var bc = pct>=100?'var(--green500)':pct>=70?'var(--blue500)':'var(--yellow500)';
-    h += '<div class="goal-card"><div class="goal-header"><div class="goal-title">'+(g.type||'佣金')+' — '+esc(pl)+'</div><span class="badge '+(pct>=100?'badge-green':'badge-blue')+'">'+pct+'%</span></div><div class="goal-meta">目標: '+pcMoney(g.target)+' | 已達成: '+pcMoney(actual)+' | 差距: '+pcMoney(g.target-actual)+'</div><div class="progress-bar"><div class="progress-fill" style="width:'+pct+'%;background:'+bc+'"></div></div><div style="margin-top:8px"><button class="btn btn-sm btn-outline" onclick="openForm(\'goal\','+g.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'goals\','+g.id+')">刪除</button></div></div>';
+    var typeLabel = isPC ? ('PC' + (g.pcType && g.pcType !== '全部' ? ' — ' + g.pcType : '')) : '佣金';
+    h += '<div class="goal-card"><div class="goal-header"><div class="goal-title">'+esc(typeLabel)+' — '+esc(pl)+'</div><span class="badge '+(pct>=100?'badge-green':'badge-blue')+'">'+pct+'%</span></div><div class="goal-meta">目標: '+pcMoney(g.target)+' | 已達成: '+pcMoney(actual)+' | 差距: '+pcMoney(g.target-actual)+'</div><div class="progress-bar"><div class="progress-fill" style="width:'+pct+'%;background:'+bc+'"></div></div><div style="margin-top:8px"><button class="btn btn-sm btn-outline" onclick="openForm(\'goal\','+g.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'goals\','+g.id+')">刪除</button></div></div>';
   });
   document.getElementById('goalList').innerHTML = h;
 }
@@ -2188,7 +2786,12 @@ function renderSchedules() {
   for (var d=0; d<7; d++) {
     var dt = new Date(monday); dt.setDate(monday.getDate()+d);
     var ds = fmtD(dt);
-    var daySchedules = DB.schedules.filter(function(s){ return s.date===ds; });
+    var daySchedules = DB.schedules.filter(function(s){
+      var raw = String(s.date||'').trim();
+      var sd = raw.slice(0,10);
+      // 三重匹配：ISO前10位 / dFmt格式化 / 包含檢查
+      return sd === ds || dFmt(s.date) === ds || raw.indexOf(ds) >= 0;
+    });
     daySchedules.sort(function(a,b){ return (a.startTime||'').localeCompare(b.startTime||''); });
     var isToday = fmtD(today)===ds;
     html += '<div style="background:var(--white);border-radius:8px;padding:10px;min-height:120px;box-shadow:var(--shadow);border-top:3px solid '+(isToday?'var(--blue500)':'var(--gray200)')+'">';
@@ -2291,7 +2894,7 @@ function showQuickView(clientName) {
     });
   }
   // Upcoming schedules for this client
-  var scheds = DB.schedules.filter(function(s){ return s.clientName === clientName && s.date >= new Date().toISOString().slice(0,10); });
+  var scheds = DB.schedules.filter(function(s){ return s.clientName === clientName && (s.date||'').slice(0,10) >= new Date().toISOString().slice(0,10); });
   if (scheds.length > 0) {
     html += '<div style="font-size:13px;font-weight:600;color:var(--gray600);margin:10px 0 6px">📅 近期行程 ('+scheds.length+')</div>';
     html += '<table style="font-size:12px"><thead><tr><th>日期</th><th>時間</th><th>目的</th><th>狀態</th></tr></thead><tbody>';
@@ -2411,8 +3014,9 @@ function openForm(type, id) {
     var yearOpts = []; for (var yi=yr-2; yi<=yr+3; yi++) yearOpts.push({val:yi, label:yi+'年'});
     var qOpts = [{val:1,label:'Q1 (1-3月)'},{val:2,label:'Q2 (4-6月)'},{val:3,label:'Q3 (7-9月)'},{val:4,label:'Q4 (10-12月)'}];
     var mOpts = []; for (var mi=1; mi<=12; mi++) mOpts.push({val:mi, label:mi+'月'});
-    h += fs('類型','type',['佣金'],g.type||'佣金')
-      +fs('年度目標','year',yearOpts,Number(g.year||yr))
+    h += fs('目標類型','type',['佣金','PC'],g.type||'佣金')
+      +fs('PC類型','pcType',['全部','H&P','ILAS','SAVING','PENSION','Others'],g.pcType||'全部')
+      +fs('年度','year',yearOpts,Number(g.year||yr))
       +fs('季度目標','quarter',qOpts,Number(g.quarter||Math.ceil((new Date().getMonth()+1)/3)))
       +fs('每月目標','month',mOpts,Number(g.month||new Date().getMonth()+1))
       +fg('目標PC','target','number',g.target||'')
@@ -2453,6 +3057,7 @@ function openForm(type, id) {
   else if (type === 'pc') {
     var pc = id?findById('pcs',id):{};
     h += fg('日期','date','date',pc.date||new Date().toISOString().slice(0,10))
+      +fs('PC類型','pcType',TYPES.pcType,pc.pcType||'H&P')
       +fs('客戶','clientName',DB.clients.map(function(c){return c.name;}),pc.clientName||'')
       +fg('保單編號','policyNo','text',pc.policyNo||'')
       +fg('金額(PC)','amount','number',pc.amount||0)
@@ -2474,6 +3079,19 @@ function openForm(type, id) {
       });
     }
   }
+  // 目標類型切換：佣金時隱藏 PC 類型，PC 時顯示
+  if (editType === 'goal') {
+    var goalTypeSel = document.getElementById('f_type');
+    var pcTypeGroup = document.getElementById('f_pcType');
+    if (goalTypeSel && pcTypeGroup) {
+      pcTypeGroup = pcTypeGroup.closest('.form-group');
+      function togglePcType() {
+        pcTypeGroup.style.display = (goalTypeSel.value === 'PC') ? '' : 'none';
+      }
+      goalTypeSel.addEventListener('change', togglePcType);
+      togglePcType();
+    }
+  }
 }
 
 function fg(label, name, type, value) { return '<div class="form-group"><label>'+label+'</label><input type="'+type+'" id="f_'+name+'" value="'+(value||'')+'"></div>'; }
@@ -2491,30 +3109,48 @@ function fs(label, name, options, selected) {
 function normalizeTime(raw) {
   if (!raw) return '';
   var s = String(raw).trim();
+  // 已經係 HH:MM
   if (/^\d{1,2}:\d{2}$/.test(s)) return s;
-  if (s.indexOf('T') >= 0 || s.indexOf('-') >= 0) {
-    var d = new Date(s);
-    if (!isNaN(d.getTime())) {
-      var hh = d.getHours(), mm = d.getMinutes();
-      return String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0');
-    }
-  }
+  // 從 ISO 日期抽 HH:MM：1899-12-30T04:23:18.000Z → 04:23
+  var m = s.match(/T(\d{2}:\d{2})/);
+  if (m) return m[1];
+  // 從時間字串抽 HH:MM：04:23:18 → 04:23
+  var m2 = s.match(/(\d{2}:\d{2}):\d{2}/);
+  if (m2) return m2[1];
+  // Excel 序列日期（小數，0~1 之間）：0.182986 → 04:24
+  // 注意：必須 n < 1，因為 Excel 時間值係小數，整數係日期部分
   var n = parseFloat(s);
-  if (!isNaN(n) && n < 1 && n > 0) {
-    var totalMin = Math.round(n * 24 * 60);
-    var h2 = Math.floor(totalMin / 60), m2 = totalMin % 60;
-    return String(h2).padStart(2,'0')+':'+String(m2).padStart(2,'0');
+  if (!isNaN(n) && n > 0 && n < 1) {
+    var frac = n % 1;
+    var totalMin = Math.round(frac * 24 * 60);
+    var h2 = Math.floor(totalMin / 60) % 24, m3 = totalMin % 60;
+    return String(h2).padStart(2,'0')+':'+String(m3).padStart(2,'0');
   }
   return s;
 }
+// v3.6.0: 批量修復 DB 入面所有行程嘅壞時間格式
+function fixAllScheduleTimes(forceSave) {
+  if (!DB || !DB.schedules) return 0;
+  var fixed = 0;
+  DB.schedules.forEach(function(s){
+    var st = normalizeTime(s.startTime);
+    var et = normalizeTime(s.endTime);
+    // 只修復真正係壞格式（唔係 HH:MM）嘅記錄
+    if (s.startTime && s.startTime !== st && /^\d{1,2}:\d{2}$/.test(st)) { s.startTime = st; fixed++; }
+    if (s.endTime && s.endTime !== et && /^\d{1,2}:\d{2}$/.test(et)) { s.endTime = et; fixed++; }
+  });
+  if (fixed > 0 && forceSave !== false) saveDB();
+  return fixed;
+}
 function fTime(label, name, slots, selected) {
   var v = normalizeTime(selected) || '10:00';
-  var listId = 'dl_time_'+name+'_'+Date.now();
+  if (!/^\d{2}:\d{2}$/.test(v)) v = '10:00';
   var h = '<div class="form-group"><label>'+label+'</label>';
-  h += '<input type="text" id="f_'+name+'" value="'+esc(v)+'" list="'+listId+'" placeholder="HH:MM（可輸入或選擇）" style="font-size:14px;padding:8px 10px;border:1px solid var(--gray300);border-radius:8px;width:100%">';
-  h += '<datalist id="'+listId+'">';
-  slots.forEach(function(slot) { h += '<option value="'+slot+'">'; });
-  h += '</datalist>';
+  h += '<div style="display:flex;align-items:center;gap:6px">';
+  h += '<input type="time" id="f_'+name+'" value="'+esc(v)+'" step="900" style="font-size:14px;padding:8px 10px;border:1px solid var(--gray300);border-radius:8px;flex:1;min-width:0">';
+  h += '<button type="button" onclick="document.getElementById(\'f_'+name+'\').showPicker()" style="padding:8px 10px;border:1px solid var(--gray300);border-radius:8px;background:var(--gray50);cursor:pointer;font-size:16px;line-height:1" title="選擇時間">🕐</button>';
+  h += '</div>';
+  h += '<small style="color:var(--gray500);font-size:11px">撳 🕐 選時間，或直接輸入 HH:MM</small>';
   h += '</div>';
   return h;
 }
@@ -2561,7 +3197,7 @@ function saveForm() {
     saveTo('incomes',incObj);
   }
   else if (editType === 'goal') {
-    var o = {id:editId||uid(),type:val('f_type'),period:val('f_period'),year:Number(val('f_year')),month:Number(val('f_month')),quarter:Number(val('f_quarter')),target:Number(val('f_target')),desc:val('f_desc')};
+    var o = {id:editId||uid(),type:val('f_type'),pcType:val('f_pcType'),period:val('f_period'),year:Number(val('f_year')),month:Number(val('f_month')),quarter:Number(val('f_quarter')),target:Number(val('f_target')),desc:val('f_desc')};
     saveTo('goals',o);
   }
   else if (editType === 'schedule') {
@@ -2589,7 +3225,7 @@ function saveForm() {
     saveTo('commissions',commObj);
   }
   else if (editType === 'pc') {
-    var o = {id:editId||uid(),date:val('f_date'),clientName:val('f_clientName'),policyNo:val('f_policyNo'),amount:val('f_amount'),notes:val('f_notes')};
+    var o = {id:editId||uid(),date:val('f_date'),pcType:val('f_pcType'),clientName:val('f_clientName'),policyNo:val('f_policyNo'),amount:val('f_amount'),notes:val('f_notes')};
     saveTo('pcs',o);
   }
   closeModal(); saveDB(); toast(editId?'已更新':'已新增');
