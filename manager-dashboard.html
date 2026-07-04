@@ -7,7 +7,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>經理團隊總覽</title>
-<link rel="manifest" href="manifest.json?v=3.7.4">
+<link rel="manifest" href="manifest.json?v=3.8.0">
 <meta name="theme-color" content="#2563eb">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -564,9 +564,9 @@ var detailTab = 'clients';
 
 // ===== 雲端同步設定（Supabase 為主，Google Sheets 選填）=====
 var MGR_API_URL = '';
-var MGR_CLOUD_ENABLED = Boolean(MGR_SUPA_URL && MGR_SUPA_KEY);
 var MGR_SUPA_URL = 'https://wwnyfvwaqdhddcxvgelu.supabase.co';
 var MGR_SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3bnlmd3FhcWRoZGRjeHZnZWx1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MTU4NTIsImV4cCI6MjA5ODM5MTg1Mn0.pzYPKK9rt-LuGV-sVtmHCzTjym1OXaHiDVbsZ9f0GQY';
+var MGR_CLOUD_ENABLED = Boolean(MGR_SUPA_URL && MGR_SUPA_KEY);
 
 function mgrSetApiUrl(url) {
   MGR_API_URL = url;
@@ -594,8 +594,14 @@ function mgrLoadFromSupabase() {
     headers:{'apikey':MGR_SUPA_KEY,'Authorization':'Bearer '+MGR_SUPA_KEY},
     signal:controller.signal
   })
-  .then(function(res){ clearTimeout(timeoutId); return res.json(); })
+  .then(function(res){ clearTimeout(timeoutId); if (!res.ok) { return res.text().then(function(t){ throw new Error('HTTP '+res.status+': '+t); }); } return res.json(); })
   .then(function(rows){
+    if (rows && !Array.isArray(rows)) {
+      console.error('[mgrLoadFromSupabase] unexpected response:', rows);
+      var msg = rows.message || rows.error || rows.error_description || JSON.stringify(rows).slice(0,120);
+      toast('⚠️ Supabase 回應異常：' + msg, 'error');
+      return false;
+    }
     if (rows && rows.length > 0) {
       TEAM = {};
       var visibleCount = 0;
@@ -638,16 +644,98 @@ function mgrLoadFromSupabase() {
       }
       return true;
     }
-      if (rows && rows.length === 0) {
-        toast('⚠️ Supabase 無數據。請確認團隊成員已在代理人版完成註冊並同步。', 'warning');
-      }
+    if (rows && rows.length === 0) {
+      toast('⚠️ Supabase 無數據。請確認團隊成員已在代理人版完成註冊並同步。', 'warning');
+    }
     return false;
   })
   .catch(function(e){
     clearTimeout(timeoutId);
     console.error('[mgrLoadFromSupabase]',e);
+    toast('⚠️ Supabase 載入失敗：' + (e.message || '請檢查網絡或 Supabase 設定'), 'error');
     return false;
   });
+}
+
+// 經理版 Supabase 診斷
+function mgrRunSupabaseDiagnostic() {
+  var el = document.getElementById('mgrDiagResult');
+  if (!el) return;
+  el.style.display = 'block';
+  el.innerHTML = '🔬 開始診斷...\n';
+  var urlInput = document.getElementById('mgrSupaUrlInput');
+  var keyInput = document.getElementById('mgrSupaKeyInput');
+  var testUrl = (urlInput && urlInput.value) ? urlInput.value.trim() : MGR_SUPA_URL;
+  var testKey = (keyInput && keyInput.value) ? keyInput.value.trim() : MGR_SUPA_KEY;
+  testUrl = testUrl.replace(/\/+$/,'');
+  el.innerHTML += '📍 URL: ' + testUrl + '\n';
+  el.innerHTML += '🔑 Key: ' + (testKey ? testKey.substring(0,20) + '...' : '(空)') + '\n';
+  el.innerHTML += '━━━━━━━━━━━━━━━━━━\n';
+  if (!testUrl || !testKey) {
+    el.innerHTML += '❌ URL 或 Key 為空\n';
+    return;
+  }
+  if (testUrl.indexOf('.supabase.co') < 0) {
+    el.innerHTML += '⚠️ URL 格式可疑：應該係 https://xxxx.supabase.co\n';
+  }
+  var ref = testUrl.replace('https://','').replace('http://','').split('.')[0];
+  el.innerHTML += '📋 Project Ref: ' + ref + ' (' + ref.length + ' 字符)\n';
+  if (ref.length !== 20) {
+    el.innerHTML += '⚠️ Project Ref 應該係 20 個字符，依家得 ' + ref.length + ' 個\n';
+  }
+  el.innerHTML += '━━━━━━━━━━━━━━━━━━\n';
+  el.innerHTML += '⏳ 測試連線中（最多 15 秒）...\n';
+  var ctrl = new AbortController();
+  var tid = setTimeout(function(){ ctrl.abort(); }, 15000);
+  var startTime = Date.now();
+  fetch(testUrl + '/rest/v1/agents?select=name&limit=1', {
+    method: 'GET',
+    headers: { 'apikey': testKey, 'Authorization': 'Bearer ' + testKey },
+    signal: ctrl.signal
+  })
+  .then(function(res) {
+    clearTimeout(tid);
+    var elapsed = Date.now() - startTime;
+    el.innerHTML += '📡 HTTP 狀態: ' + res.status + ' (' + elapsed + 'ms)\n';
+    if (res.ok) {
+      return res.json().then(function(data) {
+        el.innerHTML += '✅ 連線成功！\n';
+        el.innerHTML += '📊 Agents 表可讀取，找到 ' + (data ? data.length : 0) + ' 筆記錄\n';
+      });
+    } else if (res.status === 401) {
+      el.innerHTML += '❌ 401 未授權 — API Key 不正確\n';
+    } else if (res.status === 403) {
+      el.innerHTML += '❌ 403 禁止存取 — RLS 政策阻擋\n';
+      el.innerHTML += '👉 去 Supabase → SQL Editor 執行：\n';
+      el.innerHTML += '   ALTER TABLE agents DISABLE ROW LEVEL SECURITY;\n';
+    } else if (res.status === 404) {
+      el.innerHTML += '❌ 404 找不到 — URL 可能錯誤\n';
+    } else {
+      el.innerHTML += '⚠️ HTTP ' + res.status + '\n';
+      return res.text().then(function(t) { el.innerHTML += '回應: ' + t.substring(0,200) + '\n'; });
+    }
+  })
+  .catch(function(e) {
+    clearTimeout(tid);
+    var elapsed = Date.now() - startTime;
+    var msg = String(e);
+    el.innerHTML += '❌ 連線失敗 (' + elapsed + 'ms)\n';
+    if (msg.indexOf('abort') >= 0 || msg.indexOf('timeout') >= 0 || elapsed >= 14000) {
+      el.innerHTML += '原因：連線超時（15秒）\n';
+      el.innerHTML += '可能原因：Supabase 暫停 / 網絡問題 / URL 錯誤\n';
+    } else if (msg.indexOf('Failed to fetch') >= 0 || msg.indexOf('NetworkError') >= 0) {
+      el.innerHTML += '原因：網絡層錯誤 — DNS 解析失敗或連線被拒\n';
+      el.innerHTML += '🚨 URL 可能不正確！\n';
+    } else {
+      el.innerHTML += '錯誤詳情: ' + msg + '\n';
+    }
+  });
+}
+
+function mgrResetSupabaseDefaults() {
+  document.getElementById('mgrSupaUrlInput').value = 'https://wwnyfvwaqdhddcxvgelu.supabase.co';
+  document.getElementById('mgrSupaKeyInput').value = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3bnlmd3FhcWRoZGRjeHZnZWx1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MTU4NTIsImV4cCI6MjA5ODM5MTg1Mn0.pzYPKK9rt-LuGV-sVtmHCzTjym1OXaHiDVbsZ9f0GQY';
+  toast('已重設為預設 Supabase 設定');
 }
 
 function mgrLoadFromCloud() {
@@ -1617,8 +1705,11 @@ if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(
     <div style="font-size:12px;color:var(--gray400);margin-bottom:14px">
       💡 兩個都留空即可關閉雲端同步
     </div>
+    <pre id="mgrDiagResult" style="display:none;background:#1e293b;color:#e2e8f0;padding:12px;border-radius:8px;font-size:12px;max-height:240px;overflow:auto;white-space:pre-wrap;margin-bottom:14px"></pre>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="mgrHideCloudSetup()">取消</button>
+      <button class="btn btn-outline" onclick="mgrResetSupabaseDefaults()">重設預設</button>
+      <button class="btn btn-outline" onclick="mgrRunSupabaseDiagnostic()">🔬 診斷</button>
       <button class="btn btn-primary" onclick="mgrSaveCloudSetup()">儲存並載入</button>
     </div>
   </div>
@@ -1673,9 +1764,9 @@ if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(
   </div>
 </div>
 <script>
-// v3.7.4: 版本強制刷新 — 修正 script 結尾多餘 `})();` 導致全頁按鈕失效
+// v3.8.0: 修正 MGR_CLOUD_ENABLED 變量順序 + 加強 Supabase 錯誤提示 + 加入診斷工具
 (function(){
-  var CURRENT_VER = 'v3.7.4';
+  var CURRENT_VER = 'v3.8.0';
   var cachedVer = localStorage.getItem('mgr_app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, reloading...');
