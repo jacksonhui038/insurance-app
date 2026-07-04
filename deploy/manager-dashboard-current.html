@@ -3,8 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>經理團隊總覽</title>
-<link rel="manifest" href="manifest.json">
+<link rel="manifest" href="manifest.json?v=3.8.4">
 <meta name="theme-color" content="#2563eb">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -91,7 +94,15 @@ tr:hover td{background:var(--blue50)}
 .period-btns{display:flex;gap:8px;margin-bottom:16px}
 .period-btn{padding:6px 14px;border-radius:20px;font-size:12px;cursor:pointer;border:1px solid var(--gray300);background:var(--white);color:var(--gray500);font-weight:500;transition:all .15s}
 .period-btn.active{background:var(--blue500);color:#fff;border-color:var(--blue500)}
-@media(max-width:768px){.charts-row,.charts-row-3{grid-template-columns:1fr}.container{padding:12px}}
+@media(max-width:768px){
+  .header{flex-direction:column;align-items:flex-start;gap:12px;padding:16px}
+  .header h1{font-size:18px}
+  .header-actions{width:100%;overflow-x:auto;gap:8px;padding-bottom:4px;white-space:nowrap;display:flex;flex-wrap:nowrap}
+  .header-actions .btn{white-space:nowrap;padding:7px 12px;font-size:12px}
+  .charts-row,.charts-row-3{grid-template-columns:1fr}
+  .container{padding:12px}
+  .lock-card{padding:24px 20px;width:92%}
+}
 /* LOCK SCREEN */
 .lock-bg{display:flex;position:fixed;top:0;left:0;right:0;bottom:0;background:linear-gradient(135deg,#1e3a5f,#2563eb);z-index:9999;justify-content:center;align-items:center}
 .lock-bg.hide{display:none}
@@ -116,11 +127,17 @@ tr:hover td{background:var(--blue50)}
   <div class="lock-card" id="lockCard">
     <!-- CHOICE -->
     <div id="lockChoice">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <button onclick="try{window.location.href='https://jacksonhui038.github.io/insurance-app/agent-app.html'}catch(e){location.href='https://jacksonhui038.github.io/insurance-app/agent-app.html'}" style="padding:6px 14px;border:1px solid var(--gray300);border-radius:8px;background:var(--gray100);color:var(--gray600);cursor:pointer;font-size:13px;display:flex;align-items:center;gap:4px">◀ 返回</button>
+        <span style="font-size:11px;color:var(--gray400)">經理版</span>
+      </div>
       <div class="lock-icon">📊</div>
-      <h2>經理系統</h2>
+      <h2 style="margin-top:0">經理系統</h2>
       <div class="lock-sub">請選擇</div>
-      <button class="lock-btn lock-btn-primary" onclick="showMgrLogin()" style="margin-bottom:8px">🔐 登入</button>
-      <button class="lock-btn lock-btn-outline" onclick="showMgrSetup()">📝 首次設定</button>
+      <button class="lock-btn lock-btn-primary" onclick="if(typeof showMgrLogin!=='function'){alert('頁面載入未完成，請 Ctrl+Shift+R 強制刷新');return;}try{showMgrLogin()}catch(e){console.error(e);alert('登入畫面錯誤：'+e.message);}" style="margin-bottom:8px">🔐 登入</button>
+      <button class="lock-btn lock-btn-outline" onclick="if(typeof showMgrSetup!=='function'){alert('頁面載入未完成，請 Ctrl+Shift+R 強制刷新');return;}try{showMgrSetup()}catch(e){console.error(e);alert('設定畫面錯誤：'+e.message);}">📝 首次設定</button>
+      <hr style="border:none;border-top:1px solid var(--gray200);margin:14px 0">
+      <button class="lock-btn lock-btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/agent-app.html'" style="border:1px dashed var(--blue500);color:var(--blue700);background:var(--blue50)">🔄 切換到代理人版</button>
     </div>
     <!-- LOGIN (name + PIN + role, no confirm) -->
     <div id="lockLogin" style="display:none">
@@ -141,9 +158,9 @@ tr:hover td{background:var(--blue50)}
       </select>
       <label class="lock-label">PIN 碼</label>
       <input type="password" class="lock-input" id="mgrLoginPin" placeholder="••••" maxlength="6" inputmode="numeric" autocomplete="off" onkeydown="if(event.key==='Enter')doMgrLogin()">
-      <button class="lock-btn lock-btn-primary" onclick="doMgrLogin()" id="mgrLoginBtn">登入</button>
+      <button class="lock-btn lock-btn-primary" onclick="if(typeof doMgrLogin!=='function'){alert('頁面載入未完成，請 Ctrl+Shift+R 強制刷新');return;}try{doMgrLogin()}catch(e){console.error(e);alert('登入時發生錯誤：'+e.message);}" id="mgrLoginBtn">登入</button>
       <div class="lock-err" id="mgrLoginErr"></div>
-      <button class="lock-btn lock-btn-outline" onclick="showMgrChoice()">返回</button>
+      <button class="lock-btn lock-btn-outline" onclick="if(typeof showMgrChoice!=='function'){location.reload();return;}try{showMgrChoice()}catch(e){console.error(e);location.reload();}">返回</button>
       <p style="font-size:11px;color:var(--gray400);margin-top:10px;text-align:center">忘記 PIN？請聯絡系統管理員重置</p>
     </div>
     <!-- SETUP (first time) -->
@@ -157,9 +174,9 @@ tr:hover td{background:var(--blue50)}
       <input type="password" class="lock-input" id="mgrPinSetup" placeholder="••••" maxlength="6" inputmode="numeric" autocomplete="off" onkeydown="if(event.key==='Enter')document.getElementById('mgrPinConfirm').focus()">
       <label class="lock-label">確認 PIN 碼</label>
       <input type="password" class="lock-input" id="mgrPinConfirm" placeholder="••••" maxlength="6" inputmode="numeric" autocomplete="off" onkeydown="if(event.key==='Enter')doSetupPin()">
-      <button class="lock-btn lock-btn-primary" onclick="doSetupPin()">設定並進入</button>
+      <button class="lock-btn lock-btn-primary" onclick="if(typeof doSetupPin!=='function'){alert('頁面載入未完成，請 Ctrl+Shift+R 強制刷新');return;}try{doSetupPin()}catch(e){console.error(e);alert('設定錯誤：'+e.message);}">設定並進入</button>
       <div class="lock-err" id="setupErr"></div>
-      <button class="lock-btn lock-btn-outline" onclick="showMgrChoice()">返回</button>
+      <button class="lock-btn lock-btn-outline" onclick="if(typeof showMgrChoice!=='function'){location.reload();return;}try{showMgrChoice()}catch(e){console.error(e);location.reload();}">返回</button>
     </div>
     <!-- UNLOCK (returning user same device) -->
     <div id="lockUnlock" style="display:none">
@@ -168,9 +185,9 @@ tr:hover td{background:var(--blue50)}
       <div class="lock-sub" id="lockSubUnlock">請輸入 PIN 碼解鎖</div>
       <p style="font-size:14px;color:var(--gray600);margin-bottom:16px">歡迎回來，<b id="lockMgrName">—</b></p>
       <input type="password" class="lock-input" id="mgrPinUnlock" placeholder="輸入 PIN 碼" maxlength="6" inputmode="numeric" autocomplete="off" onkeydown="if(event.key==='Enter')doUnlock()" autofocus>
-      <button class="lock-btn lock-btn-primary" onclick="doUnlock()">解鎖</button>
+      <button class="lock-btn lock-btn-primary" onclick="if(typeof doUnlock!=='function'){alert('頁面載入未完成，請 Ctrl+Shift+R 強制刷新');return;}try{doUnlock()}catch(e){console.error(e);alert('解鎖錯誤：'+e.message);}">解鎖</button>
       <div class="lock-err" id="unlockErr"></div>
-      <button class="lock-btn lock-btn-outline" onclick="showMgrChoice()">切換帳戶</button>
+      <button class="lock-btn lock-btn-outline" onclick="if(typeof showMgrChoice!=='function'){location.reload();return;}try{showMgrChoice()}catch(e){console.error(e);location.reload();}">切換帳戶</button>
       <p style="font-size:11px;color:var(--gray400);margin-top:10px;text-align:center">忘記 PIN？請聯絡系統管理員重置</p>
     </div>
   </div>
@@ -183,7 +200,8 @@ tr:hover td{background:var(--blue50)}
       <div class="sub" id="mgrNameDisplay">保險經紀業務管理系統 · 經理視角</div>
     </div>
     <div class="header-actions">
-      <button class="btn btn-white" onclick="mgrLoadFromCloud()" id="mgrCloudBtn">☁️ 載入團隊數據</button>
+      <button class="btn btn-white" onclick="window.MGR_SHOW_ALL_AGENTS=false;mgrLoadFromCloud()" id="mgrCloudBtn">☁️ 載入團隊數據</button>
+      <button class="btn btn-white" onclick="window.MGR_SHOW_ALL_AGENTS=true;mgrLoadFromCloud();">👁️ 顯示全部</button>
       <button class="btn btn-white" onclick="document.getElementById('multiImport').click()">📥 匯入 JSON（備用）</button>
       <button class="btn btn-white" onclick="showMergeModal()">🔗 合併代理人</button>
       <button class="btn btn-white" onclick="showDeleteAgentModal()">🗑️ 刪除代理人</button>
@@ -192,6 +210,7 @@ tr:hover td{background:var(--blue50)}
       <button class="btn btn-white" onclick="clearAll()">清除全部</button>
       <button class="btn btn-white" onclick="showAccountModal()">👤 帳號</button>
       <button class="btn btn-white" onclick="mgrShowCloudSetup()">⚙️ 設定</button>
+      <button class="btn btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/agent-app.html'" style="border:1px dashed var(--blue500);color:var(--blue700);background:var(--blue50)">🔄 切換到代理人版</button>
     </div>
   </div>
 
@@ -200,7 +219,7 @@ tr:hover td{background:var(--blue50)}
     <div style="font-size:64px;margin-bottom:16px">☁️</div>
     <h2 style="margin-bottom:8px;color:var(--gray600)">歡迎使用團隊總覽</h2>
     <p style="color:var(--gray400);margin-bottom:24px;max-width:600px;margin-left:auto;margin-right:auto;line-height:1.6">
-      🎯 <b>推薦方法</b>：按右上角 <b>「☁️ 載入團隊數據」</b>，即時讀取全團隊最新數據（來自 Google Sheets 雲端）。<br><br>
+      🎯 <b>推薦方法</b>：按右上角 <b>「☁️ 載入團隊數據」</b>，即時讀取全團隊最新數據（來自 Supabase 雲端）。<br><br>
       📝 <b>備用方法</b>：如果雲端載入失敗，可以手動匯入代理人匯出的 JSON 報告檔。
     </p>
     <button class="btn btn-primary" onclick="mgrLoadFromCloud()" style="font-size:16px;padding:12px 28px;margin-bottom:12px">☁️ 從雲端載入全團隊數據</button>
@@ -360,6 +379,18 @@ tr:hover td{background:var(--blue50)}
 <div id="toastBox" style="position:fixed;bottom:24px;right:24px;z-index:2000"></div>
 
 <script>
+// v3.7.2: catch global errors to help diagnose button issues
+window.onerror = function(msg, url, line, col, err) {
+  console.error('[Global Error]', msg, 'at line', line, 'col', col, err);
+  var toastBox = document.getElementById('toastBox');
+  if (toastBox) {
+    var el = document.createElement('div');
+    el.style.cssText = 'background:#e74c3c;color:#fff;padding:10px 14px;border-radius:8px;margin-top:8px;font-size:13px;max-width:320px';
+    el.textContent = '腳本錯誤（行 ' + line + '）: ' + msg;
+    toastBox.appendChild(el);
+    setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, 5000);
+  }
+};
 // ============================================================
 // MANAGER PIN LOCK
 // ============================================================
@@ -540,11 +571,11 @@ var chartInstances = {};
 var selectedAgent = null;
 var detailTab = 'clients';
 
-// ===== 雲端同步設定（已預設 Google Apps Script 網址）=====
-var MGR_API_URL = 'https://script.google.com/macros/s/AKfycbxgU-gqY_oFNj03Us28bcs6PK9vH0wchjgzic5lww4uc5nu8byTGbmrLp8kBOZ0nSU6/exec';
-var MGR_CLOUD_ENABLED = Boolean(MGR_API_URL && MGR_API_URL.length > 0);
-var MGR_SUPA_URL = 'https://wnyfvwaqdhddcxvgelu.supabase.co';
-var MGR_SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3bnlmd3FhcWRoZGRjeHZnZWx1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MTU4NTIsImV4cCI6MjA5ODM5MTg1Mn0.pzYPKK9rt-LuGV-sVtmHCzTjym1OXaHiDVbsZ9f0GQY';
+// ===== 雲端同步設定（Supabase 為主，Google Sheets 選填）=====
+var MGR_API_URL = '';
+var MGR_SUPA_URL = 'https://wwnyfwqaqdhddcxvgelu.supabase.co';
+var MGR_SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3bnlmd2FxcWRoZGRjeHZnZWx1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MTU4NTIsImV4cCI6MjA5ODM5MTg1Mn0.pzYPKK9rt-LuGV-sVtmHCzTjym1OXaHiDVbsZ9f0GQY';
+var MGR_CLOUD_ENABLED = Boolean(MGR_SUPA_URL && MGR_SUPA_KEY);
 
 function mgrSetApiUrl(url) {
   MGR_API_URL = url;
@@ -556,25 +587,88 @@ function mgrLoadApiUrl() {
   if (saved) { MGR_API_URL = saved; MGR_CLOUD_ENABLED = true; }
   var savedSupaUrl = localStorage.getItem('mgr_supa_url') || '';
   var savedSupaKey = localStorage.getItem('mgr_supa_key') || '';
-  if (savedSupaUrl) { MGR_SUPA_URL = savedSupaUrl; MGR_SUPA_KEY = savedSupaKey; }
-  MGR_CLOUD_ENABLED = (MGR_API_URL && MGR_API_URL.length > 0) || (MGR_SUPA_URL && MGR_SUPA_URL.length > 0);
+  // v3.8.5: 自動清除舊嘅錯 URL / 無效 key
+  function isValidSupabaseUrl(u) {
+    if (!u) return false;
+    if (u.indexOf('wwnyfvwaqdhddcxvgelu') >= 0) return false; // 舊錯字 URL
+    if (u.indexOf('.supabase.co') < 0) return false;
+    var ref = u.replace('https://','').replace('http://','').split('.')[0];
+    return ref.length === 20;
+  }
+  function isValidSupabaseKey(k) {
+    if (!k || typeof k !== 'string') return false;
+    k = k.trim();
+    if (k.length < 80) return false; // JWT 通常超過 100 字符
+    var parts = k.split('.');
+    return parts.length === 3 && !!parts[0] && !!parts[1] && !!parts[2];
+  }
+  if (savedSupaUrl && !isValidSupabaseUrl(savedSupaUrl)) {
+    console.warn('[mgrLoadApiUrl] 無效 URL，自動清除:', savedSupaUrl);
+    localStorage.removeItem('mgr_supa_url');
+    localStorage.removeItem('mgr_supa_key');
+    savedSupaUrl = ''; savedSupaKey = '';
+  }
+  if (savedSupaKey && !isValidSupabaseKey(savedSupaKey)) {
+    console.warn('[mgrLoadApiUrl] 無效 key，自動清除（長度 ' + savedSupaKey.length + '）');
+    localStorage.removeItem('mgr_supa_key');
+    savedSupaKey = '';
+  }
+  if (savedSupaUrl && savedSupaKey) { MGR_SUPA_URL = savedSupaUrl; MGR_SUPA_KEY = savedSupaKey; }
+  MGR_CLOUD_ENABLED = (MGR_API_URL && MGR_API_URL.length > 0) || (MGR_SUPA_URL && MGR_SUPA_KEY.length > 0);
+  console.log('[mgrLoadApiUrl] URL:', MGR_SUPA_URL, '| Enabled:', MGR_CLOUD_ENABLED);
 }
 
 function mgrLoadFromSupabase() {
   if (!MGR_SUPA_URL || !MGR_SUPA_KEY) { return Promise.resolve(false); }
-  var myName = localStorage.getItem(MGR_KEY) || '';
+  var myName = (localStorage.getItem(MGR_KEY) || '').trim();
   var myRole = localStorage.getItem('mgr_role') || '';
+  console.log('[mgrLoadFromSupabase] 開始 — URL:', MGR_SUPA_URL, '| 登入名稱:', myName, '| 職級:', myRole);
   toast('☁️ 從 Supabase 載入團隊數據...');
   var controller = new AbortController();
   var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
-  // Load ALL agents, then filter client-side by hierarchyPath
+  // Load ALL agents, then filter client-side by manager field
   return fetch(MGR_SUPA_URL + '/rest/v1/agents?select=name,data,manager,team', {
     headers:{'apikey':MGR_SUPA_KEY,'Authorization':'Bearer '+MGR_SUPA_KEY},
     signal:controller.signal
   })
-  .then(function(res){ clearTimeout(timeoutId); return res.json(); })
+  .then(function(res){ clearTimeout(timeoutId); if (!res.ok) { return res.text().then(function(t){ throw new Error('HTTP '+res.status+': '+t); }); } return res.json(); })
   .then(function(rows){
+    if (rows && !Array.isArray(rows)) {
+      console.error('[mgrLoadFromSupabase] unexpected response:', rows);
+      var msg = rows.message || rows.error || rows.error_description || JSON.stringify(rows).slice(0,120);
+      toast('⚠️ Supabase 回應異常：' + msg, 'error');
+      return false;
+    }
+    console.log('[mgrLoadFromSupabase] Supabase 返回', rows.length, '位代理人');
+    rows.forEach(function(r){ console.log('  代理人:', r.name, '| manager:', r.manager); });
     if (rows && rows.length > 0) {
+      // Build manager→agents map for transitive downline lookup
+      var mgrMap = {};
+      rows.forEach(function(r){
+        var mgr = (r.manager || '').trim();
+        if (!mgrMap[mgr]) mgrMap[mgr] = [];
+        mgrMap[mgr].push(r.name);
+      });
+      console.log('[mgrLoadFromSupabase] mgrMap:', JSON.stringify(mgrMap));
+      // Recursively find all downline names
+      function getDownline(mgrName, visited) {
+        visited = visited || {};
+        var result = [];
+        var direct = mgrMap[mgrName] || [];
+        direct.forEach(function(n){
+          if (!visited[n]) {
+            visited[n] = true;
+            result.push(n);
+            result = result.concat(getDownline(n, visited));
+          }
+        });
+        return result;
+      }
+      var myDownline = getDownline(myName, {});
+      var downlineSet = {};
+      myDownline.forEach(function(n){ downlineSet[n] = true; });
+      console.log('[mgrLoadFromSupabase] 登入:', myName, '| 下屬:', myDownline);
+
       TEAM = {};
       var visibleCount = 0;
       rows.forEach(function(r){
@@ -582,10 +676,12 @@ function mgrLoadFromSupabase() {
         var aData = r.data || {};
         var aRole = aData.role || 'Agent';
         var aPath = aData.hierarchyPath || aName;
-        // Filter: show agent if their hierarchyPath contains my name
-        // (means they are in my downline) OR they are me
-        var isMe = (aName === myName);
-        var isInMyDownline = (aPath.indexOf(myName) >= 0);
+        var aMgr = (r.manager || '').trim();
+        // v3.8.4: 改用 trim + 大小寫不敏感比較
+        var isMe = (aName.trim().toLowerCase() === myName.toLowerCase());
+        var isInMyDownline = (aPath.indexOf(myName) >= 0) || downlineSet[aName] || (aMgr.toLowerCase() === myName.toLowerCase());
+        // v3.8.4: 如果 MGR_SHOW_ALL_AGENTS = true，顯示全部
+        if (window.MGR_SHOW_ALL_AGENTS) { isMe = true; isInMyDownline = true; }
         if (!isMe && !isInMyDownline) return; // skip agents not in my downline
         TEAM[aName] = {
           clients: [], policies: [], commissions: [],
@@ -607,6 +703,8 @@ function mgrLoadFromSupabase() {
       render();
       document.getElementById("noDataMsg").style.display = "none";
       document.getElementById("dataView").style.display = "block";
+      // 確保 Chart.js 已加載後再渲染圖表
+      whenReady(function(){ render(); });
       if (visibleCount === 0) {
         toast('⚠️ 你嘅下屬尚未註冊。請讓佢哋喺代理人版註冊時填寫你為直屬上司。', 'warning');
       } else {
@@ -615,40 +713,187 @@ function mgrLoadFromSupabase() {
       return true;
     }
     if (rows && rows.length === 0) {
-      toast('Supabase 無數據，嘗試 Google Sheets...', 'warning');
+      toast('⚠️ Supabase 無數據。請確認團隊成員已在代理人版完成註冊並同步。', 'warning');
     }
     return false;
   })
   .catch(function(e){
     clearTimeout(timeoutId);
     console.error('[mgrLoadFromSupabase]',e);
+    var msg = e.message || String(e) || '請檢查網絡或 Supabase 設定';
+    // v3.8.5: 401 時自動清除壞 key 並重設為正確預設值
+    if (msg.indexOf('401') >= 0 || msg.indexOf('Invalid') >= 0) {
+      console.warn('[mgrLoadFromSupabase] 偵測到 401，自動清除 localStorage 並重設預設值');
+      localStorage.removeItem('mgr_supa_url');
+      localStorage.removeItem('mgr_supa_key');
+      MGR_SUPA_URL = 'https://wwnyfwqaqdhddcxvgelu.supabase.co';
+      MGR_SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3bnlmd2FxcWRoZGRjeHZnZWx1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MTU4NTIsImV4cCI6MjA5ODM5MTg1Mn0.pzYPKK9rt-LuGV-sVtmHCzTjym1OXaHiDVbsZ9f0GQY';
+      MGR_CLOUD_ENABLED = true;
+      toast('⚠️ Supabase key 無效，已自動重設。請再按「載入團隊數據」。', 'error');
+    } else {
+      toast('⚠️ Supabase 載入失敗：' + msg, 'error');
+    }
     return false;
   });
 }
 
+// 經理版 Supabase 診斷
+function mgrRunSupabaseDiagnostic() {
+  var el = document.getElementById('mgrDiagResult');
+  if (!el) return;
+  el.style.display = 'block';
+  el.innerHTML = '🔬 開始診斷...\n';
+  el.innerHTML += '🔖 經理版版本: ' + (window.MGR_CURRENT_VER || CURRENT_VER || '未知') + '\n';
+  // v3.8.5: 顯示 localStorage 中的設定（連長度都顯示）
+  var lsUrl = localStorage.getItem('mgr_supa_url') || '(空)';
+  var lsKey = localStorage.getItem('mgr_supa_key') || '(空)';
+  el.innerHTML += '📦 localStorage URL: ' + lsUrl + '\n';
+  if (lsKey !== '(空)') {
+    var parts = lsKey.split('.');
+    el.innerHTML += '📦 localStorage Key: 長度 ' + lsKey.length + '，' + parts.length + ' 段（' + (parts.length===3?'✅ 似 JWT':'❌ 唔似 JWT') + '）\n';
+  } else {
+    el.innerHTML += '📦 localStorage Key: (空)\n';
+  }
+  el.innerHTML += '📦 代碼預設 URL: ' + MGR_SUPA_URL + '\n';
+  el.innerHTML += '🔑 代碼預設 Key: 長度 ' + MGR_SUPA_KEY.length + '，' + MGR_SUPA_KEY.split('.').length + ' 段\n';
+  el.innerHTML += '━━━━━━━━━━━━━━━━━━\n';
+  var urlInput = document.getElementById('mgrSupaUrlInput');
+  var keyInput = document.getElementById('mgrSupaKeyInput');
+  var testUrl = (urlInput && urlInput.value) ? urlInput.value.trim() : MGR_SUPA_URL;
+  var testKey = (keyInput && keyInput.value) ? keyInput.value.trim() : MGR_SUPA_KEY;
+  testUrl = testUrl.replace(/\/+$/,'');
+  el.innerHTML += '📍 測試 URL: ' + testUrl + '\n';
+  el.innerHTML += '🔑 測試 Key: ' + (testKey ? testKey.substring(0,20) + '...' : '(空)') + '\n';
+  el.innerHTML += '━━━━━━━━━━━━━━━━━━\n';
+  if (!testUrl || !testKey) {
+    el.innerHTML += '❌ URL 或 Key 為空\n';
+    return;
+  }
+  if (testUrl.indexOf('.supabase.co') < 0) {
+    el.innerHTML += '⚠️ URL 格式可疑：應該係 https://xxxx.supabase.co\n';
+  }
+  var ref = testUrl.replace('https://','').replace('http://','').split('.')[0];
+  el.innerHTML += '📋 Project Ref: ' + ref + ' (' + ref.length + ' 字符)\n';
+  if (ref.length !== 20) {
+    el.innerHTML += '⚠️ Project Ref 應該係 20 個字符，依家得 ' + ref.length + ' 個\n';
+  }
+  el.innerHTML += '━━━━━━━━━━━━━━━━━━\n';
+  el.innerHTML += '⏳ 測試連線中（最多 15 秒）...\n';
+  var ctrl = new AbortController();
+  var tid = setTimeout(function(){ ctrl.abort(); }, 15000);
+  var startTime = Date.now();
+  fetch(testUrl + '/rest/v1/agents?select=name&limit=1', {
+    method: 'GET',
+    headers: { 'apikey': testKey, 'Authorization': 'Bearer ' + testKey },
+    signal: ctrl.signal
+  })
+  .then(function(res) {
+    clearTimeout(tid);
+    var elapsed = Date.now() - startTime;
+    el.innerHTML += '📡 HTTP 狀態: ' + res.status + ' (' + elapsed + 'ms)\n';
+    if (res.ok) {
+      return res.json().then(function(data) {
+        el.innerHTML += '✅ 連線成功！\n';
+        el.innerHTML += '📊 Agents 表可讀取，找到 ' + (data ? data.length : 0) + ' 筆記錄\n';
+      });
+    } else if (res.status === 401) {
+      el.innerHTML += '❌ 401 未授權 — API Key 不正確\n';
+    } else if (res.status === 403) {
+      el.innerHTML += '❌ 403 禁止存取 — RLS 政策阻擋\n';
+      el.innerHTML += '👉 去 Supabase → SQL Editor 執行：\n';
+      el.innerHTML += '   ALTER TABLE agents DISABLE ROW LEVEL SECURITY;\n';
+    } else if (res.status === 404) {
+      el.innerHTML += '❌ 404 找不到 — URL 可能錯誤\n';
+    } else {
+      el.innerHTML += '⚠️ HTTP ' + res.status + '\n';
+      return res.text().then(function(t) { el.innerHTML += '回應: ' + t.substring(0,200) + '\n'; });
+    }
+  })
+  .catch(function(e) {
+    clearTimeout(tid);
+    var elapsed = Date.now() - startTime;
+    var msg = String(e);
+    el.innerHTML += '❌ 連線失敗 (' + elapsed + 'ms)\n';
+    if (msg.indexOf('abort') >= 0 || msg.indexOf('timeout') >= 0 || elapsed >= 14000) {
+      el.innerHTML += '原因：連線超時（15秒）\n';
+      el.innerHTML += '可能原因：Supabase 暫停 / 網絡問題 / URL 錯誤\n';
+    } else if (msg.indexOf('Failed to fetch') >= 0 || msg.indexOf('NetworkError') >= 0) {
+      el.innerHTML += '原因：網絡層錯誤 — DNS 解析失敗或連線被拒\n';
+      el.innerHTML += '🚨 URL 可能不正確！\n';
+    } else {
+      el.innerHTML += '錯誤詳情: ' + msg + '\n';
+    }
+  });
+}
+
+function mgrResetSupabaseDefaults() {
+  var correctUrl = 'https://wwnyfwqaqdhddcxvgelu.supabase.co';
+  var correctKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3bnlmd2FxcWRoZGRjeHZnZWx1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MTU4NTIsImV4cCI6MjA5ODM5MTg1Mn0.pzYPKK9rt-LuGV-sVtmHCzTjym1OXaHiDVbsZ9f0GQY';
+  // v3.8.5: 先強制清除可能壞咗嘅 localStorage，再寫入正確值
+  localStorage.removeItem('mgr_supa_url');
+  localStorage.removeItem('mgr_supa_key');
+  MGR_SUPA_URL = correctUrl;
+  MGR_SUPA_KEY = correctKey;
+  localStorage.setItem('mgr_supa_url', correctUrl);
+  localStorage.setItem('mgr_supa_key', correctKey);
+  MGR_CLOUD_ENABLED = true;
+  // 同時更新 input
+  var urlInput = document.getElementById('mgrSupaUrlInput');
+  var keyInput = document.getElementById('mgrSupaKeyInput');
+  if (urlInput) urlInput.value = correctUrl;
+  if (keyInput) keyInput.value = correctKey;
+  toast('✅ 已清除舊設定並重設正確 Supabase 設定，開始載入...');
+  console.log('[mgrResetSupabaseDefaults] URL saved:', correctUrl);
+  // 自動載入
+  mgrLoadFromCloud();
+}
+
+// v3.8.5: 一鍵修復（清除本地設定並重載）
+function mgrRepairSupabase() {
+  mgrResetSupabaseDefaults();
+  mgrHideCloudSetup();
+}
+
 function mgrLoadFromCloud() {
-  if (!MGR_CLOUD_ENABLED) { toast('請先設定雲端', 'error'); mgrShowCloudSetup(); return; }
+  // 防止重複點擊
+  var btn = document.getElementById('mgrCloudBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '載入中...'; }
+  toast('☁️ 正在從 Supabase 載入團隊數據...', 'info');
+
+  function done() {
+    if (btn) { btn.disabled = false; btn.textContent = '☁️ 載入團隊數據'; }
+  }
 
   // 優先 Supabase
   if (MGR_SUPA_URL && MGR_SUPA_KEY) {
     mgrLoadFromSupabase().then(function(ok){
-      if (!ok && MGR_API_URL) { mgrLoadFromGoogleSheets(); }
+      done();
+      if (ok) {
+        document.getElementById("noDataMsg").style.display = "none";
+        document.getElementById("dataView").style.display = "block";
+      } else {
+        toast('⚠️ Supabase 載入失敗，請檢查網絡或 Supabase 設定', 'error');
+      }
+    }).catch(function(e){
+      done();
+      console.error('[mgrLoadFromCloud]', e);
+      toast('⚠️ 載入失敗：' + e.message, 'error');
     });
     return;
   }
-
-  // Fallback Google Sheets
+  // 只有手動設定咗 Google Sheets URL 先會用（選填）
   if (MGR_API_URL) {
     mgrLoadFromGoogleSheets();
+    done();
     return;
   }
-
-  toast('請先設定雲端網址', 'error'); mgrShowCloudSetup();
+  done();
+  toast('請先設定 Supabase 連線', 'error'); mgrShowCloudSetup();
 }
 
 function mgrLoadFromGoogleSheets() {
   var mgrName = localStorage.getItem(MGR_KEY) || '';
-  toast('☁️ 從 Google Sheets 載入數據...');
+  toast('⚠️ 正從 Google Sheets（備用）載入數據...');
   var qs = 'action=manager_load&key=MANAGER_SECRET_KEY';
   if (mgrName) qs += '&managerName=' + encodeURIComponent(mgrName);
   var controller = new AbortController();
@@ -1517,16 +1762,18 @@ function toast(msg,type){type=type||'success';var el=document.createElement('div
 // ============================================================
 // BOOT
 // ============================================================
-(function(){
+var _chartReady = new Promise(function(resolve){
+  var _resolved = false;
   var s=document.createElement('script');
   s.src='https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
-  s.onload=function(){chartLib=Chart;if(mgrUnlocked)render();};
-  s.onerror=function(){console.warn('Chart.js unavailable');};
+  s.onload=function(){chartLib=Chart;_resolved=true;resolve(true);};
+  s.onerror=function(){console.warn('Chart.js unavailable');_resolved=true;resolve(false);};
   document.head.appendChild(s);
-  mgrLoadApiUrl();
-  if (MGR_CLOUD_ENABLED && document.getElementById('mgrCloudBtn')) document.getElementById('mgrCloudBtn').style.display = '';
-  initLock();
-})();
+});
+function whenReady(fn){ return _chartReady.then(function(){ fn(); }); }
+mgrLoadApiUrl();
+if (MGR_CLOUD_ENABLED && document.getElementById('mgrCloudBtn')) document.getElementById('mgrCloudBtn').style.display = '';
+initLock();
 </script>
 <script>
 if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(function(r){console.log('[PWA] Service Worker 已註冊:',r.scope);}).catch(function(e){console.warn('[PWA] SW 註冊失敗:',e);});}
@@ -1549,33 +1796,38 @@ if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(
   <div class="modal" style="max-width:520px">
     <h3>☁️ 雲端同步設定（經理版）</h3>
     <p style="color:var(--gray500);font-size:13px;margin-bottom:14px">
-      可同時設定 Google Sheets 同 Supabase。兩個都用最安全。
+      建議優先設定 Supabase（主要雲端）。Google Sheets 為選填兼容模式。
     </p>
-    <!-- Google Sheets 區塊 -->
-    <div class="acct-section">
-      <h4 style="font-size:13px;color:var(--gray600);margin-bottom:8px">📊 Google Sheets（兼容模式）</h4>
-      <div class="form-group">
-        <label>Google Apps Script 網址</label>
-        <input type="url" id="mgrApiUrlInput" placeholder="https://script.google.com/macros/s/..." style="font-size:12px">
-      </div>
-    </div>
-    <!-- Supabase 區塊 -->
-    <div class="acct-section">
-      <h4 style="font-size:13px;color:var(--green600);margin-bottom:8px">🚀 Supabase（推薦）</h4>
+    <!-- Supabase 區塊（主要） -->
+    <div class="acct-section" style="border:2px solid var(--blue500);border-radius:8px;padding:14px;background:var(--blue50)">
+      <h4 style="font-size:14px;color:var(--blue700);margin-bottom:10px">🚀 Supabase（推薦 · 主要雲端）</h4>
       <div class="form-group">
         <label>Supabase 專案網址</label>
-        <input type="url" id="mgrSupaUrlInput" placeholder="https://xxxxxxxxxxxx.supabase.co" style="font-size:12px">
+        <input type="url" id="mgrSupaUrlInput" value="https://wwnyfwqaqdhddcxvgelu.supabase.co" placeholder="https://xxxxxxxxxxxx.supabase.co" style="font-size:13px;padding:10px 12px;border:1px solid var(--blue300);border-radius:6px">
       </div>
       <div class="form-group">
         <label>Supabase anon/public key</label>
-        <input type="text" id="mgrSupaKeyInput" placeholder="eyJhbGciOi..." style="font-size:12px">
+        <input type="text" id="mgrSupaKeyInput" placeholder="eyJhbGciOi..." style="font-size:13px;padding:10px 12px;border:1px solid var(--blue300);border-radius:6px">
+      </div>
+    </div>
+    <!-- Google Sheets 區塊（選填） -->
+    <div class="acct-section" style="opacity:0.7">
+      <h4 style="font-size:12px;color:var(--gray400);margin-bottom:6px">📊 Google Sheets（選填 · 兼容模式）</h4>
+      <div class="form-group">
+        <label>Google Apps Script 網址 <span style="font-size:11px;color:var(--gray400)">（選填）</span></label>
+        <input type="url" id="mgrApiUrlInput" placeholder="留空即只用 Supabase" style="font-size:12px;padding:8px 10px;border:1px solid var(--gray300);border-radius:6px">
       </div>
     </div>
     <div style="font-size:12px;color:var(--gray400);margin-bottom:14px">
       💡 兩個都留空即可關閉雲端同步
     </div>
+    <pre id="mgrDiagResult" style="display:none;background:#1e293b;color:#e2e8f0;padding:12px;border-radius:8px;font-size:12px;max-height:240px;overflow:auto;white-space:pre-wrap;margin-bottom:14px"></pre>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="mgrHideCloudSetup()">取消</button>
+      <button class="btn btn-outline" onclick="mgrRepairSupabase()">🧹 清除並修復</button>
+      <button class="btn btn-outline" onclick="mgrResetSupabaseDefaults()">⚡ 重設預設並載入</button>
+      <button class="btn btn-outline" onclick="mgrRunSupabaseDiagnostic()">🔬 診斷</button>
+      <button class="btn btn-outline" onclick="window.MGR_SHOW_ALL_AGENTS=true;mgrLoadFromCloud();mgrHideCloudSetup();">👁️ 顯示全部</button>
       <button class="btn btn-primary" onclick="mgrSaveCloudSetup()">儲存並載入</button>
     </div>
   </div>
@@ -1629,5 +1881,23 @@ if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(
     </div>
   </div>
 </div>
+<script>
+// v3.8.5: 修正 401 自動清除壞 key + 加強診斷
+(function(){
+  var CURRENT_VER = 'v3.8.5';
+  window.MGR_CURRENT_VER = CURRENT_VER;
+  var cachedVer = localStorage.getItem('mgr_app_version') || '';
+  if (cachedVer && cachedVer !== CURRENT_VER) {
+    console.log('[Cache] Version mismatch, reloading...');
+    localStorage.setItem('mgr_app_version', CURRENT_VER);
+    if (window.caches) {
+      caches.keys().then(function(names){ names.forEach(function(n){ caches.delete(n); }); });
+    }
+    setTimeout(function(){ window.location.reload(true); }, 500);
+  } else {
+    localStorage.setItem('mgr_app_version', CURRENT_VER);
+  }
+})();
+</script>
 </body>
 </html>
