@@ -565,7 +565,7 @@ var detailTab = 'clients';
 // ===== 雲端同步設定（Supabase 為主，Google Sheets 選填）=====
 var MGR_API_URL = '';
 var MGR_SUPA_URL = 'https://wwnyfvwaqdhddcxvgelu.supabase.co';
-var MGR_SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3bnlmd3FhcWRoZGRjeHZnZWx1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MTU4NTIsImV4cCI6MjA5ODM5MTg1Mn0.pzYPKK9rt-LuGV-sVtmHCzTjym1OXaHiDVbsZ9f0GQY';
+var MGR_SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3bnlmd2FxcWRoZGRjeHZnZWx1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MTU4NTIsImV4cCI6MjA5ODM5MTg1Mn0.pzYPKK9rt-LuGV-sVtmHCzTjym1OXaHiDVbsZ9f0GQY';
 var MGR_CLOUD_ENABLED = Boolean(MGR_SUPA_URL && MGR_SUPA_KEY);
 
 function mgrSetApiUrl(url) {
@@ -663,6 +663,7 @@ function mgrRunSupabaseDiagnostic() {
   if (!el) return;
   el.style.display = 'block';
   el.innerHTML = '🔬 開始診斷...\n';
+  el.innerHTML += '🔖 經理版版本: ' + (window.MGR_CURRENT_VER || CURRENT_VER || '未知') + '\n';
   var urlInput = document.getElementById('mgrSupaUrlInput');
   var keyInput = document.getElementById('mgrSupaKeyInput');
   var testUrl = (urlInput && urlInput.value) ? urlInput.value.trim() : MGR_SUPA_URL;
@@ -734,7 +735,7 @@ function mgrRunSupabaseDiagnostic() {
 
 function mgrResetSupabaseDefaults() {
   document.getElementById('mgrSupaUrlInput').value = 'https://wwnyfvwaqdhddcxvgelu.supabase.co';
-  document.getElementById('mgrSupaKeyInput').value = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3bnlmd3FhcWRoZGRjeHZnZWx1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MTU4NTIsImV4cCI6MjA5ODM5MTg1Mn0.pzYPKK9rt-LuGV-sVtmHCzTjym1OXaHiDVbsZ9f0GQY';
+  document.getElementById('mgrSupaKeyInput').value = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3bnlmd2FxcWRoZGRjeHZnZWx1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MTU4NTIsImV4cCI6MjA5ODM5MTg1Mn0.pzYPKK9rt-LuGV-sVtmHCzTjym1OXaHiDVbsZ9f0GQY';
   toast('已重設為預設 Supabase 設定');
 }
 
@@ -1764,9 +1765,10 @@ if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(
   </div>
 </div>
 <script>
-// v3.8.0: 修正 MGR_CLOUD_ENABLED 變量順序 + 加強 Supabase 錯誤提示 + 加入診斷工具
+// v3.8.1: 修正經理版 Supabase Key 錯字 + 診斷顯示版本號
 (function(){
-  var CURRENT_VER = 'v3.8.0';
+  var CURRENT_VER = 'v3.8.1';
+  window.MGR_CURRENT_VER = CURRENT_VER;
   var cachedVer = localStorage.getItem('mgr_app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, reloading...');
