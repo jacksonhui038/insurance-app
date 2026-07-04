@@ -1,13 +1,21 @@
 <!DOCTYPE html>
 <html lang="zh-HK">
 <head>
+<script>// v3.8.6 強制破 cache：sync script 喺一切之前執行
+var MGR_VER='v3.8.6',MGR_VER_KEY='mgr_app_version';
+(function(){
+  var v=localStorage.getItem(MGR_VER_KEY)||'';
+  if(v&&v!==MGR_VER){console.log('[CacheBuster] '+v+'→'+MGR_VER);localStorage.setItem(MGR_VER_KEY,MGR_VER);location.replace(location.href.split('?')[0]+'?v='+Date.now());}
+  else{localStorage.setItem(MGR_VER_KEY,MGR_VER);}
+})();
+</script>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>經理團隊總覽</title>
-<link rel="manifest" href="manifest.json?v=3.8.4">
+<link rel="manifest" href="manifest.json?v=3.8.6">
 <meta name="theme-color" content="#2563eb">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -196,7 +204,7 @@ tr:hover td{background:var(--blue50)}
   <!-- HEADER -->
   <div class="header">
     <div>
-      <h1>📊 團隊總覽</h1>
+      <h1>📊 團隊總覽 <span style="font-size:11px;opacity:0.6;font-weight:400">v3.8.6</span></h1>
       <div class="sub" id="mgrNameDisplay">保險經紀業務管理系統 · 經理視角</div>
     </div>
     <div class="header-actions">
@@ -1882,21 +1890,18 @@ if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(
   </div>
 </div>
 <script>
-// v3.8.5: 修正 401 自動清除壞 key + 加強診斷
+// v3.8.6: 強制破 cache sync script + header 顯示版本號
 (function(){
-  var CURRENT_VER = 'v3.8.5';
+  var CURRENT_VER = 'v3.8.6';
   window.MGR_CURRENT_VER = CURRENT_VER;
+  // sync script 已經處理咗 cache，呢度只係 fallback
   var cachedVer = localStorage.getItem('mgr_app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
-    console.log('[Cache] Version mismatch, reloading...');
     localStorage.setItem('mgr_app_version', CURRENT_VER);
-    if (window.caches) {
-      caches.keys().then(function(names){ names.forEach(function(n){ caches.delete(n); }); });
-    }
-    setTimeout(function(){ window.location.reload(true); }, 500);
-  } else {
-    localStorage.setItem('mgr_app_version', CURRENT_VER);
+    location.replace(location.href.split('?')[0] + '?v=' + Date.now());
+    return;
   }
+  localStorage.setItem('mgr_app_version', CURRENT_VER);
 })();
 </script>
 </body>
