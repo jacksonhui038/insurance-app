@@ -7,7 +7,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>經理團隊總覽</title>
-<link rel="manifest" href="manifest.json?v=3.8.3">
+<link rel="manifest" href="manifest.json?v=3.8.4">
 <meta name="theme-color" content="#2563eb">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -192,7 +192,8 @@ tr:hover td{background:var(--blue50)}
       <div class="sub" id="mgrNameDisplay">保險經紀業務管理系統 · 經理視角</div>
     </div>
     <div class="header-actions">
-      <button class="btn btn-white" onclick="mgrLoadFromCloud()" id="mgrCloudBtn">☁️ 載入團隊數據</button>
+      <button class="btn btn-white" onclick="window.MGR_SHOW_ALL_AGENTS=false;mgrLoadFromCloud()" id="mgrCloudBtn">☁️ 載入團隊數據</button>
+      <button class="btn btn-white" onclick="window.MGR_SHOW_ALL_AGENTS=true;mgrLoadFromCloud();">👁️ 顯示全部</button>
       <button class="btn btn-white" onclick="document.getElementById('multiImport').click()">📥 匯入 JSON（備用）</button>
       <button class="btn btn-white" onclick="showMergeModal()">🔗 合併代理人</button>
       <button class="btn btn-white" onclick="showDeleteAgentModal()">🗑️ 刪除代理人</button>
@@ -578,18 +579,28 @@ function mgrLoadApiUrl() {
   if (saved) { MGR_API_URL = saved; MGR_CLOUD_ENABLED = true; }
   var savedSupaUrl = localStorage.getItem('mgr_supa_url') || '';
   var savedSupaKey = localStorage.getItem('mgr_supa_key') || '';
+  // v3.8.4: 自動清除舊嘅錯 URL（fv 錯字版本）
+  if (savedSupaUrl && savedSupaUrl.indexOf('wwnyfvwaqdhddcxvgelu') >= 0) {
+    console.warn('[mgrLoadApiUrl] 偵測到舊錯 URL，自動清除:', savedSupaUrl);
+    localStorage.removeItem('mgr_supa_url');
+    localStorage.removeItem('mgr_supa_key');
+    savedSupaUrl = '';
+    savedSupaKey = '';
+  }
   if (savedSupaUrl) { MGR_SUPA_URL = savedSupaUrl; MGR_SUPA_KEY = savedSupaKey; }
   MGR_CLOUD_ENABLED = (MGR_API_URL && MGR_API_URL.length > 0) || (MGR_SUPA_URL && MGR_SUPA_URL.length > 0);
+  console.log('[mgrLoadApiUrl] URL:', MGR_SUPA_URL, '| Enabled:', MGR_CLOUD_ENABLED);
 }
 
 function mgrLoadFromSupabase() {
   if (!MGR_SUPA_URL || !MGR_SUPA_KEY) { return Promise.resolve(false); }
-  var myName = localStorage.getItem(MGR_KEY) || '';
+  var myName = (localStorage.getItem(MGR_KEY) || '').trim();
   var myRole = localStorage.getItem('mgr_role') || '';
+  console.log('[mgrLoadFromSupabase] 開始 — URL:', MGR_SUPA_URL, '| 登入名稱:', myName, '| 職級:', myRole);
   toast('☁️ 從 Supabase 載入團隊數據...');
   var controller = new AbortController();
   var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
-  // Load ALL agents, then filter client-side by hierarchyPath
+  // Load ALL agents, then filter client-side by manager field
   return fetch(MGR_SUPA_URL + '/rest/v1/agents?select=name,data,manager,team', {
     headers:{'apikey':MGR_SUPA_KEY,'Authorization':'Bearer '+MGR_SUPA_KEY},
     signal:controller.signal
@@ -602,14 +613,17 @@ function mgrLoadFromSupabase() {
       toast('⚠️ Supabase 回應異常：' + msg, 'error');
       return false;
     }
+    console.log('[mgrLoadFromSupabase] Supabase 返回', rows.length, '位代理人');
+    rows.forEach(function(r){ console.log('  代理人:', r.name, '| manager:', r.manager); });
     if (rows && rows.length > 0) {
       // Build manager→agents map for transitive downline lookup
       var mgrMap = {};
       rows.forEach(function(r){
-        var mgr = r.manager || '';
+        var mgr = (r.manager || '').trim();
         if (!mgrMap[mgr]) mgrMap[mgr] = [];
         mgrMap[mgr].push(r.name);
       });
+      console.log('[mgrLoadFromSupabase] mgrMap:', JSON.stringify(mgrMap));
       // Recursively find all downline names
       function getDownline(mgrName, visited) {
         visited = visited || {};
@@ -627,6 +641,7 @@ function mgrLoadFromSupabase() {
       var myDownline = getDownline(myName, {});
       var downlineSet = {};
       myDownline.forEach(function(n){ downlineSet[n] = true; });
+      console.log('[mgrLoadFromSupabase] 登入:', myName, '| 下屬:', myDownline);
 
       TEAM = {};
       var visibleCount = 0;
@@ -635,14 +650,12 @@ function mgrLoadFromSupabase() {
         var aData = r.data || {};
         var aRole = aData.role || 'Agent';
         var aPath = aData.hierarchyPath || aName;
-        var aMgr = r.manager || '';
-        // Show agent if:
-        // 1. They are me (isMe)
-        // 2. Their hierarchyPath contains my name (legacy)
-        // 3. Their manager field is me (direct report)
-        // 4. They are in my transitive downline (via manager chain)
-        var isMe = (aName === myName);
-        var isInMyDownline = (aPath.indexOf(myName) >= 0) || downlineSet[aName] || (aMgr === myName);
+        var aMgr = (r.manager || '').trim();
+        // v3.8.4: 改用 trim + 大小寫不敏感比較
+        var isMe = (aName.trim().toLowerCase() === myName.toLowerCase());
+        var isInMyDownline = (aPath.indexOf(myName) >= 0) || downlineSet[aName] || (aMgr.toLowerCase() === myName.toLowerCase());
+        // v3.8.4: 如果 MGR_SHOW_ALL_AGENTS = true，顯示全部
+        if (window.MGR_SHOW_ALL_AGENTS) { isMe = true; isInMyDownline = true; }
         if (!isMe && !isInMyDownline) return; // skip agents not in my downline
         TEAM[aName] = {
           clients: [], policies: [], commissions: [],
@@ -693,13 +706,20 @@ function mgrRunSupabaseDiagnostic() {
   el.style.display = 'block';
   el.innerHTML = '🔬 開始診斷...\n';
   el.innerHTML += '🔖 經理版版本: ' + (window.MGR_CURRENT_VER || CURRENT_VER || '未知') + '\n';
+  // v3.8.4: 顯示 localStorage 中的設定
+  var lsUrl = localStorage.getItem('mgr_supa_url') || '(空)';
+  var lsKey = localStorage.getItem('mgr_supa_key') || '(空)';
+  el.innerHTML += '📦 localStorage URL: ' + lsUrl + '\n';
+  el.innerHTML += '📦 localStorage Key: ' + (lsKey !== '(空)' ? lsKey.substring(0,20) + '...' : '(空)') + '\n';
+  el.innerHTML += '📦 代碼預設 URL: ' + MGR_SUPA_URL + '\n';
+  el.innerHTML += '━━━━━━━━━━━━━━━━━━\n';
   var urlInput = document.getElementById('mgrSupaUrlInput');
   var keyInput = document.getElementById('mgrSupaKeyInput');
   var testUrl = (urlInput && urlInput.value) ? urlInput.value.trim() : MGR_SUPA_URL;
   var testKey = (keyInput && keyInput.value) ? keyInput.value.trim() : MGR_SUPA_KEY;
   testUrl = testUrl.replace(/\/+$/,'');
-  el.innerHTML += '📍 URL: ' + testUrl + '\n';
-  el.innerHTML += '🔑 Key: ' + (testKey ? testKey.substring(0,20) + '...' : '(空)') + '\n';
+  el.innerHTML += '📍 測試 URL: ' + testUrl + '\n';
+  el.innerHTML += '🔑 測試 Key: ' + (testKey ? testKey.substring(0,20) + '...' : '(空)') + '\n';
   el.innerHTML += '━━━━━━━━━━━━━━━━━━\n';
   if (!testUrl || !testKey) {
     el.innerHTML += '❌ URL 或 Key 為空\n';
@@ -763,9 +783,21 @@ function mgrRunSupabaseDiagnostic() {
 }
 
 function mgrResetSupabaseDefaults() {
-  document.getElementById('mgrSupaUrlInput').value = 'https://wwnyfwqaqdhddcxvgelu.supabase.co';
-  document.getElementById('mgrSupaKeyInput').value = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3bnlmd2FxcWRoZGRjeHZnZWx1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MTU4NTIsImV4cCI6MjA5ODM5MTg1Mn0.pzYPKK9rt-LuGV-sVtmHCzTjym1OXaHiDVbsZ9f0GQY';
-  toast('已重設為預設 Supabase 設定');
+  var correctUrl = 'https://wwnyfwqaqdhddcxvgelu.supabase.co';
+  var correctKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3bnlmd2FxcWRoZGRjeHZnZWx1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MTU4NTIsImV4cCI6MjA5ODM5MTg1Mn0.pzYPKK9rt-LuGV-sVtmHCzTjym1OXaHiDVbsZ9f0GQY';
+  // v3.8.4: 直接存 localStorage，唔使再撳「儲存並載入」
+  MGR_SUPA_URL = correctUrl;
+  MGR_SUPA_KEY = correctKey;
+  localStorage.setItem('mgr_supa_url', correctUrl);
+  localStorage.setItem('mgr_supa_key', correctKey);
+  MGR_CLOUD_ENABLED = true;
+  // 同時更新 input
+  document.getElementById('mgrSupaUrlInput').value = correctUrl;
+  document.getElementById('mgrSupaKeyInput').value = correctKey;
+  toast('✅ 已重設並儲存正確 Supabase 設定，開始載入...');
+  console.log('[mgrResetSupabaseDefaults] URL saved:', correctUrl);
+  // 自動載入
+  mgrLoadFromCloud();
 }
 
 function mgrLoadFromCloud() {
@@ -1738,8 +1770,9 @@ if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(
     <pre id="mgrDiagResult" style="display:none;background:#1e293b;color:#e2e8f0;padding:12px;border-radius:8px;font-size:12px;max-height:240px;overflow:auto;white-space:pre-wrap;margin-bottom:14px"></pre>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="mgrHideCloudSetup()">取消</button>
-      <button class="btn btn-outline" onclick="mgrResetSupabaseDefaults()">重設預設</button>
+      <button class="btn btn-outline" onclick="mgrResetSupabaseDefaults()">⚡ 重設預設並載入</button>
       <button class="btn btn-outline" onclick="mgrRunSupabaseDiagnostic()">🔬 診斷</button>
+      <button class="btn btn-outline" onclick="window.MGR_SHOW_ALL_AGENTS=true;mgrLoadFromCloud();mgrHideCloudSetup();">👁️ 顯示全部</button>
       <button class="btn btn-primary" onclick="mgrSaveCloudSetup()">儲存並載入</button>
     </div>
   </div>
@@ -1794,9 +1827,9 @@ if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(
   </div>
 </div>
 <script>
-// v3.8.3: 修正團隊載入邏輯 — 用 manager 欄位建立遞歸下屬關係，唔再依賴 hierarchyPath
+// v3.8.4: 修正團隊載入 — 清除舊錯 URL、直接儲存重設、顯示全部代理人、debug log
 (function(){
-  var CURRENT_VER = 'v3.8.3';
+  var CURRENT_VER = 'v3.8.4';
   window.MGR_CURRENT_VER = CURRENT_VER;
   var cachedVer = localStorage.getItem('mgr_app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
