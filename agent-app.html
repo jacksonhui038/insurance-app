@@ -180,7 +180,7 @@ tr:hover td{background:var(--blue50)}
       </div>
       <hr style="border:none;border-top:1px solid var(--gray200);margin:14px 0">
       <button class="btn btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="padding:10px;font-size:13px;width:100%">🔄 切換到經理版</button>
-      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.9.2</p>
+      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.9.3</p>
     </div>
     <!-- LOGIN MODE -->
     <div id="loginMode" style="display:none">
@@ -1002,6 +1002,10 @@ function saveToSupabase(callback) {
 function forceUploadToSupabase() {
   if (!SUPA_URL || !SUPA_KEY) { toast('⚠️ 請先設定 Supabase（右上角 ☁️ 雲端）', 'error'); return; }
   if (!agentName) { toast('⚠️ 請先登入', 'error'); return; }
+  // v3.9.3: 防止用空本地 DB 覆蓋雲端清走資料
+  if (isDBEmpty()) {
+    if (!confirm('⚠️ 你嘅本地數據係空嘅。強制上傳會用空資料覆蓋雲端，清走晒雲端現有資料。確定繼續？')) return;
+  }
   toast('⬆️ 正在強制上傳到 Supabase...', 'info');
   fixAllScheduleTimes(false);
   var mgr = assignedManager || localStorage.getItem('insurance_mgr_'+encodeURIComponent(agentName)) || '';
@@ -2452,19 +2456,27 @@ function saveCloudSetup() {
 }
 
 // 登入後自動從雲端載入
+function isDBEmpty() {
+  return ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].every(function(k){ return !DB[k] || DB[k].length === 0; });
+}
+
 function afterLoginSync() {
   loadApiUrl();
   if (CLOUD_ENABLED && agentName) {
     document.getElementById('cloudStatus').style.display = 'flex';
     document.getElementById('lastSyncTime').textContent = getLastSyncTime();
     // 1. 先從雲端下載（合併最新數據）
-    loadFromCloud(function(){
-      // 2. 下載完畢後，立即上傳本地數據到 Supabase（確保新用戶/遺漏數據能補上）
-      if (SUPA_URL && SUPA_KEY) {
-        setTimeout(function(){ saveToSupabase(function(ok){
-          if (ok) { setLastSyncTime(); document.getElementById('lastSyncTime').textContent = getLastSyncTime(); }
+    loadFromCloud(function(ok){
+      // 2. 下載完畢後，只有「本地有數據」先自動上傳到 Supabase
+      //    ⚠️ v3.9.3 修復：雲端下載失敗 / 本地為空 時唔上傳，避免用空 DB 覆蓋雲端清走晒資料
+      if (SUPA_URL && SUPA_KEY && !isDBEmpty()) {
+        setTimeout(function(){ saveToSupabase(function(ok2){
+          if (ok2) { setLastSyncTime(); document.getElementById('lastSyncTime').textContent = getLastSyncTime(); }
           else { console.warn('[afterLoginSync] 上傳 Supabase 失敗，下次登入會自動重試'); }
         }); }, 1500);
+      } else if (isDBEmpty()) {
+        console.warn('[afterLoginSync] 本地無數據，跳過自動上傳，避免清空白雲端');
+        if (!ok) toast('⚠️ 雲端下載失敗，已跳過自動上傳（雲端資料保留）', 'error');
       }
     });
   }
@@ -2472,7 +2484,7 @@ function afterLoginSync() {
 
 document.addEventListener('DOMContentLoaded',function(){
   // v3.8.5: 手機介面改底部導航
-  var CURRENT_VER = 'v3.9.2';
+  var CURRENT_VER = 'v3.9.3';
   var cachedVer = localStorage.getItem('app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, clearing cache and reloading...');
