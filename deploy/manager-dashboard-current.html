@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="zh-HK">
 <head>
-<script>// v3.9.4 強制破 cache + 強制解除舊 SW：sync script 喺一切之前執行
-var MGR_VER='v3.9.4',MGR_VER_KEY='mgr_app_version';
+<script>// v3.9.5 強制破 cache + 強制解除舊 SW：sync script 喺一切之前執行
+var MGR_VER='v3.9.5',MGR_VER_KEY='mgr_app_version';
 (function(){
   var v=localStorage.getItem(MGR_VER_KEY)||'';
   if(v&&v!==MGR_VER){console.log('[CacheBuster] '+v+'→'+MGR_VER);localStorage.setItem(MGR_VER_KEY,MGR_VER);}
@@ -23,7 +23,7 @@ var MGR_VER='v3.9.4',MGR_VER_KEY='mgr_app_version';
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>經理團隊總覽</title>
-<link rel="manifest" href="manifest.json?v=3.9.4">
+<link rel="manifest" href="manifest.json?v=3.9.5">
 <meta name="theme-color" content="#2563eb">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -253,7 +253,7 @@ tr:hover td{background:var(--blue50)}
   <!-- HEADER -->
   <div class="header">
     <div>
-      <h1>📊 團隊總覽 <span style="font-size:11px;opacity:0.6;font-weight:400">v3.9.4</span></h1>
+      <h1>📊 團隊總覽 <span style="font-size:11px;opacity:0.6;font-weight:400">v3.9.5</span></h1>
       <div class="sub" id="mgrNameDisplay">保險經紀業務管理系統 · 經理視角</div>
     </div>
     <div class="header-actions">
@@ -1497,7 +1497,7 @@ function renderTeamActivity() {
   }
 
   var now = new Date();
-  var todayStr = now.toISOString().split('T')[0];
+  var todayStr = df(new Date());
   var weekStart = new Date(now);
   weekStart.setDate(now.getDate() - now.getDay()); // Sunday
   var weekEnd = new Date(weekStart);
@@ -1513,7 +1513,7 @@ function renderTeamActivity() {
     if (!agentData.schedules) return;
 
     agentData.schedules.forEach(function(schedule) {
-      var scheduleDate = schedule.date;
+      var scheduleDate = parseScheduleDate(schedule.date);
       if (!scheduleDate) return;
 
       var d = new Date(scheduleDate);
@@ -1542,8 +1542,8 @@ function renderTeamActivity() {
         activities.push({
           agent: agentName,
           date: scheduleDate,
-          startTime: schedule.startTime || '',
-          endTime: schedule.endTime || '',
+          startTime: parseScheduleTime(schedule.startTime),
+          endTime: parseScheduleTime(schedule.endTime),
           clientName: schedule.clientName || '',
           purpose: schedule.purpose || '',
           location: schedule.location || '',
@@ -2278,6 +2278,8 @@ function doRegisterMgr() {
 // ============================================================
 function money(n){return'HK$ '+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function df(s){if(!s)return'';var d=new Date(s);return isNaN(d)?'':d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function parseScheduleDate(s){if(!s)return'';if(typeof s!=='string')s=String(s);if(s.indexOf('T')!==-1)return s.split('T')[0];return df(s);}
+function parseScheduleTime(s){if(!s)return'';if(typeof s!=='string')s=String(s);if(s.indexOf('T')!==-1){var tp=s.split('T')[1]||'';var m=tp.match(/^(\d{2}):(\d{2})/);return m?m[1]+':'+m[2]:'';}var m=s.match(/^(\d{2}):(\d{2})/);return m?m[1]+':'+m[2]:s;}
 function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function toast(msg,type){type=type||'success';var el=document.createElement('div');el.className='toast toast-'+type;el.textContent=msg;document.getElementById('toastBox').appendChild(el);setTimeout(function(){el.remove()},2600);}
 
@@ -2408,7 +2410,7 @@ if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(
 <script>
 // v3.9.0: 強制解除舊 SW + Supabase fetch 加 ?apikey= 後備
 (function(){
-  var CURRENT_VER = 'v3.9.4';
+  var CURRENT_VER = 'v3.9.5';
   window.MGR_CURRENT_VER = CURRENT_VER;
   // sync script 已經處理咗 cache，呢度只係 fallback
   var cachedVer = localStorage.getItem('mgr_app_version') || '';
