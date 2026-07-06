@@ -180,7 +180,7 @@ tr:hover td{background:var(--blue50)}
       </div>
       <hr style="border:none;border-top:1px solid var(--gray200);margin:14px 0">
       <button class="btn btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="padding:10px;font-size:13px;width:100%">🔄 切換到經理版</button>
-      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.8.5</p>
+      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.9.2</p>
     </div>
     <!-- LOGIN MODE -->
     <div id="loginMode" style="display:none">
@@ -215,13 +215,13 @@ tr:hover td{background:var(--blue50)}
           <option value="Agent">Agent — 同事</option>
         </select>
       </div>
-      <div class="form-group"><label>👤 所屬經理 <span id="supervisorStar" style="color:var(--red500)">*</span> <span style="font-size:11px;color:var(--gray400)">註冊後不可更改</span></label><input type="text" id="supervisorInput" list="supervisorList" autocomplete="off"><datalist id="supervisorList"><option value="Terry Pau"><option value="Eric Ng"><option value="Sammy Chan"></datalist></div>
-      <div class="form-group"><label>團隊 <span style="color:var(--red500)">*</span></label>
-        <select id="teamInput" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px;font-family:inherit;background:var(--white)">
+      <div class="form-group"><label>👤 所屬經理 <span id="supervisorStar" style="color:var(--red500)">*</span> <span style="font-size:11px;color:var(--gray400)">由團隊自動填寫</span></label><input type="text" id="supervisorInput" list="supervisorList" autocomplete="off" readonly style="background:var(--gray50)"><datalist id="supervisorList"><option value="PAU CHI FUNG"><option value="NG MAN LOK"><option value="CHAN CHI HANG"></datalist></div>
+      <div class="form-group"><label>團隊 / 所屬區域 <span style="color:var(--red500)">*</span> <span style="font-size:11px;color:var(--gray400)">揀完會自動填所屬經理（DD）</span></label>
+        <select id="teamInput" onchange="onTeamChange()" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px;font-family:inherit;background:var(--white)">
           <option value="">-- 請選擇團隊 --</option>
-          <option value="Terry Pau District">Terry Pau District</option>
-          <option value="Eric Ng District">Eric Ng District</option>
-          <option value="Sammy Chan District">Sammy Chan District</option>
+          <option value="Terry Pau District" data-mgr="PAU CHI FUNG">Terry Pau District — PAU CHI FUNG (DD)</option>
+          <option value="Eric Ng District" data-mgr="NG MAN LOK">Eric Ng District — NG MAN LOK (DD)</option>
+          <option value="Sammy Chan District" data-mgr="CHAN CHI HANG">Sammy Chan District — CHAN CHI HANG (SDD)</option>
         </select>
       </div>
       <div class="modal-actions" style="justify-content:center;flex-wrap:wrap;gap:8px">
@@ -316,8 +316,18 @@ tr:hover td{background:var(--blue50)}
       </div>
     </div>
     <div class="form-group">
-      <label>所屬經理</label>
-      <input type="text" id="mgrInputSetting" placeholder="例如：張經理" style="letter-spacing:normal;font-size:15px;text-align:left">
+      <label>團隊 / 所屬區域 <span style="font-size:11px;color:var(--gray400)">（揀完自動填經理）</span></label>
+      <select id="teamInputSetting" onchange="onTeamSettingChange()" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px;font-family:inherit;background:var(--white)">
+        <option value="">-- 唔改 --</option>
+        <option value="Terry Pau District" data-mgr="PAU CHI FUNG">Terry Pau District — PAU CHI FUNG (DD)</option>
+        <option value="Eric Ng District" data-mgr="NG MAN LOK">Eric Ng District — NG MAN LOK (DD)</option>
+        <option value="Sammy Chan District" data-mgr="CHAN CHI HANG">Sammy Chan District — CHAN CHI HANG (SDD)</option>
+      </select>
+      <div style="font-size:12px;color:var(--gray400);margin-top:4px">目前：「<span id="currentTeamDisplay">尚未設定</span>」— 唔揀即不更改</div>
+    </div>
+    <div class="form-group">
+      <label>所屬經理 <span style="font-size:11px;color:var(--gray400)">（由團隊自動填，或手動輸入）</span></label>
+      <input type="text" id="mgrInputSetting" placeholder="例如：PAU CHI FUNG" style="letter-spacing:normal;font-size:15px;text-align:left">
       <div style="font-size:12px;color:var(--gray400);margin-top:4px">目前：「<span id="currentMgrDisplay">尚未設定</span>」— 留空即不更改</div>
     </div>
     <div style="font-size:12px;color:var(--gray400);margin-bottom:14px">
@@ -1218,10 +1228,28 @@ function onRoleChange() {
     star.style.color = 'var(--gray400)';
     star.textContent = '(選填)';
     supInput.placeholder = 'SDD 為最高層級，可留空';
+    supInput.readOnly = false;
+    supInput.style.background = 'var(--white)';
   } else {
     star.style.color = 'var(--red500)';
     star.textContent = '*';
-    supInput.placeholder = '例如：Jackson Hui';
+    supInput.placeholder = '由團隊自動填寫';
+  }
+}
+
+// v3.9.2: 揀團隊 → 自動填對應 DD 全名
+function onTeamChange() {
+  var teamSel = document.getElementById('teamInput');
+  var supInput = document.getElementById('supervisorInput');
+  var selected = teamSel.options[teamSel.selectedIndex];
+  var mgrName = selected.getAttribute('data-mgr') || '';
+  supInput.value = mgrName;
+  if (mgrName) {
+    supInput.readOnly = true;
+    supInput.style.background = 'var(--gray50)';
+  } else {
+    supInput.readOnly = false;
+    supInput.style.background = 'var(--white)';
   }
 }
 
@@ -2297,8 +2325,24 @@ function showCloudSetup() {
   document.getElementById('supaUrlInput').value = SUPA_URL;
   document.getElementById('supaKeyInput').value = SUPA_KEY;
   var mgr = assignedManager || '';
+  var team = assignedTeam || localStorage.getItem('insurance_team_'+encodeURIComponent(agentName)) || '';
   document.getElementById('mgrInputSetting').value = mgr;
   document.getElementById('currentMgrDisplay').textContent = mgr || '尚未設定';
+  document.getElementById('currentTeamDisplay').textContent = team || '尚未設定';
+  // Reset team dropdown
+  var tSel = document.getElementById('teamInputSetting');
+  if (tSel) tSel.value = '';
+}
+
+// v3.9.2: 雲端設定 team → auto-fill manager
+function onTeamSettingChange() {
+  var tSel = document.getElementById('teamInputSetting');
+  var mgrInput = document.getElementById('mgrInputSetting');
+  var selected = tSel.options[tSel.selectedIndex];
+  var mgrName = selected.getAttribute('data-mgr') || '';
+  if (mgrName) {
+    mgrInput.value = mgrName;
+  }
 }
 
 function hideCloudSetup() {
@@ -2310,12 +2354,42 @@ function saveCloudSetup() {
   var supaUrl = document.getElementById('supaUrlInput').value.trim();
   var supaKey = document.getElementById('supaKeyInput').value.trim();
   var mgr = document.getElementById('mgrInputSetting').value.trim();
+  var teamSel = document.getElementById('teamInputSetting');
+  var newTeam = teamSel ? teamSel.value : '';
+
+  var changed = false;
+
+  // v3.9.2: update team
+  if (newTeam && newTeam !== assignedTeam) {
+    assignedTeam = newTeam;
+    localStorage.setItem('insurance_team_'+encodeURIComponent(agentName), newTeam);
+    document.getElementById('currentTeamDisplay').textContent = newTeam;
+    changed = true;
+  }
 
   if (mgr && mgr !== assignedManager) {
     assignedManager = mgr;
     localStorage.setItem('insurance_mgr_'+encodeURIComponent(agentName), mgr);
-    document.getElementById('sidebarAgentInfo').textContent = agentName+' | 代理人版 | '+mgr;
+    document.getElementById('sidebarAgentInfo').textContent = agentName+' | '+agentRole+(mgr?' | 經理：'+mgr:'');
     document.getElementById('currentMgrDisplay').textContent = mgr;
+    changed = true;
+  }
+
+  // v3.9.2: if team or manager changed, PATCH Supabase
+  if (changed && SUPA_URL && SUPA_KEY) {
+    var patchBody = {};
+    if (mgr) patchBody.manager = mgr;
+    if (newTeam) patchBody.team = newTeam;
+    if (Object.keys(patchBody).length > 0) {
+      fetch(SUPA_URL + '/rest/v1/agents?name=eq.' + encodeURIComponent(agentName), {
+        method:'PATCH',
+        headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+        body:JSON.stringify(patchBody)
+      }).then(function(r){
+        if (r.ok) console.log('[team-update] ✅ manager/team updated:', patchBody);
+        else r.text().then(function(t){ console.error('[team-update] ❌', r.status, t); });
+      }).catch(function(e){ console.error('[team-update] ❌', e); });
+    }
   }
 
   var hasAnyCloud = url || supaUrl;
@@ -2398,7 +2472,7 @@ function afterLoginSync() {
 
 document.addEventListener('DOMContentLoaded',function(){
   // v3.8.5: 手機介面改底部導航
-  var CURRENT_VER = 'v3.8.5';
+  var CURRENT_VER = 'v3.9.2';
   var cachedVer = localStorage.getItem('app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, clearing cache and reloading...');
