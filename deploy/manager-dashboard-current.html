@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="zh-HK">
 <head>
-<script>// v3.9.1 強制破 cache + 強制解除舊 SW：sync script 喺一切之前執行
-var MGR_VER='v3.9.1',MGR_VER_KEY='mgr_app_version';
+<script>// v3.9.3 強制破 cache + 強制解除舊 SW：sync script 喺一切之前執行
+var MGR_VER='v3.9.3',MGR_VER_KEY='mgr_app_version';
 (function(){
   var v=localStorage.getItem(MGR_VER_KEY)||'';
   if(v&&v!==MGR_VER){console.log('[CacheBuster] '+v+'→'+MGR_VER);localStorage.setItem(MGR_VER_KEY,MGR_VER);}
@@ -23,7 +23,7 @@ var MGR_VER='v3.9.1',MGR_VER_KEY='mgr_app_version';
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>經理團隊總覽</title>
-<link rel="manifest" href="manifest.json?v=3.9.0">
+<link rel="manifest" href="manifest.json?v=3.9.3">
 <meta name="theme-color" content="#2563eb">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -222,7 +222,7 @@ tr:hover td{background:var(--blue50)}
   <!-- HEADER -->
   <div class="header">
     <div>
-      <h1>📊 團隊總覽 <span style="font-size:11px;opacity:0.6;font-weight:400">v3.9.1</span></h1>
+      <h1>📊 團隊總覽 <span style="font-size:11px;opacity:0.6;font-weight:400">v3.9.3</span></h1>
       <div class="sub" id="mgrNameDisplay">保險經紀業務管理系統 · 經理視角</div>
     </div>
     <div class="header-actions">
@@ -282,7 +282,16 @@ tr:hover td{background:var(--blue50)}
 
     <!-- Performance Table -->
     <div class="table-wrap">
-      <div class="table-head"><h3>👥 代理人表現總表</h3></div>
+      <div class="table-head" style="flex-direction:column;align-items:flex-start;gap:8px">
+        <h3>👥 代理人表現總表</h3>
+        <div id="drillNav" style="display:none;width:100%;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--blue50);border:1px solid var(--blue100);border-radius:6px;margin-top:4px">
+          <div id="drillPath" style="font-size:13px;color:var(--gray600)"></div>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-outline" onclick="drillUp()" style="font-size:12px;padding:5px 10px">⬆️ 返回</button>
+            <button class="btn btn-outline" onclick="drillReset()" style="font-size:12px;padding:5px 10px">🏠 頂層</button>
+          </div>
+        </div>
+      </div>
       <table><thead><tr><th>排名</th><th>代理人</th><th>客戶數</th><th>保單數</th><th>本月佣金</th><th>本年佣金</th><th>PC</th><th>目標達成率</th><th>淨收入</th></tr></thead><tbody id="agentRankingTable"></tbody></table>
     </div>
 
@@ -640,6 +649,8 @@ var chartLib = null;
 var chartInstances = {};
 var selectedAgent = null;
 var detailTab = 'clients';
+var currentRoot = null; // v3.9.3: 下鑽視圖根節點
+var rootStack = [];     // v3.9.3: 下鑽路徑 stack
 
 // ===== 雲端同步設定（Supabase 為主，Google Sheets 選填）=====
 var MGR_API_URL = '';
@@ -770,6 +781,9 @@ function mgrLoadFromSupabase() {
         }
         visibleCount++;
       });
+      // v3.9.3: 初始化下鑽根節點為登入者自己
+      currentRoot = myName;
+      rootStack = [];
       render();
       document.getElementById("noDataMsg").style.display = "none";
       document.getElementById("dataView").style.display = "block";
@@ -1119,7 +1133,7 @@ function importMulti(evt){
 
 function clearAll(){
   if(!confirm('確定清除所有團隊數據？'))return;
-  TEAM={};selectedAgent=null;
+  TEAM={};selectedAgent=null;currentRoot=null;rootStack=[];
   document.getElementById('noDataMsg').style.display='block';
   document.getElementById('dataView').style.display='none';
   document.getElementById('detailPanel').style.display='none';
@@ -1127,11 +1141,86 @@ function clearAll(){
 }
 
 // ============================================================
+// DRILL-DOWN: v3.9.3 下鑽查看下屬 tree 業績
+// ============================================================
+function buildTeamMgrMap(){
+  var map = {};
+  Object.keys(TEAM).forEach(function(n){
+    var mgr = (TEAM[n].managerName || '').trim();
+    if(mgr){
+      if(!map[mgr]) map[mgr] = [];
+      map[mgr].push(n);
+    }
+  });
+  return map;
+}
+function getTree(root){
+  if(!root || !TEAM[root]) return Object.keys(TEAM);
+  var map = buildTeamMgrMap();
+  var result = [root];
+  function rec(name, visited){
+    visited = visited || {};
+    (map[name] || []).forEach(function(child){
+      if(!visited[child]){
+        visited[child] = true;
+        result.push(child);
+        rec(child, visited);
+      }
+    });
+  }
+  rec(root, {});
+  return result;
+}
+function hasDownline(name){
+  var map = buildTeamMgrMap();
+  return (map[name] || []).length > 0;
+}
+function drillDown(name){
+  if(!TEAM[name] || !hasDownline(name)) return;
+  rootStack.push(currentRoot);
+  currentRoot = name;
+  selectedAgent = null;
+  document.getElementById('detailPanel').style.display='none';
+  render();
+}
+function drillUp(){
+  if(rootStack.length === 0) return;
+  currentRoot = rootStack.pop();
+  selectedAgent = null;
+  document.getElementById('detailPanel').style.display='none';
+  render();
+}
+function drillReset(){
+  if(rootStack.length === 0) return;
+  var first = rootStack[0];
+  currentRoot = first;
+  rootStack = [];
+  selectedAgent = null;
+  document.getElementById('detailPanel').style.display='none';
+  render();
+}
+function drillToRoot(name){
+  if(!TEAM[name]) return;
+  // pop until name is on top, then set currentRoot to name
+  while(rootStack.length > 0 && rootStack[rootStack.length-1] !== name){
+    rootStack.pop();
+  }
+  if(rootStack.length > 0){
+    rootStack.pop();
+  }
+  currentRoot = name;
+  selectedAgent = null;
+  document.getElementById('detailPanel').style.display='none';
+  render();
+}
+
+// ============================================================
 // RENDER
 // ============================================================
 function render(){
-  var agentNames = Object.keys(TEAM);
+  var agentNames = getTree(currentRoot);
   if(agentNames.length===0)return;
+  var rootName = currentRoot || '全團隊';
 
   // Summary
   var totalClients=0, totalPolicies=0, totalComm=0, totalExp=0, totalPC=0, totalGoals=0;
@@ -1145,10 +1234,10 @@ function render(){
     if(d.pcs) d.pcs.forEach(function(pc){totalPC+=Number(pc.amount)||0;var dt=new Date(pc.date);if(dt.getMonth()===m&&dt.getFullYear()===y)monthPC+=Number(pc.amount)||0;});
   });
   document.getElementById('summaryCards').innerHTML=
-    '<div class="stat-card" style="border-left-color:#3b82f6"><div class="label">總代理人數</div><div class="value">'+agentNames.length+'</div><div class="sub">位團隊成員</div></div>'+
-    '<div class="stat-card" style="border-left-color:#22c55e"><div class="label">本月團隊佣金</div><div class="value">'+money(monthComm)+'</div><div class="sub">全團隊</div></div>'+
+    '<div class="stat-card" style="border-left-color:#3b82f6"><div class="label">總人數</div><div class="value">'+agentNames.length+'</div><div class="sub">'+esc(rootName)+' 線內成員</div></div>'+
+    '<div class="stat-card" style="border-left-color:#22c55e"><div class="label">本月佣金</div><div class="value">'+money(monthComm)+'</div><div class="sub">'+esc(rootName)+' 線</div></div>'+
     '<div class="stat-card" style="border-left-color:#a855f7"><div class="label">總客戶數</div><div class="value">'+totalClients+'</div><div class="sub">保單總數: '+totalPolicies+'</div></div>'+
-    '<div class="stat-card" style="border-left-color:#eab308"><div class="label">累計佣金總額</div><div class="value">'+money(totalComm)+'</div><div class="sub">開支: '+money(totalExp)+' | PC: '+money(totalPC)+'</div></div>'+
+    '<div class="stat-card" style="border-left-color:#eab308"><div class="label">累計佣金</div><div class="value">'+money(totalComm)+'</div><div class="sub">開支: '+money(totalExp)+' | PC: '+money(totalPC)+'</div></div>'+
     '<div class="stat-card" style="border-left-color:#ef4444"><div class="label">人均月佣</div><div class="value">'+money(agentNames.length>0?Math.round(monthComm/agentNames.length):0)+'</div><div class="sub">人均客戶: '+Math.round(totalClients/agentNames.length)+'</div></div>';
 
   // Agent ranking
@@ -1170,9 +1259,28 @@ function render(){
   ranks.forEach(function(r,i){
     var rc=roleColors[r.role]||'#e5e7eb';
     var roleBadge='<span style="background:'+rc+';color:'+(r.role==='Agent'?'#374151':'#fff')+';padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600">'+esc(r.role)+'</span>';
-    tableHtml+='<tr class="agent-row'+(selectedAgent===r.name?' selected':'')+'" onclick="selectAgent(\''+esc(r.name)+'\',this)"><td>'+(i+1)+'</td><td>'+esc(r.name)+' '+roleBadge+'</td><td>'+r.clients+'</td><td>'+r.policies+'</td><td class="amt-pos">'+money(r.monthComm)+'</td><td>'+money(r.yearComm)+'</td><td>'+money(r.monthPC)+'</td><td><span class="badge '+(r.goalRate>=100?'badge-green':r.goalRate>=70?'badge-blue':'badge-yellow')+'">'+(r.goalRate===0?'未設定':r.goalRate+'%')+'</span></td><td>'+money(r.net)+'</td></tr>';
+    var drillIcon='';
+    if(hasDownline(r.name)){
+      drillIcon=' <span onclick="event.stopPropagation();drillDown(\''+esc(r.name)+'\')" title="下鑽查看 '+esc(r.name)+' 嘅下屬" style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:var(--blue100);color:var(--blue600);font-size:11px;margin-left:4px">🔽</span>';
+    }
+    tableHtml+='<tr class="agent-row'+(selectedAgent===r.name?' selected':'')+'" onclick="selectAgent(\''+esc(r.name)+'\',this)"><td>'+(i+1)+'</td><td>'+esc(r.name)+' '+roleBadge+drillIcon+'</td><td>'+r.clients+'</td><td>'+r.policies+'</td><td class="amt-pos">'+money(r.monthComm)+'</td><td>'+money(r.yearComm)+'</td><td>'+money(r.monthPC)+'</td><td><span class="badge '+(r.goalRate>=100?'badge-green':r.goalRate>=70?'badge-blue':'badge-yellow')+'">'+(r.goalRate===0?'未設定':r.goalRate+'%')+'</span></td><td>'+money(r.net)+'</td></tr>';
   });
   document.getElementById('agentRankingTable').innerHTML=tableHtml;
+
+  // Drill-down breadcrumb
+  var drillNav = document.getElementById('drillNav');
+  var drillPath = document.getElementById('drillPath');
+  if(rootStack.length === 0){
+    drillNav.style.display = 'none';
+  } else {
+    drillNav.style.display = 'flex';
+    var pathHtml = '<span style="color:var(--gray400)">🏠</span> ';
+    rootStack.forEach(function(n){
+      pathHtml += '<span style="color:var(--blue600);cursor:pointer" onclick="drillToRoot(\''+esc(n)+'\')">'+esc(n)+'</span> <span style="color:var(--gray300);margin:0 4px">›</span> ';
+    });
+    pathHtml += '<strong style="color:var(--gray800)">'+esc(currentRoot)+'</strong>';
+    drillPath.innerHTML = pathHtml;
+  }
 
   // Ranking chart
   if(chartLib)renderCharts(ranks,maxComm,agentNames,y,m);
@@ -1226,9 +1334,10 @@ function renderTeamActivity() {
   weekEnd.setDate(weekStart.getDate() + 6);
 
   var activities = [];
+  var agentNames = getTree(currentRoot);
 
-  // Collect all schedules from all agents
-  Object.keys(TEAM).forEach(function(agentName) {
+  // Collect all schedules from current tree
+  agentNames.forEach(function(agentName) {
     var agentData = TEAM[agentName];
     if (!agentData.schedules) return;
 
@@ -2097,7 +2206,7 @@ if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(
 <script>
 // v3.9.0: 強制解除舊 SW + Supabase fetch 加 ?apikey= 後備
 (function(){
-  var CURRENT_VER = 'v3.9.1';
+  var CURRENT_VER = 'v3.9.3';
   window.MGR_CURRENT_VER = CURRENT_VER;
   // sync script 已經處理咗 cache，呢度只係 fallback
   var cachedVer = localStorage.getItem('mgr_app_version') || '';
