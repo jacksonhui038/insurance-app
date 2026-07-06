@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="zh-HK">
 <head>
-<script>// v3.9.3 強制破 cache + 強制解除舊 SW：sync script 喺一切之前執行
-var MGR_VER='v3.9.3',MGR_VER_KEY='mgr_app_version';
+<script>// v3.9.4 強制破 cache + 強制解除舊 SW：sync script 喺一切之前執行
+var MGR_VER='v3.9.4',MGR_VER_KEY='mgr_app_version';
 (function(){
   var v=localStorage.getItem(MGR_VER_KEY)||'';
   if(v&&v!==MGR_VER){console.log('[CacheBuster] '+v+'→'+MGR_VER);localStorage.setItem(MGR_VER_KEY,MGR_VER);}
@@ -23,7 +23,7 @@ var MGR_VER='v3.9.3',MGR_VER_KEY='mgr_app_version';
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>經理團隊總覽</title>
-<link rel="manifest" href="manifest.json?v=3.9.3">
+<link rel="manifest" href="manifest.json?v=3.9.4">
 <meta name="theme-color" content="#2563eb">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -97,6 +97,8 @@ tr:hover td{background:var(--blue50)}
 .detail-tab{padding:8px 18px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;border:none;background:none;color:var(--gray500);transition:all .15s}
 .detail-tab.active{background:var(--blue500);color:#fff}
 .detail-content{overflow-x:auto}
+.table-responsive{overflow-x:auto;-webkit-overflow-scrolling:touch;width:100%}
+.table-responsive table{min-width:720px}
 /* EMPTY */
 .empty{text-align:center;padding:48px 20px;color:var(--gray400)}
 .amt-pos{color:var(--green500);font-weight:600}
@@ -110,14 +112,43 @@ tr:hover td{background:var(--blue50)}
 .period-btns{display:flex;gap:8px;margin-bottom:16px}
 .period-btn{padding:6px 14px;border-radius:20px;font-size:12px;cursor:pointer;border:1px solid var(--gray300);background:var(--white);color:var(--gray500);font-weight:500;transition:all .15s}
 .period-btn.active{background:var(--blue500);color:#fff;border-color:var(--blue500)}
+.activity-date-selectors select{padding:6px 10px;border-radius:6px;border:1px solid var(--gray300);font-size:13px;font-family:inherit;background:var(--white);color:var(--gray600);min-width:80px}
 @media(max-width:768px){
-  .header{flex-direction:column;align-items:flex-start;gap:12px;padding:16px}
-  .header h1{font-size:18px}
-  .header-actions{width:100%;overflow-x:auto;gap:8px;padding-bottom:4px;white-space:nowrap;display:flex;flex-wrap:nowrap}
+  .activity-filters{gap:6px}
+  .activity-filters .period-btn{padding:5px 10px;font-size:11px}
+  .activity-date-selectors select{padding:5px 8px;font-size:12px}
+}
+@media(max-width:768px){
+  html,body{overflow-x:hidden}
+  .container{padding:12px;padding-bottom:calc(12px + env(safe-area-inset-bottom));max-width:100%}
+  .header{flex-direction:column;align-items:flex-start;gap:10px;padding:14px 16px;border-radius:10px}
+  .header h1{font-size:17px;line-height:1.3}
+  .header .sub{font-size:12px}
+  .header-actions{width:100%;overflow-x:auto;gap:8px;padding-bottom:4px;white-space:nowrap;display:flex;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .header-actions::-webkit-scrollbar{display:none}
   .header-actions .btn{white-space:nowrap;padding:7px 12px;font-size:12px}
-  .charts-row,.charts-row-3{grid-template-columns:1fr}
-  .container{padding:12px}
+  .cards-grid{grid-template-columns:repeat(2,1fr);gap:10px}
+  .stat-card{padding:14px}
+  .stat-card .value{font-size:20px}
+  .stat-card .label{font-size:11px}
+  .stat-card .sub{font-size:11px}
+  .charts-row,.charts-row-3{grid-template-columns:1fr;gap:12px}
+  .chart-card{padding:14px;border-radius:10px}
+  .chart-card h3{font-size:13px}
+  .chart-card canvas{max-height:220px}
+  .table-wrap{border-radius:10px}
+  .table-head{padding:12px 14px}
+  .table-head h3{font-size:14px}
+  th{padding:8px 10px;font-size:10px}
+  td{padding:8px 10px;font-size:12px}
+  .detail-panel{padding:14px;border-radius:10px}
+  .detail-tabs{gap:6px}
+  .detail-tab{padding:6px 12px;font-size:12px}
   .lock-card{padding:24px 20px;width:92%}
+  .toast{bottom:16px;right:16px;left:16px;width:auto}
+}
+@media(max-width:400px){
+  .cards-grid{grid-template-columns:1fr}
 }
 /* LOCK SCREEN */
 .lock-bg{display:flex;position:fixed;top:0;left:0;right:0;bottom:0;background:linear-gradient(135deg,#1e3a5f,#2563eb);z-index:9999;justify-content:center;align-items:center}
@@ -222,7 +253,7 @@ tr:hover td{background:var(--blue50)}
   <!-- HEADER -->
   <div class="header">
     <div>
-      <h1>📊 團隊總覽 <span style="font-size:11px;opacity:0.6;font-weight:400">v3.9.3</span></h1>
+      <h1>📊 團隊總覽 <span style="font-size:11px;opacity:0.6;font-weight:400">v3.9.4</span></h1>
       <div class="sub" id="mgrNameDisplay">保險經紀業務管理系統 · 經理視角</div>
     </div>
     <div class="header-actions">
@@ -261,12 +292,27 @@ tr:hover td{background:var(--blue50)}
 
     <!-- Team Activity Overview -->
     <div class="table-wrap" id="teamActivitySection">
-      <div class="table-head">
+      <div class="table-head" style="flex-direction:column;align-items:flex-start;gap:10px">
         <h3>📋 團隊活動總覽</h3>
-        <div class="period-btns" style="margin-bottom:0">
+        <div class="period-btns activity-filters" style="margin-bottom:0;flex-wrap:wrap">
           <button class="period-btn active" onclick="showTeamActivity('today', this)">今日</button>
           <button class="period-btn" onclick="showTeamActivity('week', this)">本週</button>
+          <button class="period-btn" onclick="showTeamActivity('month', this)">本月</button>
+          <button class="period-btn" onclick="showTeamActivity('quarter', this)">本季</button>
+          <button class="period-btn" onclick="showTeamActivity('year', this)">本年</button>
+          <button class="period-btn" onclick="showTeamActivity('all', this)">全部</button>
           <button class="period-btn" onclick="showTeamActivity('overdue', this)">待跟進</button>
+        </div>
+        <div class="activity-date-selectors" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;width:100%">
+          <select id="activityYearSelect" onchange="changeActivityYear(this.value)"></select>
+          <select id="activityMonthSelect" onchange="changeActivityMonth(this.value)"></select>
+          <select id="activityQuarterSelect" onchange="changeActivityQuarter(this.value)" style="display:none">
+            <option value="1">第一季</option>
+            <option value="2">第二季</option>
+            <option value="3">第三季</option>
+            <option value="4">第四季</option>
+          </select>
+          <span id="activityRangeLabel" style="font-size:12px;color:var(--gray400);margin-left:auto"></span>
         </div>
       </div>
       <div id="teamActivityContent" style="padding:16px">
@@ -292,7 +338,9 @@ tr:hover td{background:var(--blue50)}
           </div>
         </div>
       </div>
-      <table><thead><tr><th>排名</th><th>代理人</th><th>客戶數</th><th>保單數</th><th>本月佣金</th><th>本年佣金</th><th>PC</th><th>目標達成率</th><th>淨收入</th></tr></thead><tbody id="agentRankingTable"></tbody></table>
+      <div class="table-responsive">
+        <table><thead><tr><th>排名</th><th>代理人</th><th>客戶數</th><th>保單數</th><th>本月佣金</th><th>本年佣金</th><th>PC</th><th>目標達成率</th><th>淨收入</th></tr></thead><tbody id="agentRankingTable"></tbody></table>
+      </div>
     </div>
 
     <!-- Drill-down -->
@@ -1252,7 +1300,13 @@ function render(){
     var goalRate=0;(d.goals||[]).forEach(function(g){if(g.period==='monthly'&&g.year===y&&g.month===m+1&&g.target>0)goalRate=Math.round(mc/g.target*100);});
     ranks.push({name:a,role:d.role||'Agent',clients:d.clients.length,policies:d.policies.length,monthComm:mc,yearComm:yc,monthPC:mpc,yearPC:ypc,expenses:me,goalRate:Math.min(goalRate,999),net:mc-me,supervisor:d.supervisor||''});
   });
-  ranks.sort(function(a,b){return b.monthComm-a.monthComm;});
+  var roleOrder={'SDD':1,'DD':2,'SDM':3,'DM':4,'SASM':5,'ASM':6,'Agent':7};
+  ranks.sort(function(a,b){
+    var ra=roleOrder[a.role]||99;
+    var rb=roleOrder[b.role]||99;
+    if(ra!==rb)return ra-rb;
+    return b.monthComm-a.monthComm;
+  });
   var maxComm=ranks.length>0?ranks[0].monthComm:1;
   var roleColors={'SDD':'#1e40af','DD':'#2563eb','SDM':'#3b82f6','DM':'#60a5fa','SASM':'#93c5fd','ASM':'#bfdbfe','Agent':'#e5e7eb'};
   var tableHtml='';
@@ -1297,26 +1351,142 @@ function render(){
 // ============================================================
 function renderCharts(ranks,maxComm,agentNames,y,m){
   if(!chartLib)return;
-  var top=ranks.slice(0,15),labels=top.map(function(r){return r.name;}),data=top.map(function(r){return r.monthComm;});
+  var isMobile = window.innerWidth <= 768;
+  var topCount = isMobile ? 8 : 15;
+  var top=ranks.slice(0,topCount),labels=top.map(function(r){return r.name;}),data=top.map(function(r){return r.monthComm;});
   if(chartInstances['chartRanking'])chartInstances['chartRanking'].destroy();
-  chartInstances['chartRanking']=new chartLib(document.getElementById('chartRanking'),{type:'bar',data:{labels:labels,datasets:[{data:data,backgroundColor:'#3b82f6',borderRadius:6}]},options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{callback:function(v){return'HK$'+v.toLocaleString()}}}}}});
+  chartInstances['chartRanking']=new chartLib(document.getElementById('chartRanking'),{type:'bar',data:{labels:labels,datasets:[{data:data,backgroundColor:'#3b82f6',borderRadius:6}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{callback:function(v){return'HK$'+v.toLocaleString()}}},y:{ticks:{font:{size:isMobile?10:12}}}}}});
 
   if(chartInstances['chartTeamTrend'])chartInstances['chartTeamTrend'].destroy();
   var tlabels=[],tdata=[];
   for(var i=5;i>=0;i--){var dm=new Date(y,m-i,1);tlabels.push(dm.getFullYear()+'/'+(dm.getMonth()+1));var ts=0;agentNames.forEach(function(a){TEAM[a].commissions.forEach(function(c){var d=new Date(c.date);if(d.getMonth()===dm.getMonth()&&d.getFullYear()===dm.getFullYear())ts+=Number(c.amount)||0;});});tdata.push(ts);}
-  chartInstances['chartTeamTrend']=new chartLib(document.getElementById('chartTeamTrend'),{type:'line',data:{labels:tlabels,datasets:[{data:tdata,borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,0.1)',fill:true,tension:0.4,pointRadius:4}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:function(v){return'HK$'+v.toLocaleString()}}}}}});
+  chartInstances['chartTeamTrend']=new chartLib(document.getElementById('chartTeamTrend'),{type:'line',data:{labels:tlabels,datasets:[{data:tdata,borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,0.1)',fill:true,tension:0.4,pointRadius:isMobile?3:4,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:isMobile?10:12}}},y:{beginAtZero:true,ticks:{callback:function(v){return'HK$'+v.toLocaleString()}}}}}});
 }
 
 // ============================================================
 // TEAM ACTIVITY OVERVIEW
 // ============================================================
 var teamActivityPeriod = 'today';
+var activityYear = new Date().getFullYear();
+var activityMonth = new Date().getMonth() + 1;
+var activityQuarter = Math.floor(new Date().getMonth() / 3) + 1;
+
+function initActivitySelectors() {
+  var yearSel = document.getElementById('activityYearSelect');
+  var monthSel = document.getElementById('activityMonthSelect');
+  var qSel = document.getElementById('activityQuarterSelect');
+  if (!yearSel || !monthSel) return;
+
+  var currentYear = new Date().getFullYear();
+  yearSel.innerHTML = '';
+  for (var y = currentYear - 3; y <= currentYear + 1; y++) {
+    var opt = document.createElement('option');
+    opt.value = y;
+    opt.textContent = y + '年';
+    if (y === activityYear) opt.selected = true;
+    yearSel.appendChild(opt);
+  }
+
+  monthSel.innerHTML = '';
+  for (var m = 1; m <= 12; m++) {
+    var opt = document.createElement('option');
+    opt.value = m;
+    opt.textContent = m + '月';
+    if (m === activityMonth) opt.selected = true;
+    monthSel.appendChild(opt);
+  }
+
+  qSel.value = activityQuarter;
+}
+
+function updateActivitySelectorVisibility() {
+  var monthSel = document.getElementById('activityMonthSelect');
+  var qSel = document.getElementById('activityQuarterSelect');
+  var yearSel = document.getElementById('activityYearSelect');
+  if (!monthSel || !qSel || !yearSel) return;
+
+  if (teamActivityPeriod === 'month') {
+    monthSel.style.display = 'inline-block';
+    qSel.style.display = 'none';
+    yearSel.style.display = 'inline-block';
+  } else if (teamActivityPeriod === 'quarter') {
+    monthSel.style.display = 'none';
+    qSel.style.display = 'inline-block';
+    yearSel.style.display = 'inline-block';
+  } else if (teamActivityPeriod === 'year') {
+    monthSel.style.display = 'none';
+    qSel.style.display = 'none';
+    yearSel.style.display = 'inline-block';
+  } else {
+    monthSel.style.display = 'none';
+    qSel.style.display = 'none';
+    yearSel.style.display = 'none';
+  }
+}
+
+function changeActivityYear(y) {
+  activityYear = parseInt(y, 10);
+  renderTeamActivity();
+}
+function changeActivityMonth(m) {
+  activityMonth = parseInt(m, 10);
+  if (teamActivityPeriod !== 'month') {
+    setTeamActivityBtn('month');
+    teamActivityPeriod = 'month';
+  }
+  renderTeamActivity();
+}
+function changeActivityQuarter(q) {
+  activityQuarter = parseInt(q, 10);
+  if (teamActivityPeriod !== 'quarter') {
+    setTeamActivityBtn('quarter');
+    teamActivityPeriod = 'quarter';
+  }
+  renderTeamActivity();
+}
+function setTeamActivityBtn(period) {
+  document.querySelectorAll('#teamActivitySection .period-btn').forEach(function(b) {
+    b.classList.remove('active');
+    if (b.getAttribute('onclick') && b.getAttribute('onclick').indexOf("'" + period + "'") !== -1) {
+      b.classList.add('active');
+    }
+  });
+}
+
 function showTeamActivity(period, btnEl) {
   teamActivityPeriod = period;
+  if (period === 'today') {
+    var now = new Date();
+    activityYear = now.getFullYear();
+    activityMonth = now.getMonth() + 1;
+    activityQuarter = Math.floor(now.getMonth() / 3) + 1;
+    initActivitySelectors();
+  } else if (period === 'week') {
+    var now = new Date();
+    activityYear = now.getFullYear();
+    activityMonth = now.getMonth() + 1;
+    activityQuarter = Math.floor(now.getMonth() / 3) + 1;
+    initActivitySelectors();
+  } else if (period === 'month') {
+    var now = new Date();
+    activityYear = now.getFullYear();
+    activityMonth = now.getMonth() + 1;
+    initActivitySelectors();
+  } else if (period === 'quarter') {
+    var now = new Date();
+    activityYear = now.getFullYear();
+    activityQuarter = Math.floor(now.getMonth() / 3) + 1;
+    initActivitySelectors();
+  } else if (period === 'year') {
+    var now = new Date();
+    activityYear = now.getFullYear();
+    initActivitySelectors();
+  }
   if (btnEl) {
     btnEl.parentElement.querySelectorAll('.period-btn').forEach(function(b) { b.classList.remove('active'); });
     btnEl.classList.add('active');
   }
+  updateActivitySelectorVisibility();
   renderTeamActivity();
 }
 
@@ -1333,6 +1503,7 @@ function renderTeamActivity() {
   var weekEnd = new Date(weekStart);
   weekEnd.setDate(weekStart.getDate() + 6);
 
+  var rangeLabel = '';
   var activities = [];
   var agentNames = getTree(currentRoot);
 
@@ -1345,14 +1516,25 @@ function renderTeamActivity() {
       var scheduleDate = schedule.date;
       if (!scheduleDate) return;
 
+      var d = new Date(scheduleDate);
+      var y = d.getFullYear();
+      var m = d.getMonth() + 1;
+      var q = Math.floor(d.getMonth() / 3) + 1;
       var match = false;
+
       if (teamActivityPeriod === 'today') {
         match = (scheduleDate === todayStr);
       } else if (teamActivityPeriod === 'week') {
-        var d = new Date(scheduleDate);
         match = (d >= weekStart && d <= weekEnd);
+      } else if (teamActivityPeriod === 'month') {
+        match = (y === activityYear && m === activityMonth);
+      } else if (teamActivityPeriod === 'quarter') {
+        match = (y === activityYear && q === activityQuarter);
+      } else if (teamActivityPeriod === 'year') {
+        match = (y === activityYear);
+      } else if (teamActivityPeriod === 'all') {
+        match = true;
       } else if (teamActivityPeriod === 'overdue') {
-        var d = new Date(scheduleDate);
         match = (d < now && schedule.status !== '已完成' && schedule.status !== '取消');
       }
 
@@ -1373,6 +1555,17 @@ function renderTeamActivity() {
     });
   });
 
+  // Build range label
+  if (teamActivityPeriod === 'month') {
+    rangeLabel = activityYear + '年' + activityMonth + '月';
+  } else if (teamActivityPeriod === 'quarter') {
+    rangeLabel = activityYear + '年第' + activityQuarter + '季';
+  } else if (teamActivityPeriod === 'year') {
+    rangeLabel = activityYear + '年';
+  }
+  var lblEl = document.getElementById('activityRangeLabel');
+  if (lblEl) lblEl.textContent = rangeLabel;
+
   // Sort by date and time
   activities.sort(function(a, b) {
     if (a.date !== b.date) return a.date.localeCompare(b.date);
@@ -1382,20 +1575,27 @@ function renderTeamActivity() {
   // Render
   var h = '';
   if (activities.length === 0) {
-    var msg = teamActivityPeriod === 'today' ? '今日無會議安排' :
-              teamActivityPeriod === 'week' ? '本週無會議安排' :
-              '無待跟進事項';
-    h = '<div class="empty">' + msg + '</div>';
+    var msgMap = {
+      'today': '今日無會議安排',
+      'week': '本週無會議安排',
+      'month': activityYear + '年' + activityMonth + '月無會議安排',
+      'quarter': activityYear + '年第' + activityQuarter + '季無會議安排',
+      'year': activityYear + '年無會議安排',
+      'all': '暫無任何會議安排',
+      'overdue': '無待跟進事項'
+    };
+    h = '<div class="empty">' + (msgMap[teamActivityPeriod] || '暫無資料') + '</div>';
   } else {
-    h = '<table style="width:100%;border-collapse:collapse;font-size:13px">';
+    h = '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch">';
+    h += '<table style="width:100%;min-width:680px;border-collapse:collapse;font-size:13px">';
     h += '<thead><tr style="text-align:left;padding:8px 12px;font-size:11px;color:var(--gray400);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--gray200);background:var(--gray50)">';
-    h += '<th style="padding:8px 12px">日期</th>';
-    h += '<th style="padding:8px 12px">時間</th>';
-    h += '<th style="padding:8px 12px">代理人</th>';
-    h += '<th style="padding:8px 12px">客戶</th>';
-    h += '<th style="padding:8px 12px">目的</th>';
-    h += '<th style="padding:8px 12px">地點</th>';
-    h += '<th style="padding:8px 12px">狀態</th>';
+    h += '<th style="padding:8px 12px;white-space:nowrap">日期</th>';
+    h += '<th style="padding:8px 12px;white-space:nowrap">時間</th>';
+    h += '<th style="padding:8px 12px;white-space:nowrap">代理人</th>';
+    h += '<th style="padding:8px 12px;white-space:nowrap">客戶</th>';
+    h += '<th style="padding:8px 12px;white-space:nowrap">目的</th>';
+    h += '<th style="padding:8px 12px;white-space:nowrap">地點</th>';
+    h += '<th style="padding:8px 12px;white-space:nowrap">狀態</th>';
     h += '</tr></thead><tbody>';
 
     activities.forEach(function(activity) {
@@ -1406,13 +1606,13 @@ function renderTeamActivity() {
       else statusClass = 'badge-blue';
 
       h += '<tr style="border-bottom:1px solid var(--gray100);cursor:pointer" onmouseover="this.style.background=\'var(--blue50)\'" onmouseout="this.style.background=\'\'">';
-      h += '<td style="padding:8px 12px">' + activity.date + '</td>';
-      h += '<td style="padding:8px 12px;font-weight:600">' + activity.startTime + (activity.endTime ? ' - ' + activity.endTime : '') + '</td>';
-      h += '<td style="padding:8px 12px;font-weight:500">' + esc(activity.agent) + '</td>';
+      h += '<td style="padding:8px 12px;white-space:nowrap">' + activity.date + '</td>';
+      h += '<td style="padding:8px 12px;font-weight:600;white-space:nowrap">' + activity.startTime + (activity.endTime ? ' - ' + activity.endTime : '') + '</td>';
+      h += '<td style="padding:8px 12px;font-weight:500;white-space:nowrap">' + esc(activity.agent) + '</td>';
       h += '<td style="padding:8px 12px">' + esc(activity.clientName) + '</td>';
       h += '<td style="padding:8px 12px">' + esc(activity.purpose) + '</td>';
       h += '<td style="padding:8px 12px;color:var(--gray500)">' + esc(activity.location) + '</td>';
-      h += '<td style="padding:8px 12px"><span class="badge ' + statusClass + '">' + esc(activity.status) + '</span></td>';
+      h += '<td style="padding:8px 12px;white-space:nowrap"><span class="badge ' + statusClass + '">' + esc(activity.status) + '</span></td>';
       h += '</tr>';
 
       // Show meeting notes and follow-up if exists
@@ -1424,7 +1624,7 @@ function renderTeamActivity() {
       }
     });
 
-    h += '</tbody></table>';
+    h += '</tbody></table></div>';
   }
 
   document.getElementById('teamActivityContent').innerHTML = h;
@@ -2096,6 +2296,8 @@ function whenReady(fn){ return _chartReady.then(function(){ fn(); }); }
 mgrLoadApiUrl();
 if (MGR_CLOUD_ENABLED && document.getElementById('mgrCloudBtn')) document.getElementById('mgrCloudBtn').style.display = '';
 initLock();
+initActivitySelectors();
+updateActivitySelectorVisibility();
 </script>
 <script>
 if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(function(r){console.log('[PWA] Service Worker 已註冊:',r.scope);}).catch(function(e){console.warn('[PWA] SW 註冊失敗:',e);});}
@@ -2206,7 +2408,7 @@ if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(
 <script>
 // v3.9.0: 強制解除舊 SW + Supabase fetch 加 ?apikey= 後備
 (function(){
-  var CURRENT_VER = 'v3.9.3';
+  var CURRENT_VER = 'v3.9.4';
   window.MGR_CURRENT_VER = CURRENT_VER;
   // sync script 已經處理咗 cache，呢度只係 fallback
   var cachedVer = localStorage.getItem('mgr_app_version') || '';
