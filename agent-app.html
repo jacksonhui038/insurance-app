@@ -215,7 +215,11 @@ tr:hover td{background:var(--blue50)}
           <option value="Agent">Agent — 同事</option>
         </select>
       </div>
-      <div class="form-group"><label>👤 所屬經理 <span id="supervisorStar" style="color:var(--red500)">*</span> <span style="font-size:11px;color:var(--gray400)">由團隊自動填寫</span></label><input type="text" id="supervisorInput" list="supervisorList" autocomplete="off" readonly style="background:var(--gray50)"><datalist id="supervisorList"><option value="PAU CHI FUNG"><option value="NG MAN LOK"><option value="CHAN CHI HANG"></datalist></div>
+      <div class="form-group"><label>👤 直屬經理 <span id="supervisorStar" style="color:var(--red500)">*</span> <span style="font-size:11px;color:var(--gray400)">揀團隊會自動填入，亦可自行揀</span></label>
+        <select id="supervisorSelect" onchange="onSupervisorChange()" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px;font-family:inherit;background:var(--white)"></select>
+        <div id="supervisorOtherWrap" style="display:none;margin-top:6px"><input type="text" id="supervisorOther" list="supervisorList" placeholder="請向經理確認全名後輸入" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px"></div>
+        <datalist id="supervisorList"><option value="PAU CHI FUNG"><option value="NG MAN LOK"><option value="CHAN CHI HANG"></datalist>
+      </div>
       <div class="form-group"><label>團隊 / 所屬區域 <span style="color:var(--red500)">*</span> <span style="font-size:11px;color:var(--gray400)">揀完會自動填所屬經理（DD）</span></label>
         <select id="teamInput" onchange="onTeamChange()" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px;font-family:inherit;background:var(--white)">
           <option value="">-- 請選擇團隊 --</option>
@@ -325,11 +329,12 @@ tr:hover td{background:var(--blue50)}
       </select>
       <div style="font-size:12px;color:var(--gray400);margin-top:4px">目前：「<span id="currentTeamDisplay">尚未設定</span>」— 唔揀即不更改</div>
     </div>
-    <div class="form-group">
-      <label>所屬經理 <span style="font-size:11px;color:var(--gray400)">（由團隊自動填，或手動輸入）</span></label>
-      <input type="text" id="mgrInputSetting" placeholder="例如：PAU CHI FUNG" style="letter-spacing:normal;font-size:15px;text-align:left">
-      <div style="font-size:12px;color:var(--gray400);margin-top:4px">目前：「<span id="currentMgrDisplay">尚未設定</span>」— 留空即不更改</div>
-    </div>
+      <div class="form-group">
+      <label>直屬經理 <span style="font-size:11px;color:var(--gray400)">（揀團隊會自動填入，亦可自行揀；註冊後可隨時喺此補填 / 更改）</span></label>
+      <select id="mgrSelectSetting" onchange="onMgrSettingChange()" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px;font-family:inherit;background:var(--white)"></select>
+      <div id="mgrOtherWrap" style="display:none;margin-top:6px"><input type="text" id="mgrOtherSetting" list="supervisorList" placeholder="請向經理確認全名後輸入" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px"></div>
+      <div style="font-size:12px;color:var(--gray400);margin-top:4px">目前：「<span id="currentMgrDisplay">尚未設定</span>」— 唔揀即不更改</div>
+      </div>
     <div style="font-size:12px;color:var(--gray400);margin-bottom:14px">
       💡 兩個都留空即可關閉雲端同步
     </div>
@@ -1224,39 +1229,83 @@ function showRegisterMode() {
   document.getElementById('registerMode').style.display = 'block';
   var errEl = document.getElementById('regErr'); if (errEl) errEl.style.display = 'none';
   document.getElementById('nameInput').focus();
+  renderManagerSelect(document.getElementById('supervisorSelect'), '', 'supervisorOtherWrap');
 }
 
 function onRoleChange() {
   var role = document.getElementById('roleSelect').value;
   var star = document.getElementById('supervisorStar');
-  var supInput = document.getElementById('supervisorInput');
   if (role === 'SDD') {
     star.style.color = 'var(--gray400)';
     star.textContent = '(選填)';
-    supInput.placeholder = 'SDD 為最高層級，可留空';
-    supInput.readOnly = false;
-    supInput.style.background = 'var(--white)';
   } else {
     star.style.color = 'var(--red500)';
     star.textContent = '*';
-    supInput.placeholder = '由團隊自動填寫';
   }
 }
 
 // v3.9.2: 揀團隊 → 自動填對應 DD 全名
 function onTeamChange() {
   var teamSel = document.getElementById('teamInput');
-  var supInput = document.getElementById('supervisorInput');
+  var supSel = document.getElementById('supervisorSelect');
   var selected = teamSel.options[teamSel.selectedIndex];
   var mgrName = selected.getAttribute('data-mgr') || '';
-  supInput.value = mgrName;
-  if (mgrName) {
-    supInput.readOnly = true;
-    supInput.style.background = 'var(--gray50)';
-  } else {
-    supInput.readOnly = false;
-    supInput.style.background = 'var(--white)';
+  if (supSel && mgrName) supSel.value = mgrName;
+}
+
+// ===== 直屬經理下拉（防止入錯名）=====
+// 已知經理（地區主管）作為基礎清單；有 Supabase 時再從雲端拉真實經理名
+var KNOWN_MANAGERS = ['PAU CHI FUNG','NG MAN LOK','CHAN CHI HANG'];
+function dedupeManagers(arr){
+  var seen = {}, out = [];
+  (arr||[]).forEach(function(m){ m = (m||'').trim(); if (m && !seen[m]) { seen[m]=1; out.push(m); } });
+  return out;
+}
+// 渲染經理下拉；currentValue 為已設經理；otherWrapId 為「其他」輸入框容器
+// 先同步畫基礎清單（已知經理），再 async 補雲端真實經理名並保留已揀選項（避免時序 bug）
+function renderManagerSelect(sel, currentValue, otherWrapId) {
+  if (!sel) return;
+  var baseList = dedupeManagers(KNOWN_MANAGERS.concat(assignedManager ? [assignedManager] : []));
+  function paint(list, preserveSel) {
+    var prev = preserveSel ? (sel.value || currentValue || '') : (currentValue || '');
+    sel.innerHTML = '';
+    var ph = document.createElement('option'); ph.value=''; ph.textContent='-- 請選擇直屬經理 --'; sel.appendChild(ph);
+    list.forEach(function(m){
+      var o=document.createElement('option'); o.value=m; o.textContent=m; sel.appendChild(o);
+    });
+    var other=document.createElement('option'); other.value='__other__'; other.textContent='其他（請向經理確認全名）'; sel.appendChild(other);
+    // 若目前值唔喺清單（例如雲端舊值），補返做選中項
+    if (prev && prev!=='__other__') {
+      var found=false; for (var i=0;i<sel.options.length;i++){ if (sel.options[i].value===prev){ found=true; break; } }
+      if (!found) { var o2=document.createElement('option'); o2.value=prev; o2.textContent=prev+'（目前）'; sel.insertBefore(o2, other); }
+      sel.value = prev;
+    }
+    var wrap = document.getElementById(otherWrapId);
+    if (wrap) wrap.style.display = (sel.value==='__other__') ? 'block' : 'none';
   }
+  paint(baseList, false); // 同步先畫基礎清單，確保揀團隊自動填經理即時生效
+  if (SUPA_URL && SUPA_KEY) {
+    var controller = new AbortController();
+    var tid = setTimeout(function(){ controller.abort(); }, 12000);
+    fetch(SUPA_URL + '/rest/v1/agents?select=manager', {
+      headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}, signal:controller.signal
+    })
+    .then(function(r){ clearTimeout(tid); return r.ok ? r.json() : []; })
+    .then(function(rows){ var ms=[]; (rows||[]).forEach(function(r){ if (r && r.manager) ms.push(r.manager); }); paint(dedupeManagers(baseList.concat(ms)), true); })
+    .catch(function(){ clearTimeout(tid); /* 保留基礎清單 */ });
+  }
+}
+function getSelectedManager(sel, otherId) {
+  if (sel && sel.value === '__other__') { var t=document.getElementById(otherId); return t ? t.value.trim() : ''; }
+  return sel ? sel.value.trim() : '';
+}
+function onSupervisorChange() {
+  var wrap = document.getElementById('supervisorOtherWrap');
+  if (wrap) wrap.style.display = (document.getElementById('supervisorSelect').value==='__other__') ? 'block' : 'none';
+}
+function onMgrSettingChange() {
+  var wrap = document.getElementById('mgrOtherWrap');
+  if (wrap) wrap.style.display = (document.getElementById('mgrSelectSetting').value==='__other__') ? 'block' : 'none';
 }
 
 var loginInProgress = false;
@@ -1639,7 +1688,7 @@ function saveName() {
   var pin = document.getElementById('pinInput').value.trim();
   var pin2 = document.getElementById('pinConfirm').value.trim();
   var role = document.getElementById('roleSelect').value;
-  var supervisor = document.getElementById('supervisorInput').value.trim();
+  var supervisor = getSelectedManager(document.getElementById('supervisorSelect'),'supervisorOther');
   var team = document.getElementById('teamInput').value.trim();
   var errEl = document.getElementById('regErr');
   errEl.style.display = 'none';
@@ -2077,7 +2126,7 @@ function forceRegister(name, pin, role, supervisor, team) {
 
   if (!pin) pin = document.getElementById('pinInput').value.trim();
   if (!role) role = document.getElementById('roleSelect').value;
-  if (!supervisor) supervisor = document.getElementById('supervisorInput').value.trim();
+  if (!supervisor) supervisor = getSelectedManager(document.getElementById('supervisorSelect'),'supervisorOther');
   if (!team) team = document.getElementById('teamInput').value.trim();
 
   var pinH = hashPin(pin);
@@ -2335,7 +2384,7 @@ function showCloudSetup() {
   document.getElementById('supaKeyInput').value = SUPA_KEY;
   var mgr = assignedManager || '';
   var team = assignedTeam || localStorage.getItem('insurance_team_'+encodeURIComponent(agentName)) || '';
-  document.getElementById('mgrInputSetting').value = mgr;
+  renderManagerSelect(document.getElementById('mgrSelectSetting'), mgr, 'mgrOtherWrap');
   document.getElementById('currentMgrDisplay').textContent = mgr || '尚未設定';
   document.getElementById('currentTeamDisplay').textContent = team || '尚未設定';
   // Reset team dropdown
@@ -2346,12 +2395,10 @@ function showCloudSetup() {
 // v3.9.2: 雲端設定 team → auto-fill manager
 function onTeamSettingChange() {
   var tSel = document.getElementById('teamInputSetting');
-  var mgrInput = document.getElementById('mgrInputSetting');
+  var mgrSel = document.getElementById('mgrSelectSetting');
   var selected = tSel.options[tSel.selectedIndex];
   var mgrName = selected.getAttribute('data-mgr') || '';
-  if (mgrName) {
-    mgrInput.value = mgrName;
-  }
+  if (mgrSel && mgrName) mgrSel.value = mgrName;
 }
 
 function hideCloudSetup() {
@@ -2362,7 +2409,7 @@ function saveCloudSetup() {
   var url = document.getElementById('apiUrlInput').value.trim();
   var supaUrl = document.getElementById('supaUrlInput').value.trim();
   var supaKey = document.getElementById('supaKeyInput').value.trim();
-  var mgr = document.getElementById('mgrInputSetting').value.trim();
+  var mgr = getSelectedManager(document.getElementById('mgrSelectSetting'),'mgrOtherSetting');
   var teamSel = document.getElementById('teamInputSetting');
   var newTeam = teamSel ? teamSel.value : '';
 
