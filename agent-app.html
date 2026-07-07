@@ -491,7 +491,7 @@ tr:hover td{background:var(--blue50)}
         <button class="period-btn" onclick="switchReport('half',this)">📆 本半年</button>
         <button class="period-btn" onclick="switchReport('year',this)">📈 本年</button>
       </div>
-      <div style="display:flex;justify-content:flex-end;margin:2px 0 10px"><button class="btn btn-outline btn-sm" onclick="exportReportCSV()">📊 匯出 CSV（Excel）</button></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin:2px 0 10px"><button class="btn btn-outline btn-sm" onclick="exportReportCSV()">📊 匯出 CSV（Excel）</button><button class="btn btn-outline btn-sm" onclick="exportBackupXLSX()">📥 匯出 Excel 備份</button></div>
       <div class="report-cards" id="reportCards"></div>
       <div class="charts-grid"><div class="chart-card"><h3>📊 佣金收入</h3><canvas id="chartRptComm"></canvas></div><div class="chart-card"><h3>💹 收支</h3><canvas id="chartRptIncome"></canvas></div></div>
       <div class="table-wrap"><div class="table-head"><h3>📋 佣金明細</h3></div><table><thead><tr><th>日期</th><th>客戶</th><th>保單</th><th>類型</th><th>金額</th></tr></thead><tbody id="reportCommTable"></tbody></table></div>
@@ -3538,6 +3538,61 @@ setInterval(function(){
     saveToCloud();
   }
 }, 30000);
+
+// ===== Excel 備份匯出（按需載入 SheetJS，離線首次會緩存）=====
+function ensureXLSX(cb){
+  if (window.XLSX) return cb();
+  var s=document.createElement('script');
+  s.src='xlsx.full.min.js';
+  s.onload=cb;
+  s.onerror=function(){ toast('⚠️ Excel 庫載入失敗（請檢查網絡或離線緩存）','error'); };
+  document.head.appendChild(s);
+}
+function unionKeys(arr){
+  var seen={}, headers=[];
+  (arr||[]).forEach(function(o){
+    if(o && typeof o==='object'){ Object.keys(o).forEach(function(k){ if(!(k in seen)){ seen[k]=1; headers.push(k); } }); }
+  });
+  return headers;
+}
+function objsToAoa(arr){
+  if(!arr || !arr.length) return [['（無資料）']];
+  var headers=unionKeys(arr);
+  var rows=[[].concat(headers)];
+  arr.forEach(function(o){
+    var row=headers.map(function(h){
+      var v=o?o[h]:'';
+      if(v && typeof v==='object') return JSON.stringify(v);
+      return v==null?'':v;
+    });
+    rows.push(row);
+  });
+  return rows;
+}
+function exportBackupXLSX(){
+  ensureXLSX(function(){
+    try{
+      var keys=['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'];
+      var labels={clients:'客戶',policies:'保單',commissions:'佣金',expenses:'開支',goals:'目標',schedules:'日程',pcs:'PC',incomes:'收入'};
+      var sheets={};
+      keys.forEach(function(k){ sheets[labels[k]] = objsToAoa(DB[k]||[]); });
+      sheets['備份資訊']=[
+        ['保經管家 數據備份'],
+        ['代理人', agentName||''],
+        ['匯出時間', new Date().toLocaleString('zh-HK')],
+        ['版本', (window.CURRENT_VER||'')],
+        ['資料鍵', STORE_KEY]
+      ];
+      var wb=XLSX.utils.book_new();
+      Object.keys(sheets).forEach(function(name){
+        var ws=XLSX.utils.aoa_to_sheet(sheets[name]);
+        XLSX.utils.book_append_sheet(wb, ws, name.slice(0,31));
+      });
+      XLSX.writeFile(wb, 'backup_'+(agentName||'agent')+'_'+new Date().toISOString().slice(0,10)+'.xlsx');
+      toast('✅ 已匯出 Excel 備份（'+keys.length+' 個工作表）');
+    }catch(e){ console.error(e); toast('匯出失敗：'+(e&&e.message||e),'error'); }
+  });
+}
 </script>
 <script src="./sw-register.js"></script>
 <script>

@@ -1,16 +1,17 @@
 /* 保經管家 Service Worker
  * 用途：離線快取 app shell + 確保用家永遠用到最新版本（network-first for HTML）
  * ⚠️ 改動以下任何被預快取嘅檔案（index.html / agent-app.html / manager-dashboard.html /
- *    chart.umd.min.js / manifest.json / icon-192.png / qr-*.png）之後，記得將下方
- *    CACHE 版本號 +1（例如 v4 → v5），否則用家可能繼續用到舊快取。
+ *    chart.umd.min.js / xlsx.full.min.js / manifest.json / icon-192.png / qr-*.png）之後，記得將下方
+ *    CACHE 版本號 +1（例如 v5 → v6），否則用家可能繼續用到舊快取。
  */
-const CACHE = 'baojing-cache-v5';
+const CACHE = 'baojing-cache-v6';
 const APP_SHELL = [
   './',
   'index.html',
   'agent-app.html',
   'manager-dashboard.html',
   'chart.umd.min.js',
+  'xlsx.full.min.js',
   'manifest.json',
   'icon-192.png',
   'qr-agent.png',

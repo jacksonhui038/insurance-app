@@ -261,6 +261,7 @@ tr:hover td{background:var(--blue50)}
       <button class="btn btn-white" onclick="window.MGR_SHOW_ALL_AGENTS=false;mgrLoadFromCloud()" id="mgrCloudBtn">☁️ 載入團隊數據</button>
       <button class="btn btn-white" id="mgrShowAllBtn" onclick="mgrShowAll()">👁️ 顯示全部</button>
       <button class="btn btn-white" onclick="document.getElementById('multiImport').click()">📥 匯入 JSON（備用）</button>
+      <button class="btn btn-white" onclick="exportTeamXLSX()">📥 匯出 Excel 備份</button>
       <button class="btn btn-white" onclick="showMergeModal()">🔗 合併代理人</button>
       <button class="btn btn-white" onclick="showDeleteAgentModal()">🗑️ 刪除代理人</button>
       <button class="btn btn-white" onclick="showResetPinModal()">🔑 重置 PIN</button>
@@ -2340,6 +2341,65 @@ if (MGR_CLOUD_ENABLED && document.getElementById('mgrCloudBtn')) document.getEle
 initLock();
 initActivitySelectors();
 updateActivitySelectorVisibility();
+
+// ===== 團隊 Excel 備份匯出（按需載入 SheetJS，離線首次會緩存）=====
+function ensureXLSX(cb){
+  if (window.XLSX) return cb();
+  var s=document.createElement('script');
+  s.src='xlsx.full.min.js';
+  s.onload=cb;
+  s.onerror=function(){ toast('⚠️ Excel 庫載入失敗（請檢查網絡或離線緩存）','error'); };
+  document.head.appendChild(s);
+}
+function unionKeys(arr){
+  var seen={}, headers=[];
+  (arr||[]).forEach(function(o){
+    if(o && typeof o==='object'){ Object.keys(o).forEach(function(k){ if(!(k in seen)){ seen[k]=1; headers.push(k); } }); }
+  });
+  return headers;
+}
+function exportTeamXLSX(){
+  ensureXLSX(function(){
+    try{
+      if(!TEAM || !Object.keys(TEAM).length){ toast('⚠️ 尚無團隊數據，請先載入','error'); return; }
+      var keys=['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'];
+      var labels={clients:'客戶',policies:'保單',commissions:'佣金',expenses:'開支',goals:'目標',schedules:'日程',pcs:'PC',incomes:'收入'};
+      var sheets={};
+      keys.forEach(function(k){
+        var combined=[];
+        Object.keys(TEAM).forEach(function(an){ (TEAM[an][k]||[]).forEach(function(o){ combined.push(o); }); });
+        if(!combined.length){ sheets[labels[k]]=[['（無資料）']]; return; }
+        var headers=unionKeys(combined);
+        var rows=[['代理人'].concat(headers)];
+        Object.keys(TEAM).forEach(function(an){
+          (TEAM[an][k]||[]).forEach(function(o){
+            var row=[an].concat(headers.map(function(h){
+              var v=o?o[h]:'';
+              if(v && typeof v==='object') return JSON.stringify(v);
+              return v==null?'':v;
+            }));
+            rows.push(row);
+          });
+        });
+        sheets[labels[k]]=rows;
+      });
+      var ov=[['代理人','所屬經理','團隊','客戶數','保單數','佣金總額','PC數','目標數']];
+      Object.keys(TEAM).forEach(function(an){
+        var d=TEAM[an]||{};
+        var commTotal=(d.commissions||[]).reduce(function(s,c){ return s+(Number(c.amount)||0); },0);
+        ov.push([an, d.managerName||'', d.team||'', (d.clients||[]).length, (d.policies||[]).length, commTotal, (d.pcs||[]).length, (d.goals||[]).length]);
+      });
+      sheets['團隊總覽']=ov;
+      var wb=XLSX.utils.book_new();
+      Object.keys(sheets).forEach(function(name){
+        var ws=XLSX.utils.aoa_to_sheet(sheets[name]);
+        XLSX.utils.book_append_sheet(wb, ws, name.slice(0,31));
+      });
+      XLSX.writeFile(wb, 'team_backup_'+new Date().toISOString().slice(0,10)+'.xlsx');
+      toast('✅ 已匯出團隊 Excel 備份（'+Object.keys(sheets).length+' 個工作表）');
+    }catch(e){ console.error(e); toast('匯出失敗：'+(e&&e.message||e),'error'); }
+  });
+}
 </script>
 <script src="./sw-register.js"></script>
 
