@@ -398,7 +398,8 @@ tr:hover td{background:var(--blue50)}
       <button class="btn btn-outline btn-sm" onclick="showChangePin()">🔑 改密碼</button>
       <button class="btn btn-outline btn-sm" onclick="showChangeName()">👤 改名</button>
       <button class="btn btn-outline btn-sm" onclick="exportForManager()">📤 匯給經理</button>
-      <button class="btn btn-outline btn-sm" onclick="exportData()">📥 備份</button>
+      <button class="btn btn-primary btn-sm" onclick="exportBackupXLSX()">📥 Excel 備份</button>
+      <button class="btn btn-outline btn-sm" onclick="exportData()" title="舊版 JSON 備份（供匯入兼容）">📄 JSON</button>
       <button class="btn btn-outline btn-sm" onclick="document.getElementById('importInput').click()">📤 匯入</button>
       <button class="btn btn-outline btn-sm" onclick="showCloudSetup()">☁️ 雲端</button>
       <button class="btn btn-outline btn-sm" onclick="showDeleteAccountModal()" style="color:var(--red500);border-color:var(--red500)">🗑️ 刪除帳戶</button>
