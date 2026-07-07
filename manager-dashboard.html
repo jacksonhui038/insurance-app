@@ -205,7 +205,7 @@ tr:hover td{background:var(--blue50)}
         <option value="ASM">ASM — 經銷經理</option>
       </select>
       <label class="lock-label">PIN 碼</label>
-      <input type="password" class="lock-input" id="mgrLoginPin" placeholder="••••" maxlength="6" inputmode="numeric" autocomplete="off" onkeydown="if(event.key==='Enter')doMgrLogin()">
+      <input type="text" style="-webkit-text-security:disc;text-security:disc" inputmode="numeric" class="lock-input" id="mgrLoginPin" placeholder="••••" maxlength="6"  autocomplete="off" onkeydown="if(event.key==='Enter')doMgrLogin()">
       <button class="lock-btn lock-btn-primary" onclick="if(typeof doMgrLogin!=='function'){alert('頁面載入未完成，請 Ctrl+Shift+R 強制刷新');return;}try{doMgrLogin()}catch(e){console.error(e);alert('登入時發生錯誤：'+e.message);}" id="mgrLoginBtn">登入</button>
       <div class="lock-err" id="mgrLoginErr"></div>
       <button class="lock-btn lock-btn-outline" onclick="if(typeof showMgrChoice!=='function'){location.reload();return;}try{showMgrChoice()}catch(e){console.error(e);location.reload();}">返回</button>
@@ -229,9 +229,9 @@ tr:hover td{background:var(--blue50)}
         <option value="ASM">ASM — 經銷經理</option>
       </select>
       <label class="lock-label">設定 PIN 碼（4-6 位數字）</label>
-      <input type="password" class="lock-input" id="mgrPinSetup" placeholder="••••" maxlength="6" inputmode="numeric" autocomplete="off" onkeydown="if(event.key==='Enter')document.getElementById('mgrPinConfirm').focus()">
+      <input type="text" style="-webkit-text-security:disc;text-security:disc" inputmode="numeric" class="lock-input" id="mgrPinSetup" placeholder="••••" maxlength="6"  autocomplete="off" onkeydown="if(event.key==='Enter')document.getElementById('mgrPinConfirm').focus()">
       <label class="lock-label">確認 PIN 碼</label>
-      <input type="password" class="lock-input" id="mgrPinConfirm" placeholder="••••" maxlength="6" inputmode="numeric" autocomplete="off" onkeydown="if(event.key==='Enter')doSetupPin()">
+      <input type="text" style="-webkit-text-security:disc;text-security:disc" inputmode="numeric" class="lock-input" id="mgrPinConfirm" placeholder="••••" maxlength="6"  autocomplete="off" onkeydown="if(event.key==='Enter')doSetupPin()">
       <button class="lock-btn lock-btn-primary" onclick="if(typeof doSetupPin!=='function'){alert('頁面載入未完成，請 Ctrl+Shift+R 強制刷新');return;}try{doSetupPin()}catch(e){console.error(e);alert('設定錯誤：'+e.message);}">設定並進入</button>
       <div class="lock-err" id="setupErr"></div>
       <button class="lock-btn lock-btn-outline" onclick="if(typeof showMgrChoice!=='function'){location.reload();return;}try{showMgrChoice()}catch(e){console.error(e);location.reload();}">返回</button>
@@ -242,7 +242,7 @@ tr:hover td{background:var(--blue50)}
       <h2 id="lockTitleUnlock">歡迎回來</h2>
       <div class="lock-sub" id="lockSubUnlock">請輸入 PIN 碼解鎖</div>
       <p style="font-size:14px;color:var(--gray600);margin-bottom:16px">歡迎回來，<b id="lockMgrName">—</b></p>
-      <input type="password" class="lock-input" id="mgrPinUnlock" placeholder="輸入 PIN 碼" maxlength="6" inputmode="numeric" autocomplete="off" onkeydown="if(event.key==='Enter')doUnlock()" autofocus>
+      <input type="text" style="-webkit-text-security:disc;text-security:disc" inputmode="numeric" class="lock-input" id="mgrPinUnlock" placeholder="輸入 PIN 碼" maxlength="6"  autocomplete="off" onkeydown="if(event.key==='Enter')doUnlock()" autofocus>
       <button class="lock-btn lock-btn-primary" onclick="if(typeof doUnlock!=='function'){alert('頁面載入未完成，請 Ctrl+Shift+R 強制刷新');return;}try{doUnlock()}catch(e){console.error(e);alert('解鎖錯誤：'+e.message);}">解鎖</button>
       <div class="lock-err" id="unlockErr"></div>
       <button class="lock-btn lock-btn-outline" onclick="if(typeof showMgrChoice!=='function'){location.reload();return;}try{showMgrChoice()}catch(e){console.error(e);location.reload();}">切換帳戶</button>
@@ -410,11 +410,11 @@ tr:hover td{background:var(--blue50)}
     </div>
     <div style="margin-bottom:14px">
       <label style="font-size:12px;color:var(--gray500);font-weight:500;display:block;margin-bottom:4px">新 PIN 碼（4-6 位數字）</label>
-      <input type="password" id="resetPinInput" placeholder="輸入新 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px">
+      <input type="text" style="-webkit-text-security:disc;text-security:disc" inputmode="numeric" id="resetPinInput" placeholder="輸入新 PIN 碼" maxlength="6"  pattern="[0-9]*" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px">
     </div>
     <div style="margin-bottom:14px">
       <label style="font-size:12px;color:var(--gray500);font-weight:500;display:block;margin-bottom:4px">確認新 PIN 碼</label>
-      <input type="password" id="resetPinConfirm" placeholder="再次輸入新 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px">
+      <input type="text" style="-webkit-text-security:disc;text-security:disc" inputmode="numeric" id="resetPinConfirm" placeholder="再次輸入新 PIN 碼" maxlength="6"  pattern="[0-9]*" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px">
     </div>
     <div id="resetPinStatus" style="border-radius:8px;padding:12px;margin-bottom:14px;font-size:12px;display:none"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end">
@@ -586,7 +586,7 @@ function doMgrLogin() {
   var hdr = document.getElementById('mgrNameDisplay');
   if (hdr) hdr.textContent = role + '：' + name;
   render();
-  mgrAutoLoadIfCloud();
+  try { mgrAutoLoadIfCloud(); } catch(e) { console.warn('auto load cloud failed', e); }
   toast('登入成功！自動載入團隊數據中...');
   btn.textContent = '登入'; btn.disabled = false;
 }
@@ -631,7 +631,7 @@ function unlockOK(){
   var hdr = document.getElementById('mgrNameDisplay');
   if(hdr && mgrName) hdr.textContent = (mgrRole?mgrRole+'：':'經理：') + mgrName;
   render();
-  mgrAutoLoadIfCloud();
+  try { mgrAutoLoadIfCloud(); } catch(e) { console.warn('auto load cloud failed', e); }
 }
 
 function doResetMgr(){
@@ -2427,15 +2427,15 @@ updateActivitySelectorVisibility();
       <h4>修改 PIN 碼</h4>
       <div class="form-group">
         <label>目前 PIN 碼</label>
-        <input type="password" id="acctOldPin" placeholder="••••" maxlength="6" inputmode="numeric" autocomplete="off">
+        <input type="text" style="-webkit-text-security:disc;text-security:disc" inputmode="numeric" id="acctOldPin" placeholder="••••" maxlength="6"  autocomplete="off">
       </div>
       <div class="form-group">
         <label>新 PIN 碼（4-6 位數字）</label>
-        <input type="password" id="acctNewPin" placeholder="••••" maxlength="6" inputmode="numeric" autocomplete="off">
+        <input type="text" style="-webkit-text-security:disc;text-security:disc" inputmode="numeric" id="acctNewPin" placeholder="••••" maxlength="6"  autocomplete="off">
       </div>
       <div class="form-group">
         <label>確認新 PIN 碼</label>
-        <input type="password" id="acctNewPin2" placeholder="••••" maxlength="6" inputmode="numeric" autocomplete="off">
+        <input type="text" style="-webkit-text-security:disc;text-security:disc" inputmode="numeric" id="acctNewPin2" placeholder="••••" maxlength="6"  autocomplete="off">
       </div>
       <div class="acct-err" id="acctPinErr"></div>
       <div class="modal-actions" style="margin-top:8px">
@@ -2458,6 +2458,24 @@ updateActivitySelectorVisibility();
     return;
   }
   localStorage.setItem('mgr_app_version', CURRENT_VER);
+})();
+</script>
+<script>
+// PIN 輸入框（改用文字+遮罩）只允許數字，避免 iOS/微信彈唔到鍵盤
+(function(){
+  function bindPinFilter(){
+    var pins = document.querySelectorAll('input[style*="text-security"]');
+    for (var i=0;i<pins.length;i++){
+      (function(el){
+        el.addEventListener('input', function(){
+          var v = el.value.replace(/\D/g,'');
+          if (v !== el.value) el.value = v;
+        });
+      })(pins[i]);
+    }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindPinFilter);
+  else bindPinFilter();
 })();
 </script>
 </body>

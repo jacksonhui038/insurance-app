@@ -187,7 +187,7 @@ tr:hover td{background:var(--blue50)}
       <h3>🔐 登入</h3>
       <p style="color:var(--gray500);margin-bottom:12px">輸入姓名同 PIN 碼</p>
       <div class="form-group"><label>姓名</label><input type="text" id="loginName" placeholder="例如：CHAN TAI MAN" autocomplete="off" style="text-transform:uppercase" oninput="this.value=this.value.replace(/[^a-zA-Z\s]/g,'').toUpperCase()" onkeypress="return /[a-zA-Z\s]/.test(event.key)"></div>
-      <div class="form-group"><label>PIN 碼</label><input type="password" id="loginPin" placeholder="輸入 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <div class="form-group"><label>PIN 碼</label><input type="text" style="-webkit-text-security:disc;text-security:disc" inputmode="numeric" id="loginPin" placeholder="輸入 PIN 碼" maxlength="6"  pattern="[0-9]*" autocomplete="off" onkeydown="if(event.key==='Enter')doLogin()"></div>
       <div class="modal-actions" style="justify-content:center;flex-wrap:wrap;gap:8px">
         <button class="btn btn-primary" onclick="doLogin()" id="loginBtn">登入</button>
         <button class="btn btn-outline" onclick="showChoiceMode()">返回</button>
@@ -200,8 +200,8 @@ tr:hover td{background:var(--blue50)}
       <h3>📝 註冊新帳戶</h3>
       <p style="color:var(--gray500);margin-bottom:6px">設定你嘅姓名同 PIN 碼</p>
       <div class="form-group"><label>姓名 <span style="color:var(--red500)">*</span> <span style="font-size:11px;color:var(--gray400)">⚠️ 確認後不可更改（英文全大寫）</span></label><input type="text" id="nameInput" placeholder="例如：CHAN TAI MAN" style="text-transform:uppercase" oninput="this.value=this.value.replace(/[^a-zA-Z\s]/g,'').toUpperCase()" onkeypress="return /[a-zA-Z\s]/.test(event.key)"></div>
-      <div class="form-group"><label>PIN 碼（4-6 位數字）</label><input type="password" id="pinInput" placeholder="設定 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off"></div>
-      <div class="form-group"><label>確認 PIN 碼</label><input type="password" id="pinConfirm" placeholder="再次輸入 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off"></div>
+      <div class="form-group"><label>PIN 碼（4-6 位數字）</label><input type="text" style="-webkit-text-security:disc;text-security:disc" inputmode="numeric" id="pinInput" placeholder="設定 PIN 碼" maxlength="6"  pattern="[0-9]*" autocomplete="off"></div>
+      <div class="form-group"><label>確認 PIN 碼</label><input type="text" style="-webkit-text-security:disc;text-security:disc" inputmode="numeric" id="pinConfirm" placeholder="再次輸入 PIN 碼" maxlength="6"  pattern="[0-9]*" autocomplete="off"></div>
       <hr style="border:none;border-top:1px solid var(--gray200);margin:14px 0">
       <div class="form-group"><label>👔 職級 <span style="color:var(--red500)">*</span></label>
         <select id="roleSelect" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px;font-family:inherit;background:var(--white)" onchange="onRoleChange()">
@@ -235,7 +235,7 @@ tr:hover td{background:var(--blue50)}
     <div id="unlockMode" style="display:none">
       <h3>🔐 解鎖</h3>
       <p style="color:var(--gray500);margin-bottom:12px" id="unlockGreeting">歡迎回來</p>
-      <div class="form-group"><input type="password" id="unlockPin" placeholder="請輸入 PIN 碼解鎖" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off" onkeydown="if(event.key==='Enter')unlockAgent()"></div>
+      <div class="form-group"><input type="text" style="-webkit-text-security:disc;text-security:disc" inputmode="numeric" id="unlockPin" placeholder="請輸入 PIN 碼解鎖" maxlength="6"  pattern="[0-9]*" autocomplete="off" onkeydown="if(event.key==='Enter')unlockAgent()"></div>
       <div class="modal-actions" style="justify-content:center;flex-wrap:wrap;gap:8px">
         <button class="btn btn-primary" onclick="unlockAgent()">解鎖</button>
         <button class="btn btn-outline btn-sm" onclick="showChoiceMode()">切換帳戶</button>
@@ -246,7 +246,7 @@ tr:hover td{background:var(--blue50)}
     <div id="switchMode" style="display:none">
       <h3>⚠️ 切換帳戶</h3>
       <p style="color:var(--gray500);margin-bottom:6px">請先輸入 <b id="switchAgentName">—</b> 嘅 PIN 碼確認身份</p>
-      <div class="form-group"><input type="password" id="switchPin" placeholder="請輸入 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off" onkeydown="if(event.key==='Enter')confirmSwitch()"></div>
+      <div class="form-group"><input type="text" style="-webkit-text-security:disc;text-security:disc" inputmode="numeric" id="switchPin" placeholder="請輸入 PIN 碼" maxlength="6"  pattern="[0-9]*" autocomplete="off" onkeydown="if(event.key==='Enter')confirmSwitch()"></div>
       <div class="modal-actions" style="justify-content:center;gap:8px;flex-wrap:wrap">
         <button class="btn btn-primary" onclick="confirmSwitch()">確認切換</button>
         <button class="btn btn-outline" onclick="cancelSwitch()">取消</button>
@@ -260,9 +260,9 @@ tr:hover td{background:var(--blue50)}
 <div class="modal-bg" id="changePinModalBg">
   <div class="modal" style="max-width:400px">
     <h3>🔑 修改 PIN 碼</h3>
-    <div class="form-group"><label>舊 PIN 碼</label><input type="password" id="oldPin" placeholder="輸入目前 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off"></div>
-    <div class="form-group"><label>新 PIN 碼</label><input type="password" id="newPin" placeholder="設定新 PIN 碼（4-6 位數字）" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off"></div>
-    <div class="form-group"><label>確認新 PIN 碼</label><input type="password" id="confirmNewPin" placeholder="再次輸入新 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off"></div>
+    <div class="form-group"><label>舊 PIN 碼</label><input type="text" style="-webkit-text-security:disc;text-security:disc" inputmode="numeric" id="oldPin" placeholder="輸入目前 PIN 碼" maxlength="6"  pattern="[0-9]*" autocomplete="off"></div>
+    <div class="form-group"><label>新 PIN 碼</label><input type="text" style="-webkit-text-security:disc;text-security:disc" inputmode="numeric" id="newPin" placeholder="設定新 PIN 碼（4-6 位數字）" maxlength="6"  pattern="[0-9]*" autocomplete="off"></div>
+    <div class="form-group"><label>確認新 PIN 碼</label><input type="text" style="-webkit-text-security:disc;text-security:disc" inputmode="numeric" id="confirmNewPin" placeholder="再次輸入新 PIN 碼" maxlength="6"  pattern="[0-9]*" autocomplete="off"></div>
     <div class="modal-actions">
       <button class="btn btn-primary" onclick="changePin()">確認修改</button>
       <button class="btn btn-outline" onclick="hideChangePin()">取消</button>
@@ -276,7 +276,7 @@ tr:hover td{background:var(--blue50)}
     <h3>👤 修改姓名</h3>
     <div class="form-group"><label>目前姓名</label><input type="text" id="curNameDisplay" disabled style="background:var(--gray100);color:var(--gray500)"></div>
     <div class="form-group"><label>新姓名 <span style="color:var(--red500)">*</span></label><input type="text" id="newNameInput" placeholder="輸入新姓名" autocomplete="off"></div>
-    <div class="form-group"><label>輸入 PIN 碼確認 <span style="color:var(--red500)">*</span></label><input type="password" id="nameChangePin" placeholder="輸入 PIN 碼以確認更改" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off"></div>
+    <div class="form-group"><label>輸入 PIN 碼確認 <span style="color:var(--red500)">*</span></label><input type="text" style="-webkit-text-security:disc;text-security:disc" inputmode="numeric" id="nameChangePin" placeholder="輸入 PIN 碼以確認更改" maxlength="6"  pattern="[0-9]*" autocomplete="off"></div>
     <div style="font-size:12px;color:var(--gray400);margin-bottom:8px">⚠️ 改名後，雲端會以新名登記，經理端會顯示新名。舊名數據會自動遷移。</div>
     <div class="modal-actions">
       <button class="btn btn-primary" onclick="changeName()">確認改名</button>
@@ -531,7 +531,7 @@ tr:hover td{background:var(--blue50)}
     </div>
     <div class="form-group">
       <label>輸入 PIN 碼確認身份</label>
-      <input type="password" id="deletePinInput" placeholder="輸入 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*">
+      <input type="text" style="-webkit-text-security:disc;text-security:disc" inputmode="numeric" id="deletePinInput" placeholder="輸入 PIN 碼" maxlength="6"  pattern="[0-9]*">
     </div>
     <div id="deleteStatus" style="border-radius:8px;padding:10px;margin-bottom:12px;font-size:12px;display:none"></div>
     <div class="modal-actions">
@@ -3540,5 +3540,23 @@ setInterval(function(){
 }, 30000);
 </script>
 <script src="./sw-register.js"></script>
+<script>
+// PIN 輸入框（改用文字+遮罩）只允許數字，避免 iOS/微信彈唔到鍵盤
+(function(){
+  function bindPinFilter(){
+    var pins = document.querySelectorAll('input[style*="text-security"]');
+    for (var i=0;i<pins.length;i++){
+      (function(el){
+        el.addEventListener('input', function(){
+          var v = el.value.replace(/\D/g,'');
+          if (v !== el.value) el.value = v;
+        });
+      })(pins[i]);
+    }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindPinFilter);
+  else bindPinFilter();
+})();
+</script>
 </body>
 </html>
