@@ -169,7 +169,7 @@ tr:hover td{background:var(--blue50)}
     <!-- CHOICE: Login or Register -->
     <div id="choiceMode">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <button onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="padding:6px 14px;border:1px solid var(--gray300);border-radius:8px;background:var(--gray100);color:var(--gray600);cursor:pointer;font-size:13px;display:flex;align-items:center;gap:4px">◀ 返回</button>
+        <button onclick="window.location.href='manager-dashboard.html'" style="padding:6px 14px;border:1px solid var(--gray300);border-radius:8px;background:var(--gray100);color:var(--gray600);cursor:pointer;font-size:13px;display:flex;align-items:center;gap:4px">◀ 返回</button>
         <span style="font-size:11px;color:var(--gray400)">代理人版</span>
       </div>
       <h3 style="margin-top:0">👋 歡迎使用保經管家</h3>
@@ -179,8 +179,8 @@ tr:hover td{background:var(--blue50)}
         <button class="btn btn-outline" onclick="showRegisterMode()" style="padding:14px;font-size:15px">📝 註冊新帳戶</button>
       </div>
       <hr style="border:none;border-top:1px solid var(--gray200);margin:14px 0">
-      <button class="btn btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="padding:10px;font-size:13px;width:100%">🔄 切換到經理版</button>
-      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.9.3</p>
+      <button class="btn btn-outline" onclick="window.location.href='manager-dashboard.html'" style="padding:10px;font-size:13px;width:100%">🔄 切換到經理版</button>
+      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v4.0.0</p>
     </div>
     <!-- LOGIN MODE -->
     <div id="loginMode" style="display:none">
@@ -250,7 +250,7 @@ tr:hover td{background:var(--blue50)}
       <div class="modal-actions" style="justify-content:center;gap:8px;flex-wrap:wrap">
         <button class="btn btn-primary" onclick="confirmSwitch()">確認切換</button>
         <button class="btn btn-outline" onclick="cancelSwitch()">取消</button>
-        <button class="btn btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="border-color:var(--blue500);color:var(--blue500)">🔄 直接去經理版</button>
+        <button class="btn btn-outline" onclick="window.location.href='manager-dashboard.html'" style="border-color:var(--blue500);color:var(--blue500)">🔄 直接去經理版</button>
       </div>
     </div>
   </div>
@@ -361,7 +361,7 @@ tr:hover td{background:var(--blue50)}
     <button class="nav-btn" onclick="switchTab('goals',this)"><span class="nav-icon">🎯</span> 目標管理</button>
   </nav>
   <div style="margin-top:auto;padding:12px 8px 16px">
-    <button class="nav-btn" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="width:100%;border:1px dashed var(--blue500);color:var(--blue700);background:var(--blue50)">
+    <button class="nav-btn" onclick="window.location.href='manager-dashboard.html'" style="width:100%;border:1px dashed var(--blue500);color:var(--blue700);background:var(--blue50)">
       <span class="nav-icon">🔄</span> 切換到經理版
     </button>
   </div>
@@ -377,7 +377,7 @@ tr:hover td{background:var(--blue50)}
   <button class="bottom-nav-btn" onclick="switchTab('pcs',this)"><span class="bottom-nav-icon">📊</span><span class="bottom-nav-label">PC</span></button>
   <button class="bottom-nav-btn" onclick="switchTab('reports',this)"><span class="bottom-nav-icon">📈</span><span class="bottom-nav-label">報表</span></button>
   <button class="bottom-nav-btn" onclick="switchTab('goals',this)"><span class="bottom-nav-icon">🎯</span><span class="bottom-nav-label">目標</span></button>
-  <button class="bottom-nav-btn" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'"><span class="bottom-nav-icon">🔄</span><span class="bottom-nav-label">經理</span></button>
+  <button class="bottom-nav-btn" onclick="window.location.href='manager-dashboard.html'"><span class="bottom-nav-icon">🔄</span><span class="bottom-nav-label">經理</span></button>
 </nav>
 
 <!-- MAIN -->
@@ -491,6 +491,7 @@ tr:hover td{background:var(--blue50)}
         <button class="period-btn" onclick="switchReport('half',this)">📆 本半年</button>
         <button class="period-btn" onclick="switchReport('year',this)">📈 本年</button>
       </div>
+      <div style="display:flex;justify-content:flex-end;margin:2px 0 10px"><button class="btn btn-outline btn-sm" onclick="exportReportCSV()">📊 匯出 CSV（Excel）</button></div>
       <div class="report-cards" id="reportCards"></div>
       <div class="charts-grid"><div class="chart-card"><h3>📊 佣金收入</h3><canvas id="chartRptComm"></canvas></div><div class="chart-card"><h3>💹 收支</h3><canvas id="chartRptIncome"></canvas></div></div>
       <div class="table-wrap"><div class="table-head"><h3>📋 佣金明細</h3></div><table><thead><tr><th>日期</th><th>客戶</th><th>保單</th><th>類型</th><th>金額</th></tr></thead><tbody id="reportCommTable"></tbody></table></div>
@@ -2300,6 +2301,8 @@ function verifyAndRecoverFromDetails(name, pin) {
 function uid() { return _id++; }
 function money(n) { return 'HK$ '+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function pcMoney(n) { return 'PC '+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+// 穩健數字解析：容忍空值、逗號千位分隔（"1,000" → 1000）、非數字 → 0
+function toNum(v) { var n = parseFloat(String(v==null?'':v).replace(/,/g,'')); return isNaN(n) ? 0 : n; }
 function dFmt(s) { if (!s) return ''; var d = new Date(s); return isNaN(d) ? '' : d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function toast(msg, type) { type = type||'success'; var el = document.createElement('div'); el.className = 'toast toast-'+type; el.textContent = msg; document.getElementById('toastBox').appendChild(el); setTimeout(function(){ el.remove(); }, 2600); }
 function esc(s) { if (!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -2484,7 +2487,7 @@ function afterLoginSync() {
 
 document.addEventListener('DOMContentLoaded',function(){
   // v3.8.5: 手機介面改底部導航
-  var CURRENT_VER = 'v3.9.3';
+  var CURRENT_VER = 'v4.0.0';
   var cachedVer = localStorage.getItem('app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, clearing cache and reloading...');
@@ -2531,7 +2534,20 @@ function generateTimeSlots() {
 // ===================================================================
 // CHART.JS
 // ===================================================================
-(function(){var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';s.onload=function(){chartLib=Chart;renderDashboardCharts();};s.onerror=function(){console.warn('Chart.js unavailable');};document.head.appendChild(s);})();
+(function(){
+  var s=document.createElement('script');
+  s.src='./chart.umd.min.js';
+  s.onload=function(){chartLib=Chart;renderDashboardCharts();};
+  s.onerror=function(){
+    console.warn('本地 Chart.js 載入失敗，轉用 CDN');
+    var c=document.createElement('script');
+    c.src='https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+    c.onload=function(){chartLib=Chart;renderDashboardCharts();};
+    c.onerror=function(){console.warn('Chart.js unavailable');};
+    document.head.appendChild(c);
+  };
+  document.head.appendChild(s);
+})();
 function destroyChart(id){if(chartInstances[id]){chartInstances[id].destroy();delete chartInstances[id];}}
 
 // ===================================================================
@@ -2636,8 +2652,26 @@ function renderDashboardCharts() {
   for (var i=11; i>=0; i--) { var dm=new Date(y,m-i,1); labels.push(dm.getFullYear()+'/'+(dm.getMonth()+1)); var s=0; DB.commissions.filter(function(c){var d=new Date(c.date);return d.getMonth()===dm.getMonth()&&d.getFullYear()===dm.getFullYear();}).forEach(function(c){s+=Number(c.amount)||0;}); d12.push(s); }
   chartInstances['chartCommission'] = new chartLib(document.getElementById('chartCommission'),{type:'line',data:{labels:labels,datasets:[{data:d12,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.1)',fill:true,tension:0.4,pointRadius:2}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:function(v){return'HK$'+v.toLocaleString();}}}}}});
   destroyChart('chartGoal');
-  var ag=null; for (var i=0;i<DB.goals.length;i++){if(DB.goals[i].period==='monthly'&&DB.goals[i].year===y&&DB.goals[i].month===m+1){ag=DB.goals[i];break;}}
-  var r=ag?Math.min(100,Math.round(DB.commissions.filter(function(c){var d=new Date(c.date);return d.getMonth()===m&&d.getFullYear()===y;}).reduce(function(s,c){return s+(Number(c.amount)||0);},0)/ag.target*100)):0;
+  var ag=null;
+  for (var i=0;i<DB.goals.length;i++){
+    var g=DB.goals[i];
+    if(g.type==='PC') continue;
+    if(g.period==='monthly'&&g.year===y&&g.month===m+1){ag=g;break;}
+    if(!ag && g.period==='range'){
+      var gsm=(g.startMonth||1)-1, gem=(g.endMonth||12)-1;
+      if((g.startYear<y||(g.startYear===y&&gsm<=m))&&(g.endYear>y||(g.endYear===y&&gem>=m))) ag=g;
+    }
+  }
+  var r=0;
+  if(ag){
+    if(ag.period==='monthly'){
+      r=Math.min(100,Math.round(DB.commissions.filter(function(c){var d=new Date(c.date);return d.getMonth()===m&&d.getFullYear()===y;}).reduce(function(s,c){return s+(Number(c.amount)||0);},0)/ag.target*100));
+    } else if(ag.period==='range'){
+      var rs=new Date(ag.startYear,(ag.startMonth||1)-1,(ag.startDay||1)), re=new Date(y,m,new Date().getDate(),23,59,59,999);
+      var acc=DB.commissions.filter(function(c){var d=new Date(c.date);return d>=rs&&d<=re;}).reduce(function(s,c){return s+(Number(c.amount)||0);},0);
+      r=Math.min(100,Math.round(acc/ag.target*100));
+    }
+  }
   chartInstances['chartGoal'] = new chartLib(document.getElementById('chartGoal'),{type:'doughnut',data:{labels:['已完成','剩餘'],datasets:[{data:[r,100-r],backgroundColor:r>=100?['#22c55e','#e5e7eb']:['#3b82f6','#e5e7eb'],borderWidth:0}]},options:{responsive:true,cutout:'75%',plugins:{legend:{display:false},tooltip:{enabled:false}}}});
   destroyChart('chartPolicyType'); var tc={}; DB.policies.forEach(function(p){tc[p.type]=(tc[p.type]||0)+1;}); var pt=Object.keys(tc), pn=pt.map(function(k){return tc[k];});
   chartInstances['chartPolicyType'] = new chartLib(document.getElementById('chartPolicyType'),{type:'doughnut',data:{labels:pt,datasets:[{data:pn,backgroundColor:['#3b82f6','#22c55e','#eab308','#ef4444','#a855f7','#06b6d4','#f97316','#64748b'],borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,plugins:{legend:{position:'bottom'}}}});
@@ -2817,7 +2851,7 @@ function renderGoals() {
   var h = ''; if (DB.goals.length===0) h='<div class="empty"><div class="icon">🎯</div>尚無目標，點擊新增開始設定</div>';
   else DB.goals.forEach(function(g){
     var mn=['','1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
-    var pl = g.period==='monthly'?g.year+'年'+mn[g.month]:g.period==='quarterly'?g.year+'年Q'+g.quarter:g.year+'年度目標';
+    var pl = g.period==='monthly'?g.year+'年'+mn[g.month]:g.period==='quarterly'?g.year+'年Q'+g.quarter:g.period==='range'?(g.startYear+'年'+(g.startMonth||1)+'月'+(g.startDay||1)+'日 – '+g.endYear+'年'+(g.endMonth||12)+'月'+((g.endDay)||new Date(g.endYear,(g.endMonth||12),0).getDate())+'日'):g.year+'年度目標';
     var isPC = g.type === 'PC';
     var dataSource = isPC ? DB.pcs : DB.commissions;
     var actual = 0;
@@ -2830,10 +2864,21 @@ function renderGoals() {
         }
         return false;
       }).reduce(function(s,c){return s+(Number(c.amount)||0);},0);
+    } else if (g.period==='range') {
+      var rs = new Date(g.startYear, (g.startMonth||1)-1, (g.startDay||1));
+      var re = new Date(g.endYear, (g.endMonth||12)-1, (g.endDay|| new Date(g.endYear,(g.endMonth||12),0).getDate()), 23, 59, 59, 999);
+      actual = dataSource.filter(function(c){
+        var d=new Date(c.date);
+        if (d>=rs && d<=re) {
+          if (isPC && g.pcType && g.pcType !== '全部') return c.pcType === g.pcType;
+          return true;
+        }
+        return false;
+      }).reduce(function(s,c){return s+(Number(c.amount)||0);},0);
     } else {
       var s2,e2;
-      if (g.period==='quarterly') { s2=new Date(g.year,(g.quarter-1)*3,1); e2=new Date(g.year,(g.quarter-1)*3+3,0); }
-      else { s2=new Date(g.year,0,1); e2=new Date(g.year,11,31); }
+      if (g.period==='quarterly') { s2=new Date(g.year,(g.quarter-1)*3,1); e2=new Date(g.year,(g.quarter-1)*3+3,0,23,59,59,999); }
+      else { s2=new Date(g.year,0,1); e2=new Date(g.year,11,31,23,59,59,999); }
       actual = dataSource.filter(function(c){
         var d=new Date(c.date);
         if (d>=s2 && d<=e2) {
@@ -3100,13 +3145,24 @@ function openForm(type, id) {
     var yearOpts = []; for (var yi=yr-2; yi<=yr+3; yi++) yearOpts.push({val:yi, label:yi+'年'});
     var qOpts = [{val:1,label:'Q1 (1-3月)'},{val:2,label:'Q2 (4-6月)'},{val:3,label:'Q3 (7-9月)'},{val:4,label:'Q4 (10-12月)'}];
     var mOpts = []; for (var mi=1; mi<=12; mi++) mOpts.push({val:mi, label:mi+'月'});
+    var rangeYOpts = []; for (var ri=yr-2; ri<=yr+3; ri++) rangeYOpts.push({val:ri, label:ri+'年'});
+    var dayOpts = []; for (var di=1; di<=31; di++) dayOpts.push({val:di, label:di+'日'});
     h += fs('目標類型','type',['佣金','PC'],g.type||'佣金')
       +fs('PC類型','pcType',['全部','H&P','ILAS','SAVING','PENSION','Others'],g.pcType||'全部')
-      +fs('年度','year',yearOpts,Number(g.year||yr))
-      +fs('季度目標','quarter',qOpts,Number(g.quarter||Math.ceil((new Date().getMonth()+1)/3)))
-      +fs('每月目標','month',mOpts,Number(g.month||new Date().getMonth()+1))
-      +fg('目標PC','target','number',g.target||'')
-      +fg('描述','desc','text',g.desc||'');
+      +fs('目標週期','period',[{val:'monthly',label:'月度目標'},{val:'quarterly',label:'季度目標'},{val:'yearly',label:'年度目標'},{val:'range',label:'跨月目標（自訂起止日）'}],g.period||'monthly')
+      + fs('年份','year',yearOpts,Number(g.year||yr))
+      + '<div id="goalFieldMonth">'+fs('每月目標','month',mOpts,Number(g.month||(new Date().getMonth()+1)))+'</div>'
+      + '<div id="goalFieldQuarter">'+fs('季度目標','quarter',qOpts,Number(g.quarter||Math.ceil((new Date().getMonth()+1)/3)))+'</div>'
+      + '<div id="goalFieldRange" style="display:none">'
+        + fs('起始年','startYear',rangeYOpts,Number(g.startYear||yr))
+        + fs('起始月','startMonth',mOpts,Number(g.startMonth||1))
+        + fs('起始日','startDay',dayOpts,Number(g.startDay||1))
+        + fs('終止年','endYear',rangeYOpts,Number(g.endYear||yr))
+        + fs('終止月','endMonth',mOpts,Number(g.endMonth||12))
+        + fs('終止日','endDay',dayOpts,Number(g.endDay||new Date(g.endYear||yr,(g.endMonth||12),0).getDate()))
+      + '</div>'
+      + fg('目標金額','target','number',g.target||'')
+      + fg('描述','desc','text',g.desc||'');
   }
   else if (type === 'schedule') {
     var sc = id?findById('schedules',id):{};
@@ -3177,10 +3233,28 @@ function openForm(type, id) {
       goalTypeSel.addEventListener('change', togglePcType);
       togglePcType();
     }
+    // 目標週期切換：按選擇顯示 月度/季度/跨月 欄位
+    var goalPeriodSel = document.getElementById('f_period');
+    if (goalPeriodSel) {
+      function toggleGoalPeriod() {
+        var p = goalPeriodSel.value;
+        var mf = document.getElementById('goalFieldMonth');
+        var qf = document.getElementById('goalFieldQuarter');
+        var rf = document.getElementById('goalFieldRange');
+        if (mf) mf.style.display = (p==='monthly') ? '' : 'none';
+        if (qf) qf.style.display = (p==='quarterly') ? '' : 'none';
+        if (rf) rf.style.display = (p==='range') ? '' : 'none';
+      }
+      goalPeriodSel.addEventListener('change', toggleGoalPeriod);
+      toggleGoalPeriod();
+    }
   }
 }
 
-function fg(label, name, type, value) { return '<div class="form-group"><label>'+label+'</label><input type="'+type+'" id="f_'+name+'" value="'+(value||'')+'"></div>'; }
+function fg(label, name, type, value) {
+  var extra = type==='number' ? ' step="any" min="0" inputmode="decimal"' : '';
+  return '<div class="form-group"><label>'+label+'</label><input type="'+type+'" id="f_'+name+'" value="'+(value||'')+'"'+extra+'></div>';
+}
 function ft(label, name, value, placeholder) { return '<div class="form-group"><label>'+label+'</label><textarea id="f_'+name+'" rows="4" placeholder="'+(placeholder||'')+'" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px;font-family:inherit;resize:vertical">'+esc(value||'')+'</textarea></div>'; }
 function fs(label, name, options, selected) {
   var isObj = options.length>0 && typeof options[0]==='object';
@@ -3268,22 +3342,22 @@ function saveForm() {
   else if (editType === 'policy') {
     var cid = val('f_clientId'), cn = '';
     DB.clients.forEach(function(c){ if (String(c.id)===String(cid)) cn = c.name; });
-    var o = {id:editId||uid(),policyNo:val('f_policyNo'),clientId:cid,clientName:cn,type:val('f_type'),premium:val('f_premium'),commissionRate:val('f_commissionRate'),insureDate:val('f_insureDate'),status:val('f_status')};
+    var o = {id:editId||uid(),policyNo:val('f_policyNo'),clientId:cid,clientName:cn,type:val('f_type'),premium:toNum(val('f_premium')),commissionRate:toNum(val('f_commissionRate')),insureDate:val('f_insureDate'),status:val('f_status')};
     saveTo('policies',o);
   }
   else if (editType === 'commission') {
-    var o = {id:editId||uid(),date:val('f_date'),clientName:val('f_clientName'),policyNo:val('f_policyNo'),type:val('f_type'),amount:val('f_amount'),notes:val('f_notes')};
+    var o = {id:editId||uid(),date:val('f_date'),clientName:val('f_clientName'),policyNo:val('f_policyNo'),type:val('f_type'),amount:toNum(val('f_amount')),notes:val('f_notes')};
     saveTo('commissions',o);
   }
   else if (editType === 'expense') {
-    var o = {id:editId||uid(),date:val('f_date'),category:val('f_category'),amount:val('f_amount'),payment:val('f_payment'),notes:val('f_notes')};
+    var o = {id:editId||uid(),date:val('f_date'),category:val('f_category'),amount:toNum(val('f_amount')),payment:val('f_payment'),notes:val('f_notes')};
     saveTo('expenses',o);
     // 也寫入 incomes 保持雲端兼容
     var incObj = {id:o.id,date:o.date,category:o.category,amount:o.amount,clientName:'',policyNo:'',payment:o.payment,notes:o.notes};
     saveTo('incomes',incObj);
   }
   else if (editType === 'goal') {
-    var o = {id:editId||uid(),type:val('f_type'),pcType:val('f_pcType'),period:val('f_period'),year:Number(val('f_year')),month:Number(val('f_month')),quarter:Number(val('f_quarter')),target:Number(val('f_target')),desc:val('f_desc')};
+    var o = {id:editId||uid(),type:val('f_type'),pcType:val('f_pcType'),period:val('f_period')||'monthly',year:Number(val('f_year')),month:Number(val('f_month')),quarter:Number(val('f_quarter')),startYear:Number(val('f_startYear')),startMonth:Number(val('f_startMonth')),startDay:Number(val('f_startDay')),endYear:Number(val('f_endYear')),endMonth:Number(val('f_endMonth')),endDay:Number(val('f_endDay')),target:toNum(val('f_target')),desc:val('f_desc')};
     saveTo('goals',o);
   }
   else if (editType === 'schedule') {
@@ -3304,14 +3378,14 @@ function saveForm() {
   }
   else if (editType === 'income') {
     var cat = val('f_category');
-    var o = {id:editId||uid(),date:val('f_date'),category:cat,amount:val('f_amount'),clientName:val('f_clientName'),policyNo:val('f_policyNo'),payment:val('f_payment'),notes:val('f_notes')};
+    var o = {id:editId||uid(),date:val('f_date'),category:cat,amount:toNum(val('f_amount')),clientName:val('f_clientName'),policyNo:val('f_policyNo'),payment:val('f_payment'),notes:val('f_notes')};
     saveTo('incomes',o);
     // 雲端兼容：同步寫入 commissions
     var commObj = {id:o.id,date:o.date,clientName:o.clientName,policyNo:o.policyNo,type:cat,amount:o.amount,notes:o.notes};
     saveTo('commissions',commObj);
   }
   else if (editType === 'pc') {
-    var o = {id:editId||uid(),date:val('f_date'),pcType:val('f_pcType'),clientName:val('f_clientName'),policyNo:val('f_policyNo'),amount:val('f_amount'),notes:val('f_notes')};
+    var o = {id:editId||uid(),date:val('f_date'),pcType:val('f_pcType'),clientName:val('f_clientName'),policyNo:val('f_policyNo'),amount:toNum(val('f_amount')),notes:val('f_notes')};
     saveTo('pcs',o);
   }
   closeModal(); saveDB(); toast(editId?'已更新':'已新增');
@@ -3397,6 +3471,45 @@ function exportForManager() {
   toast('已匯出給經理的報告檔 📄\n經理可用「經理總覽頁」匯入多份報告');
 }
 
+// 匯出報告 CSV（Excel 友善）：依目前「報告」頁選定期間，抽出佣金 / 開支 / PC 明細
+function exportReportCSV() {
+  var r = getPeriod(reportPeriod), s = r[0], e = r[1];
+  var pn = {month:'本月',quarter:'本季',half:'本半年',year:'本年'}[reportPeriod] || '';
+  var cm = DB.commissions.filter(function(c){ var d=new Date(c.date); return d>=s&&d<=e; });
+  var ex = DB.expenses.filter(function(x){ var d=new Date(x.date); return d>=s&&d<=e; });
+  var pc = DB.pcs.filter(function(p){ var d=new Date(p.date); return d>=s&&d<=e; });
+  var rows = [];
+  rows.push(['保經管家 報告匯出（'+pn+'）']);
+  rows.push(['代理人', agentName||'']);
+  rows.push(['期間', dFmt(s)+' ~ '+dFmt(e)]);
+  rows.push([]);
+  rows.push(['=== 佣金明細 ===']);
+  rows.push(['日期','客戶','保單編號','類型','金額(HK$)']);
+  cm.forEach(function(c){ rows.push([dFmt(c.date), c.clientName||'', c.policyNo||'', c.type||'', toNum(c.amount)]); });
+  rows.push([]);
+  rows.push(['=== 開支明細 ===']);
+  rows.push(['日期','分類','金額(HK$)','備註']);
+  ex.forEach(function(x){ rows.push([dFmt(x.date), x.category||'', toNum(x.amount), x.notes||'']); });
+  rows.push([]);
+  rows.push(['=== PC 明細 ===']);
+  rows.push(['日期','PC類型','客戶','保單編號','金額(PC)']);
+  pc.forEach(function(p){ rows.push([dFmt(p.date), p.pcType||'', p.clientName||'', p.policyNo||'', toNum(p.amount)]); });
+  // 每格用雙引號包住，逗號 / 換行 / 雙引號正確轉義
+  var csv = rows.map(function(row){
+    return row.map(function(cell){
+      var t = (cell==null?'':String(cell));
+      if (/[",\n\r]/.test(t)) t = '"'+t.replace(/"/g,'""')+'"';
+      return t;
+    }).join(',');
+  }).join('\r\n');
+  // UTF-8 BOM：令 Excel（Windows / 中文）正確顯示中文，唔會變亂碼
+  var blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8;'});
+  var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'report_'+pn+'_'+encodeURIComponent(agentName||'agent')+'_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+  toast('已匯出 CSV（'+cm.length+' 筆佣金 / '+ex.length+' 筆開支 / '+pc.length+' 筆 PC）');
+}
+
 function doImport(evt) {
   var file = evt.target.files[0]; if (!file) return;
   var reader = new FileReader();
@@ -3426,8 +3539,6 @@ setInterval(function(){
   }
 }, 30000);
 </script>
-<script>
-if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(function(r){console.log('[PWA] Service Worker 已註冊:',r.scope);}).catch(function(e){console.warn('[PWA] SW 註冊失敗:',e);});}
-</script>
+<script src="./sw-register.js"></script>
 </body>
 </html>

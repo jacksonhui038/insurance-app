@@ -1,70 +1,84 @@
-// 保經管家 Service Worker — PWA 緩存策略 v3.9.0
-var CACHE_NAME = 'baojing-v3.9.0';
-var CACHE_URLS = [
+/* 保經管家 Service Worker
+ * 用途：離線快取 app shell + 確保用家永遠用到最新版本（network-first for HTML）
+ * ⚠️ 改動以下任何被預快取嘅檔案（index.html / agent-app.html / manager-dashboard.html /
+ *    chart.umd.min.js / manifest.json / icon-192.png / qr-*.png）之後，記得將下方
+ *    CACHE 版本號 +1（例如 v4 → v5），否則用家可能繼續用到舊快取。
+ */
+const CACHE = 'baojing-cache-v4';
+const APP_SHELL = [
   './',
-  './index.html',
-  './agent-app.html',
-  './manager-dashboard.html',
-  './manifest.json',
-  'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js'
+  'index.html',
+  'agent-app.html',
+  'manager-dashboard.html',
+  'chart.umd.min.js',
+  'manifest.json',
+  'icon-192.png',
+  'qr-agent.png',
+  'qr-manager.png'
 ];
 
-// 安裝：預緩存核心資源
-self.addEventListener('install', function(event) {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then(function(cache) {
-      console.log('[SW] 預緩存核心資源');
-      return cache.addAll(CACHE_URLS).catch(function(e) {
-        console.warn('[SW] 部分資源緩存失敗（可忽略）:', e);
-        return Promise.resolve();
+self.addEventListener('install', function (e) {
+  self.skipWaiting();
+  e.waitUntil(
+    caches.open(CACHE).then(function (c) {
+      // 預快取失敗唔阻礙安裝（例如某資源暫時攞唔到）
+      return c.addAll(APP_SHELL).catch(function (err) {
+        console.warn('[SW] 預快取部分失敗（可忽略）:', err);
       });
     })
   );
-  self.skipWaiting();
 });
 
-// 活化：清除舊緩存
-self.addEventListener('activate', function(event) {
-  event.waitUntil(
-    caches.keys().then(function(keys) {
-      return Promise.all(
-        keys.filter(function(k) { return k !== CACHE_NAME; })
-            .map(function(k) { return caches.delete(k); })
-      );
+self.addEventListener('activate', function (e) {
+  e.waitUntil(
+    caches.keys().then(function (keys) {
+      return Promise.all(keys.map(function (k) {
+        if (k !== CACHE) return caches.delete(k);
+      }));
+    }).then(function () {
+      return self.clients.claim();
     })
   );
-  self.clients.claim();
 });
 
-// 請求策略：先網絡後緩存（Network-first），確保數據最新
-self.addEventListener('fetch', function(event) {
-  // 只處理 GET 請求
-  if (event.request.method !== 'GET') return;
+self.addEventListener('fetch', function (e) {
+  var req = e.request;
+  if (req.method !== 'GET') return;
 
-  // 雲端 API 請求完全唔經 SW 攔截（避免 iOS 改動 headers 導致 401）
-  var url = new URL(event.request.url);
-  if (url.hostname.indexOf('supabase.co') !== -1 ||
-      url.pathname.indexOf('exec') !== -1 ||
-      url.hostname === 'script.google.com') {
+  var url = new URL(req.url);
+  // 跨域（Supabase / CDN）直接放去網絡，唔攔截、唔快取 —— 避免舊 SW 截住 Supabase 嘅問題
+  if (url.origin !== location.origin) return;
+
+  // 頁面導航：network-first，確保線上一定係最新版；離線先退用快取
+  if (req.mode === 'navigate') {
+    e.respondWith(
+      fetch(req).catch(function () {
+        return caches.match(req).then(function (r) {
+          if (r) return r;
+          // 離線時按 pathname 搵快取頁（忽略 ?v= 之類 query）
+          return caches.match(url.pathname).then(function (r2) {
+            return r2 || caches.match('index.html');
+          });
+        });
+      })
+    );
     return;
   }
 
-  event.respondWith(
-    fetch(event.request).then(function(response) {
-      // 網絡成功 → 更新緩存
-      if (response && response.status === 200 && response.type === 'basic') {
-        var responseClone = response.clone();
-        caches.open(CACHE_NAME).then(function(cache) {
-          cache.put(event.request, responseClone);
-        });
-      }
-      return response;
-    }).catch(function() {
-      // 網絡失敗 → 從緩存取
-      return caches.match(event.request).then(function(cached) {
-        if (cached) return cached;
-        return caches.match('./index.html');
-      });
+  // 靜態資源：cache-first，背景順便更新快取（stale-while-revalidate）
+  e.respondWith(
+    caches.match(req).then(function (cached) {
+      var network = fetch(req).then(function (res) {
+        if (res && res.status === 200 && res.type === 'basic') {
+          caches.open(CACHE).then(function (c) { c.put(req, res.clone()); });
+        }
+        return res;
+      }).catch(function () { return cached; });
+      return cached || network;
     })
   );
+});
+
+self.addEventListener('message', function (e) {
+  if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting();
 });

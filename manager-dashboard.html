@@ -1,20 +1,21 @@
 <!DOCTYPE html>
 <html lang="zh-HK">
 <head>
-<script>// v3.9.5 強制破 cache + 強制解除舊 SW：sync script 喺一切之前執行
-var MGR_VER='v3.9.5',MGR_VER_KEY='mgr_app_version';
+<script>// 版本強制刷新：版本號改變時一次性解除舊 SW 並重載，確保用到最新 HTML
+var MGR_VER='v4.0.0',MGR_VER_KEY='mgr_app_version';
 (function(){
   var v=localStorage.getItem(MGR_VER_KEY)||'';
-  if(v&&v!==MGR_VER){console.log('[CacheBuster] '+v+'→'+MGR_VER);localStorage.setItem(MGR_VER_KEY,MGR_VER);}
-  // v3.9.0: 強制解除所有 Service Worker 並清除 cache（iOS PWA 舊 SW 會攔截 Supabase）
-  function finish(){localStorage.setItem(MGR_VER_KEY,MGR_VER);}
-  if('caches' in window){caches.keys().then(function(ns){return Promise.all(ns.map(function(n){return caches.delete(n);}));}).then(finish).catch(finish);}else{finish();}
+  var changed = !!(v && v!==MGR_VER);
+  if(!changed) return;
+  console.log('[CacheBuster] '+v+'→'+MGR_VER);
+  localStorage.setItem(MGR_VER_KEY,MGR_VER);
+  function doReload(){ location.replace(location.href.split('?')[0]+'?v='+Date.now()); }
+  // 舊版有問題 SW 曾攔截 Supabase，升級時一次性解除，隨後頁尾會註冊全新 SW
   if('serviceWorker' in navigator){
     navigator.serviceWorker.getRegistrations().then(function(regs){
-      regs.forEach(function(r){r.unregister(); console.log('[SW] unregistered', r.scope);});
-    }).catch(function(e){console.log('[SW] unregister error', e);});
-  }
-  if(v&&v!==MGR_VER){location.replace(location.href.split('?')[0]+'?v='+Date.now());}
+      return Promise.all(regs.map(function(r){ return r.unregister(); }));
+    }).then(doReload).catch(doReload);
+  } else { doReload(); }
 })();
 </script>
 <meta charset="UTF-8">
@@ -175,7 +176,7 @@ tr:hover td{background:var(--blue50)}
     <!-- CHOICE -->
     <div id="lockChoice">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <button onclick="try{window.location.href='https://jacksonhui038.github.io/insurance-app/agent-app.html'}catch(e){location.href='https://jacksonhui038.github.io/insurance-app/agent-app.html'}" style="padding:6px 14px;border:1px solid var(--gray300);border-radius:8px;background:var(--gray100);color:var(--gray600);cursor:pointer;font-size:13px;display:flex;align-items:center;gap:4px">◀ 返回</button>
+        <button onclick="try{window.location.href='agent-app.html'}catch(e){location.href='agent-app.html'}" style="padding:6px 14px;border:1px solid var(--gray300);border-radius:8px;background:var(--gray100);color:var(--gray600);cursor:pointer;font-size:13px;display:flex;align-items:center;gap:4px">◀ 返回</button>
         <span style="font-size:11px;color:var(--gray400)">經理版</span>
       </div>
       <div class="lock-icon">📊</div>
@@ -184,7 +185,7 @@ tr:hover td{background:var(--blue50)}
       <button class="lock-btn lock-btn-primary" onclick="if(typeof showMgrLogin!=='function'){alert('頁面載入未完成，請 Ctrl+Shift+R 強制刷新');return;}try{showMgrLogin()}catch(e){console.error(e);alert('登入畫面錯誤：'+e.message);}" style="margin-bottom:8px">🔐 登入</button>
       <button class="lock-btn lock-btn-outline" onclick="if(typeof showMgrSetup!=='function'){alert('頁面載入未完成，請 Ctrl+Shift+R 強制刷新');return;}try{showMgrSetup()}catch(e){console.error(e);alert('設定畫面錯誤：'+e.message);}">📝 首次設定</button>
       <hr style="border:none;border-top:1px solid var(--gray200);margin:14px 0">
-      <button class="lock-btn lock-btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/agent-app.html'" style="border:1px dashed var(--blue500);color:var(--blue700);background:var(--blue50)">🔄 切換到代理人版</button>
+      <button class="lock-btn lock-btn-outline" onclick="window.location.href='agent-app.html'" style="border:1px dashed var(--blue500);color:var(--blue700);background:var(--blue50)">🔄 切換到代理人版</button>
     </div>
     <!-- LOGIN (name + PIN + role, no confirm) -->
     <div id="lockLogin" style="display:none">
@@ -268,7 +269,7 @@ tr:hover td{background:var(--blue50)}
       <button class="btn btn-white" onclick="clearAll()">清除全部</button>
       <button class="btn btn-white" onclick="showAccountModal()">👤 帳號</button>
       <button class="btn btn-white" onclick="mgrShowCloudSetup()">⚙️ 設定</button>
-      <button class="btn btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/agent-app.html'" style="border:1px dashed var(--blue500);color:var(--blue700);background:var(--blue50)">🔄 切換到代理人版</button>
+      <button class="btn btn-outline" onclick="window.location.href='agent-app.html'" style="border:1px dashed var(--blue500);color:var(--blue700);background:var(--blue50)">🔄 切換到代理人版</button>
     </div>
   </div>
 
@@ -585,7 +586,8 @@ function doMgrLogin() {
   var hdr = document.getElementById('mgrNameDisplay');
   if (hdr) hdr.textContent = role + '：' + name;
   render();
-  toast('登入成功！請按「載入團隊數據」查看下屬資料');
+  mgrAutoLoadIfCloud();
+  toast('登入成功！自動載入團隊數據中...');
   btn.textContent = '登入'; btn.disabled = false;
 }
 
@@ -629,6 +631,7 @@ function unlockOK(){
   var hdr = document.getElementById('mgrNameDisplay');
   if(hdr && mgrName) hdr.textContent = (mgrRole?mgrRole+'：':'經理：') + mgrName;
   render();
+  mgrAutoLoadIfCloud();
 }
 
 function doResetMgr(){
@@ -1003,6 +1006,13 @@ function mgrShowAll() {
   }
 }
 
+function mgrAutoLoadIfCloud(){
+  if(!MGR_CLOUD_ENABLED){ return; }
+  if(typeof mgrLoadFromCloud !== 'function'){ return; }
+  // 解鎖後自動載入雲端團隊數據，唔使每次手撳（失敗會有 toast 提示，手動掣仍可用）
+  toast('☁️ 自動載入團隊數據中...', 'info');
+  setTimeout(function(){ mgrLoadFromCloud(); }, 400);
+}
 function mgrLoadFromCloud() {
   // 防止重複點擊
   var btn = document.getElementById('mgrCloudBtn');
@@ -1268,6 +1278,17 @@ function drillToRoot(name){
 function render(){
   var agentNames = getTree(currentRoot);
   if(agentNames.length===0)return;
+  // v4.0.0: 職級修正映射表 — 雲端 role 欄位未更新時，以此為準
+  var ROLE_CORRECTIONS = {
+    'WONG WAI KIT': 'SDM',
+    'HUI YUEN SHU': 'ASM',
+    'TSANG OI TING': 'SASM'
+  };
+  agentNames.forEach(function(a){
+    if (ROLE_CORRECTIONS[a] && TEAM[a]) {
+      TEAM[a].role = ROLE_CORRECTIONS[a];
+    }
+  });
   var rootName = currentRoot || '全團隊';
 
   // Summary
@@ -1297,7 +1318,19 @@ function render(){
     var mpc=0,ypc=0;
     if(d.pcs) d.pcs.forEach(function(pc){var dt=new Date(pc.date);if(dt.getMonth()===m&&dt.getFullYear()===y)mpc+=Number(pc.amount)||0;if(dt.getFullYear()===y)ypc+=Number(pc.amount)||0;});
     var me=0;d.expenses.forEach(function(e){var dt=new Date(e.date);if(dt.getMonth()===m&&dt.getFullYear()===y)me+=Number(e.amount)||0;});
-    var goalRate=0;(d.goals||[]).forEach(function(g){if(g.period==='monthly'&&g.year===y&&g.month===m+1&&g.target>0)goalRate=Math.round(mc/g.target*100);});
+    var goalRate=0, rgStart=null, rgEnd=null, rgTarget=0;
+    (d.goals||[]).forEach(function(g){
+      if(g.period==='monthly'&&g.year===y&&g.month===m+1&&g.target>0){goalRate=Math.round(mc/g.target*100);}
+      else if(g.period==='range'&&g.target>0){
+        var rsm=(g.startMonth||1)-1, rem=(g.endMonth||12)-1;
+        var rsd=g.startDay||1, red=g.endDay||new Date(g.endYear,(g.endMonth||12),0).getDate();
+        if((g.startYear<y||(g.startYear===y&&rsm<=m))&&(g.endYear>y||(g.endYear===y&&rem>=m))){ rgStart=new Date(g.startYear,rsm,rsd); rgEnd=new Date(g.endYear,rem,red,23,59,59,999); rgTarget=g.target; }
+      }
+    });
+    if(goalRate===0 && rgTarget>0){
+      var rgComm = d.commissions.filter(function(c){var dt=new Date(c.date);return dt>=rgStart&&dt<=rgEnd;}).reduce(function(s,c){return s+(Number(c.amount)||0);},0);
+      goalRate=Math.round(rgComm/rgTarget*100);
+    }
     ranks.push({name:a,role:d.role||'Agent',clients:d.clients.length,policies:d.policies.length,monthComm:mc,yearComm:yc,monthPC:mpc,yearPC:ypc,expenses:me,goalRate:Math.min(goalRate,999),net:mc-me,supervisor:d.supervisor||''});
   });
   var roleOrder={'SDD':1,'DD':2,'SDM':3,'DM':4,'SASM':5,'ASM':6,'Agent':7};
@@ -1677,7 +1710,7 @@ function renderDetailContent(){
     else{html='<table><thead><tr><th>日期</th><th>時間</th><th>客戶</th><th>目的</th><th>地點</th><th>狀態</th><th>會面筆記</th><th>跟進事項</th></tr></thead><tbody>';d.schedules.forEach(function(s){var sc=s.status==='已完成'?'badge-green':s.status==='已確認'?'badge-blue':s.status==='已取消'?'badge-red':'badge-yellow';var mn=s.meetingNotes?'<div style="font-size:11px;white-space:pre-wrap;max-width:200px;overflow:hidden;text-overflow:ellipsis">'+esc(s.meetingNotes.substring(0,100))+(s.meetingNotes.length>100?'...':'')+'</div>':'—';var fu=s.followUp?'<div style="font-size:11px;color:#a16207;white-space:pre-wrap;max-width:200px;overflow:hidden;text-overflow:ellipsis">'+esc(s.followUp.substring(0,100))+(s.followUp.length>100?'...':'')+'</div>':'—';html+='<tr><td>'+esc(df(s.date))+'</td><td>'+esc(s.startTime||'')+'-'+esc(s.endTime||'')+'</td><td>'+esc(s.clientName||'—')+'</td><td>'+esc(s.purpose||'—')+'</td><td>'+esc(s.location||'—')+'</td><td><span class="badge '+sc+'">'+esc(s.status)+'</span></td><td>'+mn+'</td><td>'+fu+'</td></tr>';});html+='</tbody></table>';}
   }else if(detailTab==='goals'){
     if(!d.goals||d.goals.length===0)html='<div class="empty">無目標記錄</div>';
-    else{html='<table><thead><tr><th>類型</th><th>週期</th><th>年份</th><th>月份/季度</th><th>目標金額</th><th>描述</th></tr></thead><tbody>';var mn=['','1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];d.goals.forEach(function(g){html+='<tr><td>'+esc(g.type)+'</td><td>'+esc(g.period==='monthly'?'月度':g.period==='quarterly'?'季度':'年度')+'</td><td>'+g.year+'</td><td>'+esc(g.period==='monthly'?mn[g.month||1]:g.period==='quarterly'?'Q'+g.quarter:'全年')+'</td><td>'+money(g.target)+'</td><td>'+esc(g.desc||'—')+'</td></tr>';});html+='</tbody></table>';}
+    else{html='<table><thead><tr><th>類型</th><th>週期</th><th>年份</th><th>月份/季度</th><th>目標金額</th><th>描述</th></tr></thead><tbody>';var mn=['','1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];d.goals.forEach(function(g){var per=esc(g.period==='monthly'?'月度':g.period==='quarterly'?'季度':g.period==='range'?'跨月':'年度');var perVal=esc(g.period==='monthly'?mn[g.month||1]:g.period==='quarterly'?'Q'+g.quarter:g.period==='range'?(g.startYear+'-'+(g.startMonth||1)+'-'+(g.startDay||1)+' 至 '+g.endYear+'-'+(g.endMonth||12)+'-'+((g.endDay)||new Date(g.endYear,(g.endMonth||12),0).getDate())):'全年');var yrCol=g.period==='range'?(g.startYear+'→'+g.endYear):g.year;html+='<tr><td>'+esc(g.type)+'</td><td>'+per+'</td><td>'+yrCol+'</td><td>'+perVal+'</td><td>'+money(g.target)+'</td><td>'+esc(g.desc||'—')+'</td></tr>';});html+='</tbody></table>';}
   }
   document.getElementById('detailContent').innerHTML=html;
 }
@@ -2289,9 +2322,16 @@ function toast(msg,type){type=type||'success';var el=document.createElement('div
 var _chartReady = new Promise(function(resolve){
   var _resolved = false;
   var s=document.createElement('script');
-  s.src='https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+  s.src='./chart.umd.min.js';
   s.onload=function(){chartLib=Chart;_resolved=true;resolve(true);};
-  s.onerror=function(){console.warn('Chart.js unavailable');_resolved=true;resolve(false);};
+  s.onerror=function(){
+    console.warn('本地 Chart.js 載入失敗，轉用 CDN');
+    var c=document.createElement('script');
+    c.src='https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+    c.onload=function(){chartLib=Chart;_resolved=true;resolve(true);};
+    c.onerror=function(){console.warn('Chart.js unavailable');_resolved=true;resolve(false);};
+    document.head.appendChild(c);
+  };
   document.head.appendChild(s);
 });
 function whenReady(fn){ return _chartReady.then(function(){ fn(); }); }
@@ -2301,9 +2341,7 @@ initLock();
 initActivitySelectors();
 updateActivitySelectorVisibility();
 </script>
-<script>
-if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(function(r){console.log('[PWA] Service Worker 已註冊:',r.scope);}).catch(function(e){console.warn('[PWA] SW 註冊失敗:',e);});}
-</script>
+<script src="./sw-register.js"></script>
 
 <!-- MANAGER CLOUD SETUP MODAL -->
 <style>

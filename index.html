@@ -90,16 +90,45 @@ h1{font-size:26px;color:#0f172a;margin-bottom:6px;font-weight:700}
 var BASE = location.origin + location.pathname.replace(/\/$/, '');
 function cp(type) {
   var url = type === 'agent' ? BASE + '/agent-app.html' : BASE + '/manager-dashboard.html';
-  navigator.clipboard.writeText(url).then(function() {
+  copyText(url, function(ok) {
     var el = document.getElementById('cb-' + type);
-    el.textContent = '✅ 已複製！';
-    el.classList.add('copied');
+    if (ok) {
+      el.textContent = '✅ 已複製！';
+      el.classList.add('copied');
+    } else {
+      el.textContent = '⚠️ 請長按網址複製';
+    }
     setTimeout(function() {
       el.textContent = type === 'agent' ? '📋 複製代理人版連結' : '📋 複製經理版連結';
       el.classList.remove('copied');
     }, 2000);
   });
 }
+// 複製文字：優先 Clipboard API，失敗（微信內置瀏覽器 / 非 HTTPS）用 textarea + execCommand fallback
+function copyText(text, cb) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function() { cb(true); })
+      .catch(function() { fallbackCopy(text, cb); });
+  } else {
+    fallbackCopy(text, cb);
+  }
+}
+function fallbackCopy(text, cb) {
+  try {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.top = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    ta.setSelectionRange(0, ta.value.length);
+    var ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    cb(ok);
+  } catch (e) { cb(false); }
+}
 </script>
+<script src="./sw-register.js"></script>
 </body>
 </html>
