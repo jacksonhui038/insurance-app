@@ -1255,7 +1255,7 @@ function onTeamChange() {
 
 // ===== 直屬經理下拉（防止入錯名）=====
 // 已知經理（地區主管）作為基礎清單；有 Supabase 時再從雲端拉真實經理名
-var KNOWN_MANAGERS = ['PAU CHI FUNG','NG MAN LOK','CHAN CHI HANG'];
+var KNOWN_MANAGERS = ['PAU CHI FUNG','NG MAN LOK','CHAN CHI HANG','WONG WAI KIT','HUI YUEN SHU','TSANG OI TING'];
 function dedupeManagers(arr){
   var seen = {}, out = [];
   (arr||[]).forEach(function(m){ m = (m||'').trim(); if (m && !seen[m]) { seen[m]=1; out.push(m); } });
