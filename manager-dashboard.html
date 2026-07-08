@@ -324,8 +324,8 @@ tr:hover td{background:var(--blue50)}
 
     <!-- Charts -->
     <div class="charts-row">
-      <div class="chart-card"><h3>🏆 代理人佣金排名</h3><canvas id="chartRanking"></canvas></div>
-      <div class="chart-card"><h3>📊 月度佣金趨勢（全團隊）</h3><canvas id="chartTeamTrend"></canvas></div>
+      <div class="chart-card"><h3>🏆 代理人 PC 排名</h3><canvas id="chartRanking"></canvas></div>
+      <div class="chart-card"><h3>📊 月度 PC 趨勢（全團隊）</h3><canvas id="chartTeamTrend"></canvas></div>
     </div>
 
     <!-- Performance Table -->
@@ -1339,9 +1339,9 @@ function render(){
     var ra=roleOrder[a.role]||99;
     var rb=roleOrder[b.role]||99;
     if(ra!==rb)return ra-rb;
-    return b.monthComm-a.monthComm;
+    return b.monthPC-a.monthPC;
   });
-  var maxComm=ranks.length>0?ranks[0].monthComm:1;
+  var maxPC=ranks.length>0?ranks[0].monthPC:1;
   var roleColors={'SDD':'#1e40af','DD':'#2563eb','SDM':'#3b82f6','DM':'#60a5fa','SASM':'#93c5fd','ASM':'#bfdbfe','Agent':'#e5e7eb'};
   var tableHtml='';
   ranks.forEach(function(r,i){
@@ -1387,14 +1387,14 @@ function renderCharts(ranks,maxComm,agentNames,y,m){
   if(!chartLib)return;
   var isMobile = window.innerWidth <= 768;
   var topCount = isMobile ? 8 : 15;
-  var top=ranks.slice(0,topCount),labels=top.map(function(r){return r.name;}),data=top.map(function(r){return r.monthComm;});
+  var top=ranks.slice(0,topCount),labels=top.map(function(r){return r.name;}),data=top.map(function(r){return r.monthPC;});
   if(chartInstances['chartRanking'])chartInstances['chartRanking'].destroy();
-  chartInstances['chartRanking']=new chartLib(document.getElementById('chartRanking'),{type:'bar',data:{labels:labels,datasets:[{data:data,backgroundColor:'#3b82f6',borderRadius:6}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{callback:function(v){return'HK$'+v.toLocaleString()}}},y:{ticks:{font:{size:isMobile?10:12}}}}}});
+  chartInstances['chartRanking']=new chartLib(document.getElementById('chartRanking'),{type:'bar',data:{labels:labels,datasets:[{data:data,backgroundColor:'#3b82f6',borderRadius:6}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{callback:function(v){return 'PC '+Number(v).toLocaleString()}}},y:{ticks:{font:{size:isMobile?10:12}}}}}});
 
   if(chartInstances['chartTeamTrend'])chartInstances['chartTeamTrend'].destroy();
   var tlabels=[],tdata=[];
-  for(var i=5;i>=0;i--){var dm=new Date(y,m-i,1);tlabels.push(dm.getFullYear()+'/'+(dm.getMonth()+1));var ts=0;agentNames.forEach(function(a){TEAM[a].commissions.forEach(function(c){var d=new Date(c.date);if(d.getMonth()===dm.getMonth()&&d.getFullYear()===dm.getFullYear())ts+=Number(c.amount)||0;});});tdata.push(ts);}
-  chartInstances['chartTeamTrend']=new chartLib(document.getElementById('chartTeamTrend'),{type:'line',data:{labels:tlabels,datasets:[{data:tdata,borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,0.1)',fill:true,tension:0.4,pointRadius:isMobile?3:4,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:isMobile?10:12}}},y:{beginAtZero:true,ticks:{callback:function(v){return'HK$'+v.toLocaleString()}}}}}});
+  for(var i=5;i>=0;i--){var dm=new Date(y,m-i,1);tlabels.push(dm.getFullYear()+'/'+(dm.getMonth()+1));var ts=0;agentNames.forEach(function(a){if(TEAM[a].pcs)TEAM[a].pcs.forEach(function(pc){var d=new Date(pc.date);if(d.getMonth()===dm.getMonth()&&d.getFullYear()===dm.getFullYear())ts+=Number(pc.amount)||0;});});tdata.push(ts);}
+  chartInstances['chartTeamTrend']=new chartLib(document.getElementById('chartTeamTrend'),{type:'line',data:{labels:tlabels,datasets:[{data:tdata,borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,0.1)',fill:true,tension:0.4,pointRadius:isMobile?3:4,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:isMobile?10:12}}},y:{beginAtZero:true,ticks:{callback:function(v){return 'PC '+Number(v).toLocaleString()}}}}}});
 }
 
 // ============================================================
