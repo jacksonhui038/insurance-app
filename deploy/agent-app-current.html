@@ -996,37 +996,61 @@ function saveToSupabase(callback) {
     if (callback) callback(false, 'skip-empty-protect');
     return;
   }
-  var mgr = assignedManager || localStorage.getItem('insurance_mgr_'+encodeURIComponent(agentName)) || '';
-  var team = assignedTeam || localStorage.getItem('insurance_team_'+encodeURIComponent(agentName)) || '';
-  // v3.6.0: 發送前修復所有壞時間格式
-  fixAllScheduleTimes(false);
-  // v3.9.5: 用 buildUploadData() 取代直接 Object.assign({},DB)，確保保留 role/manager/team 同雲端既有記錄（MERGE 唔係 REPLACE）
-  var uploadData = buildUploadData();
-  var payload = JSON.stringify({name:agentName,data:uploadData,manager:mgr,team:team});
-  var payloadSize = new Blob([payload]).size;
-  if (payloadSize > 5 * 1024 * 1024) console.warn('[saveToSupabase] Payload size:', Math.round(payloadSize/1024), 'KB');
-  var controller = new AbortController();
-  var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
-  fetch(SUPA_URL + '/rest/v1/agents?on_conflict=name', {
-    method:'POST',
-    headers:{
-      'apikey':SUPA_KEY,
-      'Authorization':'Bearer '+SUPA_KEY,
-      'Content-Type':'application/json',
-      'Prefer':'resolution=merge-duplicates,return=minimal'
-    },
-    body:payload,
-    signal:controller.signal
-  })
-  .then(function(res){
-    clearTimeout(timeoutId);
-    if (res.ok) { if (callback) callback(true); }
-    else {
-      res.text().then(function(t){ console.error('[saveToSupabase] HTTP',res.status, t.substring(0,200)); });
-      if (callback) callback(false, 'HTTP '+res.status);
-    }
-  })
-  .catch(function(e){ clearTimeout(timeoutId); console.error('[saveToSupabase]',e); if (callback) callback(false, String(e)); });
+  // v3.9.5: 如果本機冇雲端快照（下載失敗/未完成），save 之前先拉一次雲端資料做基底，
+  // 確保唔會用本地 DB 清走 role/manager/team 同雲端既有記錄
+  function doUpload() {
+    var mgr = assignedManager || localStorage.getItem('insurance_mgr_'+encodeURIComponent(agentName)) || '';
+    var team = assignedTeam || localStorage.getItem('insurance_team_'+encodeURIComponent(agentName)) || '';
+    // v3.6.0: 發送前修復所有壞時間格式
+    fixAllScheduleTimes(false);
+    // v3.9.5: 用 buildUploadData() 取代直接 Object.assign({},DB)，確保保留 role/manager/team 同雲端既有記錄（MERGE 唔係 REPLACE）
+    var uploadData = buildUploadData();
+    var payload = JSON.stringify({name:agentName,data:uploadData,manager:mgr,team:team});
+    var payloadSize = new Blob([payload]).size;
+    if (payloadSize > 5 * 1024 * 1024) console.warn('[saveToSupabase] Payload size:', Math.round(payloadSize/1024), 'KB');
+    var controller = new AbortController();
+    var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
+    fetch(SUPA_URL + '/rest/v1/agents?on_conflict=name', {
+      method:'POST',
+      headers:{
+        'apikey':SUPA_KEY,
+        'Authorization':'Bearer '+SUPA_KEY,
+        'Content-Type':'application/json',
+        'Prefer':'resolution=merge-duplicates,return=minimal'
+      },
+      body:payload,
+      signal:controller.signal
+    })
+    .then(function(res){
+      clearTimeout(timeoutId);
+      if (res.ok) { if (callback) callback(true); }
+      else {
+        res.text().then(function(t){ console.error('[saveToSupabase] HTTP',res.status, t.substring(0,200)); });
+        if (callback) callback(false, 'HTTP '+res.status);
+      }
+    })
+    .catch(function(e){ clearTimeout(timeoutId); console.error('[saveToSupabase]',e); if (callback) callback(false, String(e)); });
+  }
+  if (_cloudDataSnapshot) {
+    doUpload();
+  } else {
+    var gC = new AbortController();
+    var gT = setTimeout(function(){ gC.abort(); }, 15000);
+    fetch(SUPA_URL + '/rest/v1/agents?name=eq.'+encodeURIComponent(agentName)+'&select=data', {
+      headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Cache-Control':'no-cache'},
+      signal:gC.signal
+    })
+    .then(function(res){ clearTimeout(gT); return res.json(); })
+    .then(function(rows){
+      if (rows && rows.length>0 && rows[0].data) _cloudDataSnapshot = JSON.parse(JSON.stringify(rows[0].data));
+      doUpload();
+    })
+    .catch(function(e){
+      clearTimeout(gT);
+      console.warn('[saveToSupabase] 拉雲端基底失敗，改用本地基底上傳（可能清走 role，請盡快重新登入同步）', e);
+      doUpload();
+    });
+  }
 }
 function forceUploadToSupabase() {
   if (!SUPA_URL || !SUPA_KEY) { toast('⚠️ 請先設定 Supabase（右上角 ☁️ 雲端）', 'error'); return; }
