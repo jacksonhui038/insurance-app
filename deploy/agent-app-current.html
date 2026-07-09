@@ -3271,7 +3271,7 @@ function fs(label, name, options, selected) {
 function fPurpose(selected) {
   var sel = (selected||'').split(',').map(function(s){return s.trim();});
   var mainOpts = ['講解保單','續保跟進','理財諮詢','索償處理','整合強積金','開立僱主強積金','售後服務','招聘增員','參加活動','其他'];
-  var subOpts = ['社交媒體出post','自己組織活動','參加新活動','叫朋友介紹新朋友','其他'];
+  var subOpts = ['社交媒體出post','自己組織活動','參加新活動','叫朋友介紹新朋友'];
   var isSubShow = sel.indexOf('新客開發') >= 0;
   var h = '<div class="form-group"><label>會面目的（可多選）</label><div class="checkbox-group" id="f_purpose_group">';
   mainOpts.forEach(function(opt){
@@ -3371,12 +3371,15 @@ function fixAllScheduleTimes(forceSave) {
 function fTime(label, name, slots, selected) {
   var v = normalizeTime(selected) || '10:00';
   if (!/^\d{2}:\d{2}$/.test(v)) v = '10:00';
+  var listId = 'dl_time_'+name;
   var h = '<div class="form-group"><label>'+label+'</label>';
-  h += '<div style="display:flex;align-items:center;gap:6px">';
-  h += '<input type="time" id="f_'+name+'" value="'+esc(v)+'" step="900" style="font-size:14px;padding:8px 10px;border:1px solid var(--gray300);border-radius:8px;flex:1;min-width:0">';
-  h += '<button type="button" onclick="document.getElementById(\'f_'+name+'\').showPicker()" style="padding:8px 10px;border:1px solid var(--gray300);border-radius:8px;background:var(--gray50);cursor:pointer;font-size:16px;line-height:1" title="選擇時間">🕐</button>';
-  h += '</div>';
-  h += '<small style="color:var(--gray500);font-size:11px">撳 🕐 選時間，或直接輸入 HH:MM</small>';
+  h += '<input type="text" id="f_'+name+'" value="'+esc(v)+'" list="'+listId+'" placeholder="揀或輸入時間 (HH:MM)" autocomplete="off" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px" oninput="this.value=this.value.replace(/[^0-9:]/g,\'\')">';
+  h += '<datalist id="'+listId+'">';
+  slots.forEach(function(t){
+    h += '<option value="'+esc(t)+'">';
+  });
+  h += '</datalist>';
+  h += '<small style="color:var(--gray500);font-size:11px">從下拉揀選，或直接輸入 HH:MM</small>';
   h += '</div>';
   return h;
 }
