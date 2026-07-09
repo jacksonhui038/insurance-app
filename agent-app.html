@@ -2565,6 +2565,7 @@ document.addEventListener('DOMContentLoaded',function(){
 // INCOME/EXPENSE CATEGORIES
 // ===================================================================
 var INCOME_CATS = ['佣金收入','轉介費','花紅','其他收入'];
+var NEW_CLIENT_CHANNELS = ['社交媒體出post','自己組織活動','參加新活動','叫朋友介紹新朋友','其他'];
 var EXPENSE_CATS = ['餐飲','交通','娛樂','購物','家居','醫療','教育','通訊','保險','其他支出'];
 
 // ===================================================================
@@ -3063,7 +3064,7 @@ function showQuickView(clientName) {
     html += '<div style="font-size:13px;font-weight:600;color:var(--gray600);margin:10px 0 6px">📝 會面筆記紀錄 ('+pastMeetings.length+')</div>';
     pastMeetings.forEach(function(s){
       html += '<div style="background:var(--gray50);border-radius:8px;padding:10px;margin-bottom:8px;border-left:3px solid var(--green500)">';
-      html += '<div style="font-size:12px;color:var(--gray500);margin-bottom:4px">'+esc(dFmtHK(s.date))+' '+normalizeTime(s.startTime)+'-'+normalizeTime(s.endTime)+' | '+esc(s.purpose||'')+(s.activity?' | 🎯 '+esc(s.activity):'')+'</div>';
+      html += '<div style="font-size:12px;color:var(--gray500);margin-bottom:4px">'+esc(dFmtHK(s.date))+' '+normalizeTime(s.startTime)+'-'+normalizeTime(s.endTime)+' | '+esc(s.purpose||'')+(s.newClientChannels&&s.newClientChannels.length?' ('+s.newClientChannels.map(esc).join('、')+')':'')+(s.activity?' | 🎯 '+esc(s.activity):'')+'</div>';
       if (s.meetingNotes && s.meetingNotes.trim()) {
         html += '<div style="font-size:12px;margin-bottom:4px"><b>📝 筆記：</b><span style="white-space:pre-wrap">'+esc(s.meetingNotes.substring(0,200))+(s.meetingNotes.length>200?'...':'')+'</span></div>';
       }
@@ -3081,7 +3082,7 @@ function showQuickView(clientName) {
     html += '<table style="font-size:12px"><thead><tr><th>日期</th><th>時間</th><th>目的</th><th>狀態</th></tr></thead><tbody>';
     scheds.forEach(function(s){
       var sc = s.status==='已完成'?'badge-green':s.status==='已確認'?'badge-blue':'badge-yellow';
-      html += '<tr><td>'+esc(dFmtHK(s.date))+'</td><td>'+normalizeTime(s.startTime)+'-'+normalizeTime(s.endTime)+'</td><td>'+esc(s.purpose)+'</td><td><span class="badge '+sc+'">'+esc(s.status)+'</span></td></tr>';
+      html += '<tr><td>'+esc(dFmtHK(s.date))+'</td><td>'+normalizeTime(s.startTime)+'-'+normalizeTime(s.endTime)+'</td><td>'+esc(s.purpose)+(s.newClientChannels&&s.newClientChannels.length?' ('+s.newClientChannels.map(esc).join('、')+')':'')+'</td><td><span class="badge '+sc+'">'+esc(s.status)+'</span></td></tr>';
     });
     html += '</tbody></table>';
   }
@@ -3104,7 +3105,7 @@ function showMeetingNotes(scheduleId) {
   title.innerHTML = '📝 會面筆記 — ' + esc(s.clientName||'') + ' (' + esc(dFmt(s.date)) + ')';
   var html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">';
   html += '<div style="background:var(--blue50);border-radius:8px;padding:8px 10px"><div style="font-size:11px;color:var(--gray400)">時間</div><div style="font-weight:600">'+normalizeTime(s.startTime)+' - '+normalizeTime(s.endTime)+'</div></div>';
-  html += '<div style="background:var(--blue50);border-radius:8px;padding:8px 10px"><div style="font-size:11px;color:var(--gray400)">目的</div><div style="font-weight:600">'+esc(s.purpose||'—')+'</div></div>';
+  html += '<div style="background:var(--blue50);border-radius:8px;padding:8px 10px"><div style="font-size:11px;color:var(--gray400)">目的</div><div style="font-weight:600">'+esc(s.purpose||'—')+(s.newClientChannels&&s.newClientChannels.length?'<div style="font-size:11px;color:var(--gray500);font-weight:400;margin-top:3px">'+s.newClientChannels.map(esc).join('、')+'</div>':'')+'</div></div>';
   html += '</div>';
   if (s.meetingNotes && s.meetingNotes.trim()) {
     html += '<div style="margin-bottom:14px"><div style="font-size:13px;font-weight:600;color:var(--gray600);margin-bottom:6px">📝 會面筆記</div><div style="background:var(--gray50);border-radius:8px;padding:12px;font-size:13px;line-height:1.6;white-space:pre-wrap">'+esc(s.meetingNotes)+'</div></div>';
@@ -3223,6 +3224,7 @@ function openForm(type, id) {
       +fTime('結束時間','endTime',timeSlots,sc.endTime||'11:00')
       +fClient('客戶','clientName',sc.clientName||'')
       +fs('會面目的','purpose',['講解保單','續保跟進','理財諮詢','索償處理','新客開發','售後服務','招聘增員','其他'],sc.purpose||'')
+      +'<div id="newClientChannelsWrap" style="display:'+((sc.purpose==='新客開發')?'block':'none')+'"><div class="form-group"><label>新客開發渠道（可多選）</label>'+renderChannelCheckboxes('newClientChannels', NEW_CLIENT_CHANNELS, sc.newClientChannels||[])+'</div></div>'
       +fg('地點','location','text',sc.location||'')
       +fg('活動','activity','text',sc.activity||'')
       +fs('狀態','status',['待處理','已確認','已完成','已取消'],sc.status||'待處理')
@@ -3270,6 +3272,9 @@ function openForm(type, id) {
         hint.style.display = exists ? 'none' : 'block';
       });
     }
+    var pSel = document.getElementById('f_purpose');
+    if (pSel) pSel.addEventListener('change', onPurposeChange);
+    onPurposeChange();
   }
   // 目標類型切換：佣金時隱藏 PC 類型，PC 時顯示
   if (editType === 'goal') {
@@ -3315,6 +3320,28 @@ function fs(label, name, options, selected) {
   });
   h += '</select></div>'; return h;
 }
+// ===== 新客開發渠道（可多選）=====
+function renderChannelCheckboxes(name, options, checked){
+  var vals = (checked||[]);
+  var html = '<div class="chk-group" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">';
+  (options||[]).forEach(function(opt){
+    var id = 'nc_'+opt;
+    var isC = vals.indexOf(opt) >= 0;
+    html += '<label style="display:inline-flex;align-items:center;gap:6px;background:var(--gray50);border:1px solid var(--gray200);border-radius:6px;padding:6px 10px;font-size:13px;cursor:pointer"><input type="checkbox" id="'+id+'" value="'+esc(opt)+'"'+(isC?' checked':'')+'> '+esc(opt)+'</label>';
+  });
+  html += '</div>';
+  return html;
+}
+function getCheckedChannels(){
+  var arr=[];
+  NEW_CLIENT_CHANNELS.forEach(function(opt){ var cb=document.getElementById('nc_'+opt); if(cb&&cb.checked) arr.push(opt); });
+  return arr;
+}
+function onPurposeChange(){
+  var p = document.getElementById('f_purpose');
+  var wrap = document.getElementById('newClientChannelsWrap');
+  if (p && wrap) wrap.style.display = (p.value==='新客開發') ? 'block' : 'none';
+}
 // 時間欄：text input + datalist 下拉，可揀可打字
 function normalizeTime(raw) {
   if (!raw) return '';
@@ -3335,6 +3362,16 @@ function normalizeTime(raw) {
     var totalMin = Math.round(frac * 24 * 60);
     var h2 = Math.floor(totalMin / 60) % 24, m3 = totalMin % 60;
     return String(h2).padStart(2,'0')+':'+String(m3).padStart(2,'0');
+  }
+  // 12 小時制：2:00 PM / 2:00pm / 下午2:30 / 上午9:00 → 24 小時
+  var lc = s.toLowerCase();
+  var isPM = /(pm|下午|晏)/.test(lc), isAM = /(am|上午|朝)/.test(lc);
+  var tm12 = s.match(/(\d{1,2}):(\d{2})/);
+  if (tm12 && (isPM || isAM)) {
+    var hh = parseInt(tm12[1],10), mm = parseInt(tm12[2],10);
+    if (isPM && hh < 12) hh += 12;
+    if (isAM && hh === 12) hh = 0;
+    return String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0');
   }
   return s;
 }
@@ -3423,7 +3460,7 @@ function saveForm() {
         toast('✓ 已連結客戶「'+clientName+'」');
       }
     }
-    var o = {id:editId||uid(),date:val('f_date'),startTime:normalizeTime(val('f_startTime')),endTime:normalizeTime(val('f_endTime')),clientName:clientName,purpose:val('f_purpose'),location:val('f_location'),activity:val('f_activity'),status:val('f_status'),meetingNotes:val('f_meetingNotes'),followUp:val('f_followUp'),notes:val('f_notes')};
+    var o = {id:editId||uid(),date:val('f_date'),startTime:normalizeTime(val('f_startTime')),endTime:normalizeTime(val('f_endTime')),clientName:clientName,purpose:val('f_purpose'),newClientChannels:getCheckedChannels(),location:val('f_location'),activity:val('f_activity'),status:val('f_status'),meetingNotes:val('f_meetingNotes'),followUp:val('f_followUp'),notes:val('f_notes')};
     saveTo('schedules',o);
   }
   else if (editType === 'income') {
