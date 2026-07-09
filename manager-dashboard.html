@@ -1708,7 +1708,7 @@ function renderDetailContent(){
     else{html='<table><thead><tr><th>日期</th><th>分類</th><th>金額</th><th>付款方式</th><th>備註</th></tr></thead><tbody>';d.expenses.forEach(function(e){html+='<tr><td>'+esc(df(e.date))+'</td><td><span class="badge badge-gray">'+esc(e.category)+'</span></td><td class="amt-neg">'+money(e.amount)+'</td><td>'+esc(e.payment||'—')+'</td><td>'+(e.notes?esc(e.notes):'—')+'</td></tr>';});html+='</tbody></table>';}
   }else if(detailTab==='schedules'){
     if(!d.schedules||d.schedules.length===0)html='<div class="empty">無行程記錄</div>';
-    else{html='<table><thead><tr><th>日期</th><th>時間</th><th>客戶</th><th>目的</th><th>地點</th><th>活動</th><th>狀態</th><th>會面筆記</th><th>跟進事項</th></tr></thead><tbody>';d.schedules.forEach(function(s){var sc=s.status==='已完成'?'badge-green':s.status==='已確認'?'badge-blue':s.status==='已取消'?'badge-red':'badge-yellow';var mn=s.meetingNotes?'<div style="font-size:11px;white-space:pre-wrap;max-width:200px;overflow:hidden;text-overflow:ellipsis">'+esc(s.meetingNotes.substring(0,100))+(s.meetingNotes.length>100?'...':'')+'</div>':'—';var fu=s.followUp?'<div style="font-size:11px;color:#a16207;white-space:pre-wrap;max-width:200px;overflow:hidden;text-overflow:ellipsis">'+esc(s.followUp.substring(0,100))+(s.followUp.length>100?'...':'')+'</div>':'—';html+='<tr><td>'+esc(dfHK(s.date))+'</td><td>'+esc(s.startTime||'')+'-'+esc(s.endTime||'')+'</td><td>'+esc(s.clientName||'—')+'</td><td>'+esc(s.purpose||'—')+'</td><td>'+esc(s.location||'—')+'</td><td>'+esc(s.activity||'—')+'</td><td><span class="badge '+sc+'">'+esc(s.status)+'</span></td><td>'+mn+'</td><td>'+fu+'</td></tr>';});html+='</tbody></table>';}
+    else{html='<table><thead><tr><th>日期</th><th>時間</th><th>客戶</th><th>目的</th><th>地點</th><th>活動</th><th>狀態</th><th>會面筆記</th><th>跟進事項</th></tr></thead><tbody>';d.schedules.forEach(function(s){var sc=s.status==='已完成'?'badge-green':s.status==='已確認'?'badge-blue':s.status==='已取消'?'badge-red':'badge-yellow';var mn=s.meetingNotes?'<div style="font-size:11px;white-space:pre-wrap;max-width:200px;overflow:hidden;text-overflow:ellipsis">'+esc(s.meetingNotes.substring(0,100))+(s.meetingNotes.length>100?'...':'')+'</div>':'—';var fu=s.followUp?'<div style="font-size:11px;color:#a16207;white-space:pre-wrap;max-width:200px;overflow:hidden;text-overflow:ellipsis">'+esc(s.followUp.substring(0,100))+(s.followUp.length>100?'...':'')+'</div>':'—';html+='<tr><td>'+esc(dfHK(s.date))+'</td><td>'+esc(parseScheduleTime(s.startTime))+'-'+esc(parseScheduleTime(s.endTime))+'</td><td>'+esc(s.clientName||'—')+'</td><td>'+esc(s.purpose||'—')+'</td><td>'+esc(s.location||'—')+'</td><td>'+esc(s.activity||'—')+'</td><td><span class="badge '+sc+'">'+esc(s.status)+'</span></td><td>'+mn+'</td><td>'+fu+'</td></tr>';});html+='</tbody></table>';}
   }else if(detailTab==='goals'){
     if(!d.goals||d.goals.length===0)html='<div class="empty">無目標記錄</div>';
     else{html='<table><thead><tr><th>類型</th><th>週期</th><th>年份</th><th>月份/季度</th><th>目標金額</th><th>描述</th></tr></thead><tbody>';var mn=['','1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];d.goals.forEach(function(g){var per=esc(g.period==='monthly'?'月度':g.period==='quarterly'?'季度':g.period==='range'?'跨月':'年度');var perVal=esc(g.period==='monthly'?mn[g.month||1]:g.period==='quarterly'?'Q'+g.quarter:g.period==='range'?(g.startYear+'-'+(g.startMonth||1)+'-'+(g.startDay||1)+' 至 '+g.endYear+'-'+(g.endMonth||12)+'-'+((g.endDay)||new Date(g.endYear,(g.endMonth||12),0).getDate())):'全年');var yrCol=g.period==='range'?(g.startYear+'→'+g.endYear):g.year;html+='<tr><td>'+esc(g.type)+'</td><td>'+per+'</td><td>'+yrCol+'</td><td>'+perVal+'</td><td>'+money(g.target)+'</td><td>'+esc(g.desc||'—')+'</td></tr>';});html+='</tbody></table>';}
@@ -2314,7 +2314,27 @@ function money(n){return'HK$ '+Number(n||0).toLocaleString('en-US',{minimumFract
 function df(s){if(!s)return'';var d=new Date(s);return isNaN(d)?'':d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function dfHK(s){if(!s)return'';var d=new Date(s);if(isNaN(d))return'';return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();}
 function parseScheduleDate(s){if(!s)return'';if(typeof s!=='string')s=String(s);if(s.indexOf('T')!==-1)return s.split('T')[0];return df(s);}
-function parseScheduleTime(s){if(!s)return'';if(typeof s!=='string')s=String(s);if(s.indexOf('T')!==-1){var tp=s.split('T')[1]||'';var m=tp.match(/^(\d{2}):(\d{2})/);return m?m[1]+':'+m[2]:'';}var m=s.match(/^(\d{2}):(\d{2})/);return m?m[1]+':'+m[2]:s;}
+function parseScheduleTime(s){
+  if(!s)return'';
+  if(typeof s!=='string')s=String(s);
+  function ap(h){ return h<12?'上午':'下午'; }
+  // 已經係 HH:MM（無上下午字）
+  var mHM=s.match(/^(\d{1,2}):(\d{2})$/);
+  if(mHM){var h0=parseInt(mHM[1],10);return ap(h0)+String(h0).padStart(2,'0')+':'+mHM[2];}
+  // ISO 日期
+  if(s.indexOf('T')!==-1){var tp=s.split('T')[1]||'';var m=tp.match(/^(\d{2}):(\d{2})/);return m?ap(parseInt(m[1],10))+m[1]+':'+m[2]:'';}
+  // 12 小時制：2:00 PM / 下午2:30 / 上午9:00 → 下午14:00
+  var lc=s.toLowerCase();
+  var isPM=/(pm|下午|晏)/.test(lc), isAM=/(am|上午|朝)/.test(lc);
+  var tm12=s.match(/(\d{1,2}):(\d{2})/);
+  if(tm12&&(isPM||isAM)){
+    var hh=parseInt(tm12[1],10), mm=parseInt(tm12[2],10);
+    if(isPM&&hh<12)hh+=12;
+    if(isAM&&hh===12)hh=0;
+    return ap(hh)+String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0');
+  }
+  return s;
+}
 function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function toast(msg,type){type=type||'success';var el=document.createElement('div');el.className='toast toast-'+type;el.textContent=msg;document.getElementById('toastBox').appendChild(el);setTimeout(function(){el.remove()},2600);}
 
