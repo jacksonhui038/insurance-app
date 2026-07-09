@@ -1,28 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-HK">
 <head>
-<script>
-var APP_VER='v4.0.3',APP_VER_KEY='app_version';
-(function(){
-  // 安全模式：?nosw=1 跳過版本強制刷新（iPad 卡死時救急用）
-  if (/[?&]nosw=1/.test(location.search)) return;
-  var v=localStorage.getItem(APP_VER_KEY)||'';
-  var changed = !!(v && v!==APP_VER);
-  if(!changed) return;
-  console.log('[CacheBuster] '+v+'→'+APP_VER);
-  localStorage.setItem(APP_VER_KEY,APP_VER);
-  // 防 loop 保護：同一 session 只准 reload 一次，避免版本號錯配造成無限重載
-  function safeReload(){
-    try { if(sessionStorage.getItem('app_reloaded_once')) return; sessionStorage.setItem('app_reloaded_once','1'); } catch(e){}
-    location.replace(location.href.split('?')[0]+'?v='+Date.now());
-  }
-  if('serviceWorker' in navigator){
-    navigator.serviceWorker.getRegistrations().then(function(regs){
-      return Promise.all(regs.map(function(r){ return r.unregister(); }));
-    }).then(safeReload).catch(safeReload);
-  } else { safeReload(); }
-})();
-</script>
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
@@ -191,7 +169,7 @@ tr:hover td{background:var(--blue50)}
     <!-- CHOICE: Login or Register -->
     <div id="choiceMode">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <button onclick="window.location.href='manager-dashboard.html'" style="padding:6px 14px;border:1px solid var(--gray300);border-radius:8px;background:var(--gray100);color:var(--gray600);cursor:pointer;font-size:13px;display:flex;align-items:center;gap:4px">◀ 返回</button>
+        <button onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="padding:6px 14px;border:1px solid var(--gray300);border-radius:8px;background:var(--gray100);color:var(--gray600);cursor:pointer;font-size:13px;display:flex;align-items:center;gap:4px">◀ 返回</button>
         <span style="font-size:11px;color:var(--gray400)">代理人版</span>
       </div>
       <h3 style="margin-top:0">👋 歡迎使用保經管家</h3>
@@ -201,15 +179,15 @@ tr:hover td{background:var(--blue50)}
         <button class="btn btn-outline" onclick="showRegisterMode()" style="padding:14px;font-size:15px">📝 註冊新帳戶</button>
       </div>
       <hr style="border:none;border-top:1px solid var(--gray200);margin:14px 0">
-      <button class="btn btn-outline" onclick="window.location.href='manager-dashboard.html'" style="padding:10px;font-size:13px;width:100%">🔄 切換到經理版</button>
-      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v4.0.0</p>
+      <button class="btn btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="padding:10px;font-size:13px;width:100%">🔄 切換到經理版</button>
+      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.9.4</p>
     </div>
     <!-- LOGIN MODE -->
     <div id="loginMode" style="display:none">
       <h3>🔐 登入</h3>
       <p style="color:var(--gray500);margin-bottom:12px">輸入姓名同 PIN 碼</p>
       <div class="form-group"><label>姓名</label><input type="text" id="loginName" placeholder="例如：CHAN TAI MAN" autocomplete="off" style="text-transform:uppercase" oninput="this.value=this.value.replace(/[^a-zA-Z\s]/g,'').toUpperCase()" onkeypress="return /[a-zA-Z\s]/.test(event.key)"></div>
-      <div class="form-group"><label>PIN 碼</label><input type="text" style="-webkit-text-security:disc;text-security:disc" inputmode="numeric" id="loginPin" placeholder="輸入 PIN 碼" maxlength="6"  pattern="[0-9]*" autocomplete="off" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <div class="form-group"><label>PIN 碼</label><input type="password" id="loginPin" placeholder="輸入 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off" onkeydown="if(event.key==='Enter')doLogin()"></div>
       <div class="modal-actions" style="justify-content:center;flex-wrap:wrap;gap:8px">
         <button class="btn btn-primary" onclick="doLogin()" id="loginBtn">登入</button>
         <button class="btn btn-outline" onclick="showChoiceMode()">返回</button>
@@ -222,8 +200,8 @@ tr:hover td{background:var(--blue50)}
       <h3>📝 註冊新帳戶</h3>
       <p style="color:var(--gray500);margin-bottom:6px">設定你嘅姓名同 PIN 碼</p>
       <div class="form-group"><label>姓名 <span style="color:var(--red500)">*</span> <span style="font-size:11px;color:var(--gray400)">⚠️ 確認後不可更改（英文全大寫）</span></label><input type="text" id="nameInput" placeholder="例如：CHAN TAI MAN" style="text-transform:uppercase" oninput="this.value=this.value.replace(/[^a-zA-Z\s]/g,'').toUpperCase()" onkeypress="return /[a-zA-Z\s]/.test(event.key)"></div>
-      <div class="form-group"><label>PIN 碼（4-6 位數字）</label><input type="text" style="-webkit-text-security:disc;text-security:disc" inputmode="numeric" id="pinInput" placeholder="設定 PIN 碼" maxlength="6"  pattern="[0-9]*" autocomplete="off"></div>
-      <div class="form-group"><label>確認 PIN 碼</label><input type="text" style="-webkit-text-security:disc;text-security:disc" inputmode="numeric" id="pinConfirm" placeholder="再次輸入 PIN 碼" maxlength="6"  pattern="[0-9]*" autocomplete="off"></div>
+      <div class="form-group"><label>PIN 碼（4-6 位數字）</label><input type="password" id="pinInput" placeholder="設定 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off"></div>
+      <div class="form-group"><label>確認 PIN 碼</label><input type="password" id="pinConfirm" placeholder="再次輸入 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off"></div>
       <hr style="border:none;border-top:1px solid var(--gray200);margin:14px 0">
       <div class="form-group"><label>👔 職級 <span style="color:var(--red500)">*</span></label>
         <select id="roleSelect" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px;font-family:inherit;background:var(--white)" onchange="onRoleChange()">
@@ -237,11 +215,7 @@ tr:hover td{background:var(--blue50)}
           <option value="Agent">Agent — 同事</option>
         </select>
       </div>
-      <div class="form-group"><label>👤 直屬經理 <span id="supervisorStar" style="color:var(--red500)">*</span> <span style="font-size:11px;color:var(--gray400)">揀團隊會自動填入，亦可自行揀</span></label>
-        <select id="supervisorSelect" onchange="onSupervisorChange()" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px;font-family:inherit;background:var(--white)"></select>
-        <div id="supervisorOtherWrap" style="display:none;margin-top:6px"><input type="text" id="supervisorOther" list="supervisorList" placeholder="請向經理確認全名後輸入" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px"></div>
-        <datalist id="supervisorList"><option value="PAU CHI FUNG"><option value="NG MAN LOK"><option value="CHAN CHI HANG"></datalist>
-      </div>
+      <div class="form-group"><label>👤 所屬經理 <span id="supervisorStar" style="color:var(--red500)">*</span> <span style="font-size:11px;color:var(--gray400)">由團隊自動填寫</span></label><input type="text" id="supervisorInput" list="supervisorList" autocomplete="off" readonly style="background:var(--gray50)"><datalist id="supervisorList"><option value="PAU CHI FUNG"><option value="NG MAN LOK"><option value="CHAN CHI HANG"></datalist></div>
       <div class="form-group"><label>團隊 / 所屬區域 <span style="color:var(--red500)">*</span> <span style="font-size:11px;color:var(--gray400)">揀完會自動填所屬經理（DD）</span></label>
         <select id="teamInput" onchange="onTeamChange()" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px;font-family:inherit;background:var(--white)">
           <option value="">-- 請選擇團隊 --</option>
@@ -261,7 +235,7 @@ tr:hover td{background:var(--blue50)}
     <div id="unlockMode" style="display:none">
       <h3>🔐 解鎖</h3>
       <p style="color:var(--gray500);margin-bottom:12px" id="unlockGreeting">歡迎回來</p>
-      <div class="form-group"><input type="text" style="-webkit-text-security:disc;text-security:disc" inputmode="numeric" id="unlockPin" placeholder="請輸入 PIN 碼解鎖" maxlength="6"  pattern="[0-9]*" autocomplete="off" onkeydown="if(event.key==='Enter')unlockAgent()"></div>
+      <div class="form-group"><input type="password" id="unlockPin" placeholder="請輸入 PIN 碼解鎖" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off" onkeydown="if(event.key==='Enter')unlockAgent()"></div>
       <div class="modal-actions" style="justify-content:center;flex-wrap:wrap;gap:8px">
         <button class="btn btn-primary" onclick="unlockAgent()">解鎖</button>
         <button class="btn btn-outline btn-sm" onclick="showChoiceMode()">切換帳戶</button>
@@ -272,11 +246,11 @@ tr:hover td{background:var(--blue50)}
     <div id="switchMode" style="display:none">
       <h3>⚠️ 切換帳戶</h3>
       <p style="color:var(--gray500);margin-bottom:6px">請先輸入 <b id="switchAgentName">—</b> 嘅 PIN 碼確認身份</p>
-      <div class="form-group"><input type="text" style="-webkit-text-security:disc;text-security:disc" inputmode="numeric" id="switchPin" placeholder="請輸入 PIN 碼" maxlength="6"  pattern="[0-9]*" autocomplete="off" onkeydown="if(event.key==='Enter')confirmSwitch()"></div>
+      <div class="form-group"><input type="password" id="switchPin" placeholder="請輸入 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off" onkeydown="if(event.key==='Enter')confirmSwitch()"></div>
       <div class="modal-actions" style="justify-content:center;gap:8px;flex-wrap:wrap">
         <button class="btn btn-primary" onclick="confirmSwitch()">確認切換</button>
         <button class="btn btn-outline" onclick="cancelSwitch()">取消</button>
-        <button class="btn btn-outline" onclick="window.location.href='manager-dashboard.html'" style="border-color:var(--blue500);color:var(--blue500)">🔄 直接去經理版</button>
+        <button class="btn btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="border-color:var(--blue500);color:var(--blue500)">🔄 直接去經理版</button>
       </div>
     </div>
   </div>
@@ -286,9 +260,9 @@ tr:hover td{background:var(--blue50)}
 <div class="modal-bg" id="changePinModalBg">
   <div class="modal" style="max-width:400px">
     <h3>🔑 修改 PIN 碼</h3>
-    <div class="form-group"><label>舊 PIN 碼</label><input type="text" style="-webkit-text-security:disc;text-security:disc" inputmode="numeric" id="oldPin" placeholder="輸入目前 PIN 碼" maxlength="6"  pattern="[0-9]*" autocomplete="off"></div>
-    <div class="form-group"><label>新 PIN 碼</label><input type="text" style="-webkit-text-security:disc;text-security:disc" inputmode="numeric" id="newPin" placeholder="設定新 PIN 碼（4-6 位數字）" maxlength="6"  pattern="[0-9]*" autocomplete="off"></div>
-    <div class="form-group"><label>確認新 PIN 碼</label><input type="text" style="-webkit-text-security:disc;text-security:disc" inputmode="numeric" id="confirmNewPin" placeholder="再次輸入新 PIN 碼" maxlength="6"  pattern="[0-9]*" autocomplete="off"></div>
+    <div class="form-group"><label>舊 PIN 碼</label><input type="password" id="oldPin" placeholder="輸入目前 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off"></div>
+    <div class="form-group"><label>新 PIN 碼</label><input type="password" id="newPin" placeholder="設定新 PIN 碼（4-6 位數字）" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off"></div>
+    <div class="form-group"><label>確認新 PIN 碼</label><input type="password" id="confirmNewPin" placeholder="再次輸入新 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off"></div>
     <div class="modal-actions">
       <button class="btn btn-primary" onclick="changePin()">確認修改</button>
       <button class="btn btn-outline" onclick="hideChangePin()">取消</button>
@@ -302,7 +276,7 @@ tr:hover td{background:var(--blue50)}
     <h3>👤 修改姓名</h3>
     <div class="form-group"><label>目前姓名</label><input type="text" id="curNameDisplay" disabled style="background:var(--gray100);color:var(--gray500)"></div>
     <div class="form-group"><label>新姓名 <span style="color:var(--red500)">*</span></label><input type="text" id="newNameInput" placeholder="輸入新姓名" autocomplete="off"></div>
-    <div class="form-group"><label>輸入 PIN 碼確認 <span style="color:var(--red500)">*</span></label><input type="text" style="-webkit-text-security:disc;text-security:disc" inputmode="numeric" id="nameChangePin" placeholder="輸入 PIN 碼以確認更改" maxlength="6"  pattern="[0-9]*" autocomplete="off"></div>
+    <div class="form-group"><label>輸入 PIN 碼確認 <span style="color:var(--red500)">*</span></label><input type="password" id="nameChangePin" placeholder="輸入 PIN 碼以確認更改" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off"></div>
     <div style="font-size:12px;color:var(--gray400);margin-bottom:8px">⚠️ 改名後，雲端會以新名登記，經理端會顯示新名。舊名數據會自動遷移。</div>
     <div class="modal-actions">
       <button class="btn btn-primary" onclick="changeName()">確認改名</button>
@@ -351,12 +325,11 @@ tr:hover td{background:var(--blue50)}
       </select>
       <div style="font-size:12px;color:var(--gray400);margin-top:4px">目前：「<span id="currentTeamDisplay">尚未設定</span>」— 唔揀即不更改</div>
     </div>
-      <div class="form-group">
-      <label>直屬經理 <span style="font-size:11px;color:var(--gray400)">（揀團隊會自動填入，亦可自行揀；註冊後可隨時喺此補填 / 更改）</span></label>
-      <select id="mgrSelectSetting" onchange="onMgrSettingChange()" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px;font-family:inherit;background:var(--white)"></select>
-      <div id="mgrOtherWrap" style="display:none;margin-top:6px"><input type="text" id="mgrOtherSetting" list="supervisorList" placeholder="請向經理確認全名後輸入" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px"></div>
-      <div style="font-size:12px;color:var(--gray400);margin-top:4px">目前：「<span id="currentMgrDisplay">尚未設定</span>」— 唔揀即不更改</div>
-      </div>
+    <div class="form-group">
+      <label>所屬經理 <span style="font-size:11px;color:var(--gray400)">（由團隊自動填，或手動輸入）</span></label>
+      <input type="text" id="mgrInputSetting" placeholder="例如：PAU CHI FUNG" style="letter-spacing:normal;font-size:15px;text-align:left">
+      <div style="font-size:12px;color:var(--gray400);margin-top:4px">目前：「<span id="currentMgrDisplay">尚未設定</span>」— 留空即不更改</div>
+    </div>
     <div style="font-size:12px;color:var(--gray400);margin-bottom:14px">
       💡 兩個都留空即可關閉雲端同步
     </div>
@@ -388,7 +361,7 @@ tr:hover td{background:var(--blue50)}
     <button class="nav-btn" onclick="switchTab('goals',this)"><span class="nav-icon">🎯</span> 目標管理</button>
   </nav>
   <div style="margin-top:auto;padding:12px 8px 16px">
-    <button class="nav-btn" onclick="window.location.href='manager-dashboard.html'" style="width:100%;border:1px dashed var(--blue500);color:var(--blue700);background:var(--blue50)">
+    <button class="nav-btn" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="width:100%;border:1px dashed var(--blue500);color:var(--blue700);background:var(--blue50)">
       <span class="nav-icon">🔄</span> 切換到經理版
     </button>
   </div>
@@ -404,7 +377,7 @@ tr:hover td{background:var(--blue50)}
   <button class="bottom-nav-btn" onclick="switchTab('pcs',this)"><span class="bottom-nav-icon">📊</span><span class="bottom-nav-label">PC</span></button>
   <button class="bottom-nav-btn" onclick="switchTab('reports',this)"><span class="bottom-nav-icon">📈</span><span class="bottom-nav-label">報表</span></button>
   <button class="bottom-nav-btn" onclick="switchTab('goals',this)"><span class="bottom-nav-icon">🎯</span><span class="bottom-nav-label">目標</span></button>
-  <button class="bottom-nav-btn" onclick="window.location.href='manager-dashboard.html'"><span class="bottom-nav-icon">🔄</span><span class="bottom-nav-label">經理</span></button>
+  <button class="bottom-nav-btn" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'"><span class="bottom-nav-icon">🔄</span><span class="bottom-nav-label">經理</span></button>
 </nav>
 
 <!-- MAIN -->
@@ -425,8 +398,7 @@ tr:hover td{background:var(--blue50)}
       <button class="btn btn-outline btn-sm" onclick="showChangePin()">🔑 改密碼</button>
       <button class="btn btn-outline btn-sm" onclick="showChangeName()">👤 改名</button>
       <button class="btn btn-outline btn-sm" onclick="exportForManager()">📤 匯給經理</button>
-      <button class="btn btn-primary btn-sm" onclick="exportBackupXLSX()">📥 Excel 備份</button>
-      <button class="btn btn-outline btn-sm" onclick="exportData()" title="舊版 JSON 備份（供匯入兼容）">📄 JSON</button>
+      <button class="btn btn-outline btn-sm" onclick="exportData()">📥 備份</button>
       <button class="btn btn-outline btn-sm" onclick="document.getElementById('importInput').click()">📤 匯入</button>
       <button class="btn btn-outline btn-sm" onclick="showCloudSetup()">☁️ 雲端</button>
       <button class="btn btn-outline btn-sm" onclick="showDeleteAccountModal()" style="color:var(--red500);border-color:var(--red500)">🗑️ 刪除帳戶</button>
@@ -458,7 +430,7 @@ tr:hover td{background:var(--blue50)}
       </div>
       <div class="table-wrap" style="margin-top:20px">
         <div class="table-head"><h3>📋 全部行程</h3></div>
-        <table><thead><tr><th>日期</th><th>時間</th><th>客戶</th><th>目的</th><th>地點</th><th>活動</th><th>狀態</th><th>筆記</th><th>操作</th></tr></thead><tbody id="scheduleTable"></tbody></table>
+        <table><thead><tr><th>日期</th><th>時間</th><th>客戶</th><th>目的</th><th>地點</th><th>狀態</th><th>筆記</th><th>操作</th></tr></thead><tbody id="scheduleTable"></tbody></table>
       </div>
     </div>
     <!-- DASHBOARD -->
@@ -492,7 +464,7 @@ tr:hover td{background:var(--blue50)}
     <div class="tab-panel" id="panel-income">
       <div class="table-wrap">
         <div class="table-head"><h3>💰 收入記錄</h3><button class="btn btn-primary" onclick="openForm('income')">+ 新增收入</button></div>
-        <table><thead><tr><th>日期</th><th>分類</th><th>金額</th><th>備註</th><th>操作</th></tr></thead><tbody id="incomeTable"></tbody></table>
+        <table><thead><tr><th>日期</th><th>分類</th><th>金額</th><th>保單</th><th>備註</th><th>操作</th></tr></thead><tbody id="incomeTable"></tbody></table>
       </div>
     </div>
     <!-- 支出記錄 -->
@@ -519,7 +491,6 @@ tr:hover td{background:var(--blue50)}
         <button class="period-btn" onclick="switchReport('half',this)">📆 本半年</button>
         <button class="period-btn" onclick="switchReport('year',this)">📈 本年</button>
       </div>
-      <div style="display:flex;justify-content:flex-end;gap:8px;margin:2px 0 10px"><button class="btn btn-outline btn-sm" onclick="exportReportCSV()">📊 匯出 CSV（Excel）</button><button class="btn btn-outline btn-sm" onclick="exportBackupXLSX()">📥 匯出 Excel 備份</button></div>
       <div class="report-cards" id="reportCards"></div>
       <div class="charts-grid"><div class="chart-card"><h3>📊 佣金收入</h3><canvas id="chartRptComm"></canvas></div><div class="chart-card"><h3>💹 收支</h3><canvas id="chartRptIncome"></canvas></div></div>
       <div class="table-wrap"><div class="table-head"><h3>📋 佣金明細</h3></div><table><thead><tr><th>日期</th><th>客戶</th><th>保單</th><th>類型</th><th>金額</th></tr></thead><tbody id="reportCommTable"></tbody></table></div>
@@ -559,7 +530,7 @@ tr:hover td{background:var(--blue50)}
     </div>
     <div class="form-group">
       <label>輸入 PIN 碼確認身份</label>
-      <input type="text" style="-webkit-text-security:disc;text-security:disc" inputmode="numeric" id="deletePinInput" placeholder="輸入 PIN 碼" maxlength="6"  pattern="[0-9]*">
+      <input type="password" id="deletePinInput" placeholder="輸入 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*">
     </div>
     <div id="deleteStatus" style="border-radius:8px;padding:10px;margin-bottom:12px;font-size:12px;display:none"></div>
     <div class="modal-actions">
@@ -843,6 +814,7 @@ function loadApiUrl() {
 var _syncRetryCount = 0;
 var _syncMaxRetry = 3;
 var _syncTimer = null;
+var _cloudLoadedThisSession = false; // v3.9.4: 本機今次 session 有冇成功從雲端下載過資料（防空 DB 清雲端）
 function saveToCloud(callback, retry) {
   if (!CLOUD_ENABLED || !agentName) { if (callback) callback(false); return; }
   var mgr = assignedManager || localStorage.getItem('insurance_mgr_'+encodeURIComponent(agentName)) || '';
@@ -963,8 +935,8 @@ function loadFromGoogleSheets(callback, retry) {
             DB[k] = Object.values(localMap);
           }
         });
-        dedupeSchedules();
         saveDB(); setLastSyncTime();
+        _cloudLoadedThisSession = true; // v3.9.4: 標記已成功下載雲端
         if (callback) callback(true);
         else { toast('☁️ 已從雲端合併數據'); renderDashboard(); renderCurrentTab(); }
       } else {
@@ -999,6 +971,13 @@ function registerToCloud(agentName, managerName, team, callback) {
 // ===== Supabase 同步函數 =====
 function saveToSupabase(callback) {
   if (!SUPA_URL || !SUPA_KEY || !agentName) { if (callback) callback(false); return; }
+  // v3.9.4: 鐵規 — 本機未成功從雲端下載過、而本地又係空 DB 時，絕對唔上傳，
+  // 否則會用空資料 UPSERT 覆蓋雲端，清走晒雲端現有資料（呢個就係「另一部電腦開到無資料」嘅元兇）
+  if (isDBEmpty() && !_cloudLoadedThisSession) {
+    console.warn('[saveToSupabase] 本地為空且本機未成功下載雲端，跳過上傳以保護雲端資料');
+    if (callback) callback(false, 'skip-empty-protect');
+    return;
+  }
   var mgr = assignedManager || localStorage.getItem('insurance_mgr_'+encodeURIComponent(agentName)) || '';
   var team = assignedTeam || localStorage.getItem('insurance_team_'+encodeURIComponent(agentName)) || '';
   // v3.6.0: 發送前修復所有壞時間格式
@@ -1105,7 +1084,7 @@ function doForceUpload(payload, mgr, team) {
     toast('❌ 上傳失敗：' + e.message, 'error');
   });
 }
-function loadFromSupabase(callback) {
+function loadFromSupabase(callback, retry) {
   if (!SUPA_URL || !SUPA_KEY || !agentName) { if (callback) callback(false); return; }
   var controller = new AbortController();
   var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
@@ -1134,13 +1113,20 @@ function loadFromSupabase(callback) {
       });
       // v3.6.0: 修復雲端帶入嘅壞時間格式（Excel/ISO 日期）
       fixAllScheduleTimes(true);
-      dedupeSchedules();
       saveDB(); setLastSyncTime();
+      _cloudLoadedThisSession = true; // v3.9.4: 標記已成功下載雲端
       if (callback) callback(true);
       else { toast('☁️ 已從 Supabase 合併數據'); renderDashboard(); renderCurrentTab(); }
-    } else { if (callback) callback(false); }
+    } else {
+      // v3.9.4: 第一次失敗自動重試一次（應對瞬間網絡抖動）
+      if (!retry) { setTimeout(function(){ loadFromSupabase(callback, true); }, 2000); }
+      else { if (callback) callback(false); }
+    }
   })
-  .catch(function(e){ clearTimeout(timeoutId); console.error('[loadFromSupabase]',e); if (callback) callback(false); });
+  .catch(function(e){ clearTimeout(timeoutId); console.error('[loadFromSupabase]',e);
+    if (!retry) { setTimeout(function(){ loadFromSupabase(callback, true); }, 2000); }
+    else { if (callback) callback(false); }
+  });
 }
 function supabaseDeleteAgent(name, callback) {
   if (!SUPA_URL || !SUPA_KEY) { if (callback) callback(false); return; }
@@ -1197,7 +1183,6 @@ function loadDB() {
 }
 
 function saveDB() {
-  dedupeSchedulesSilent(); // v4.0.2: 每次儲存前先去重，防止重複行程累積（解決數據唔穩定）
   var storeKey = getStoreKey();
   try {
     localStorage.setItem(storeKey, JSON.stringify(DB));
@@ -1254,83 +1239,39 @@ function showRegisterMode() {
   document.getElementById('registerMode').style.display = 'block';
   var errEl = document.getElementById('regErr'); if (errEl) errEl.style.display = 'none';
   document.getElementById('nameInput').focus();
-  renderManagerSelect(document.getElementById('supervisorSelect'), '', 'supervisorOtherWrap');
 }
 
 function onRoleChange() {
   var role = document.getElementById('roleSelect').value;
   var star = document.getElementById('supervisorStar');
+  var supInput = document.getElementById('supervisorInput');
   if (role === 'SDD') {
     star.style.color = 'var(--gray400)';
     star.textContent = '(選填)';
+    supInput.placeholder = 'SDD 為最高層級，可留空';
+    supInput.readOnly = false;
+    supInput.style.background = 'var(--white)';
   } else {
     star.style.color = 'var(--red500)';
     star.textContent = '*';
+    supInput.placeholder = '由團隊自動填寫';
   }
 }
 
 // v3.9.2: 揀團隊 → 自動填對應 DD 全名
 function onTeamChange() {
   var teamSel = document.getElementById('teamInput');
-  var supSel = document.getElementById('supervisorSelect');
+  var supInput = document.getElementById('supervisorInput');
   var selected = teamSel.options[teamSel.selectedIndex];
   var mgrName = selected.getAttribute('data-mgr') || '';
-  if (supSel && mgrName) supSel.value = mgrName;
-}
-
-// ===== 直屬經理下拉（防止入錯名）=====
-// 已知經理（地區主管）作為基礎清單；有 Supabase 時再從雲端拉真實經理名
-var KNOWN_MANAGERS = ['PAU CHI FUNG','NG MAN LOK','CHAN CHI HANG','WONG WAI KIT','HUI YUEN SHU','TSANG OI TING'];
-function dedupeManagers(arr){
-  var seen = {}, out = [];
-  (arr||[]).forEach(function(m){ m = (m||'').trim(); if (m && !seen[m]) { seen[m]=1; out.push(m); } });
-  return out;
-}
-// 渲染經理下拉；currentValue 為已設經理；otherWrapId 為「其他」輸入框容器
-// 先同步畫基礎清單（已知經理），再 async 補雲端真實經理名並保留已揀選項（避免時序 bug）
-function renderManagerSelect(sel, currentValue, otherWrapId) {
-  if (!sel) return;
-  var baseList = dedupeManagers(KNOWN_MANAGERS.concat(assignedManager ? [assignedManager] : []));
-  function paint(list, preserveSel) {
-    var prev = preserveSel ? (sel.value || currentValue || '') : (currentValue || '');
-    sel.innerHTML = '';
-    var ph = document.createElement('option'); ph.value=''; ph.textContent='-- 請選擇直屬經理 --'; sel.appendChild(ph);
-    list.forEach(function(m){
-      var o=document.createElement('option'); o.value=m; o.textContent=m; sel.appendChild(o);
-    });
-    var other=document.createElement('option'); other.value='__other__'; other.textContent='其他（請向經理確認全名）'; sel.appendChild(other);
-    // 若目前值唔喺清單（例如雲端舊值），補返做選中項
-    if (prev && prev!=='__other__') {
-      var found=false; for (var i=0;i<sel.options.length;i++){ if (sel.options[i].value===prev){ found=true; break; } }
-      if (!found) { var o2=document.createElement('option'); o2.value=prev; o2.textContent=prev+'（目前）'; sel.insertBefore(o2, other); }
-      sel.value = prev;
-    }
-    var wrap = document.getElementById(otherWrapId);
-    if (wrap) wrap.style.display = (sel.value==='__other__') ? 'block' : 'none';
+  supInput.value = mgrName;
+  if (mgrName) {
+    supInput.readOnly = true;
+    supInput.style.background = 'var(--gray50)';
+  } else {
+    supInput.readOnly = false;
+    supInput.style.background = 'var(--white)';
   }
-  paint(baseList, false); // 同步先畫基礎清單，確保揀團隊自動填經理即時生效
-  if (SUPA_URL && SUPA_KEY) {
-    var controller = new AbortController();
-    var tid = setTimeout(function(){ controller.abort(); }, 12000);
-    fetch(SUPA_URL + '/rest/v1/agents?select=manager', {
-      headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}, signal:controller.signal
-    })
-    .then(function(r){ clearTimeout(tid); return r.ok ? r.json() : []; })
-    .then(function(rows){ var ms=[]; (rows||[]).forEach(function(r){ if (r && r.manager) ms.push(r.manager); }); paint(dedupeManagers(baseList.concat(ms)), true); })
-    .catch(function(){ clearTimeout(tid); /* 保留基礎清單 */ });
-  }
-}
-function getSelectedManager(sel, otherId) {
-  if (sel && sel.value === '__other__') { var t=document.getElementById(otherId); return t ? t.value.trim() : ''; }
-  return sel ? sel.value.trim() : '';
-}
-function onSupervisorChange() {
-  var wrap = document.getElementById('supervisorOtherWrap');
-  if (wrap) wrap.style.display = (document.getElementById('supervisorSelect').value==='__other__') ? 'block' : 'none';
-}
-function onMgrSettingChange() {
-  var wrap = document.getElementById('mgrOtherWrap');
-  if (wrap) wrap.style.display = (document.getElementById('mgrSelectSetting').value==='__other__') ? 'block' : 'none';
 }
 
 var loginInProgress = false;
@@ -1713,7 +1654,7 @@ function saveName() {
   var pin = document.getElementById('pinInput').value.trim();
   var pin2 = document.getElementById('pinConfirm').value.trim();
   var role = document.getElementById('roleSelect').value;
-  var supervisor = getSelectedManager(document.getElementById('supervisorSelect'),'supervisorOther');
+  var supervisor = document.getElementById('supervisorInput').value.trim();
   var team = document.getElementById('teamInput').value.trim();
   var errEl = document.getElementById('regErr');
   errEl.style.display = 'none';
@@ -2151,7 +2092,7 @@ function forceRegister(name, pin, role, supervisor, team) {
 
   if (!pin) pin = document.getElementById('pinInput').value.trim();
   if (!role) role = document.getElementById('roleSelect').value;
-  if (!supervisor) supervisor = getSelectedManager(document.getElementById('supervisorSelect'),'supervisorOther');
+  if (!supervisor) supervisor = document.getElementById('supervisorInput').value.trim();
   if (!team) team = document.getElementById('teamInput').value.trim();
 
   var pinH = hashPin(pin);
@@ -2376,10 +2317,7 @@ function verifyAndRecoverFromDetails(name, pin) {
 function uid() { return _id++; }
 function money(n) { return 'HK$ '+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function pcMoney(n) { return 'PC '+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
-// 穩健數字解析：容忍空值、逗號千位分隔（"1,000" → 1000）、非數字 → 0
-function toNum(v) { var n = parseFloat(String(v==null?'':v).replace(/,/g,'')); return isNaN(n) ? 0 : n; }
 function dFmt(s) { if (!s) return ''; var d = new Date(s); return isNaN(d) ? '' : d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
-function dFmtHK(s){ if(!s) return ''; var d=new Date(s); if(isNaN(d)) return ''; return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear(); }
 function toast(msg, type) { type = type||'success'; var el = document.createElement('div'); el.className = 'toast toast-'+type; el.textContent = msg; document.getElementById('toastBox').appendChild(el); setTimeout(function(){ el.remove(); }, 2600); }
 function esc(s) { if (!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
@@ -2409,7 +2347,7 @@ function showCloudSetup() {
   document.getElementById('supaKeyInput').value = SUPA_KEY;
   var mgr = assignedManager || '';
   var team = assignedTeam || localStorage.getItem('insurance_team_'+encodeURIComponent(agentName)) || '';
-  renderManagerSelect(document.getElementById('mgrSelectSetting'), mgr, 'mgrOtherWrap');
+  document.getElementById('mgrInputSetting').value = mgr;
   document.getElementById('currentMgrDisplay').textContent = mgr || '尚未設定';
   document.getElementById('currentTeamDisplay').textContent = team || '尚未設定';
   // Reset team dropdown
@@ -2420,10 +2358,12 @@ function showCloudSetup() {
 // v3.9.2: 雲端設定 team → auto-fill manager
 function onTeamSettingChange() {
   var tSel = document.getElementById('teamInputSetting');
-  var mgrSel = document.getElementById('mgrSelectSetting');
+  var mgrInput = document.getElementById('mgrInputSetting');
   var selected = tSel.options[tSel.selectedIndex];
   var mgrName = selected.getAttribute('data-mgr') || '';
-  if (mgrSel && mgrName) mgrSel.value = mgrName;
+  if (mgrName) {
+    mgrInput.value = mgrName;
+  }
 }
 
 function hideCloudSetup() {
@@ -2434,7 +2374,7 @@ function saveCloudSetup() {
   var url = document.getElementById('apiUrlInput').value.trim();
   var supaUrl = document.getElementById('supaUrlInput').value.trim();
   var supaKey = document.getElementById('supaKeyInput').value.trim();
-  var mgr = getSelectedManager(document.getElementById('mgrSelectSetting'),'mgrOtherSetting');
+  var mgr = document.getElementById('mgrInputSetting').value.trim();
   var teamSel = document.getElementById('teamInputSetting');
   var newTeam = teamSel ? teamSel.value : '';
 
@@ -2539,55 +2479,43 @@ function isDBEmpty() {
 
 function afterLoginSync() {
   loadApiUrl();
+  _cloudLoadedThisSession = false; // v3.9.4: 每次登入先當未下載，強制先 download 再 upload
   if (CLOUD_ENABLED && agentName) {
     document.getElementById('cloudStatus').style.display = 'flex';
     document.getElementById('lastSyncTime').textContent = getLastSyncTime();
     // 1. 先從雲端下載（合併最新數據）
     loadFromCloud(function(ok){
+      // v3.9.4: 下載完無論成功與否都重新渲染，確保 UI 反映雲端最新數據（解決「落咗但畫面空白」）
+      renderDashboard(); renderCurrentTab();
       // 2. 下載完畢後，只有「本地有數據」先自動上傳到 Supabase
-      //    ⚠️ v3.9.3 修復：雲端下載失敗 / 本地為空 時唔上傳，避免用空 DB 覆蓋雲端清走晒資料
+      //    ⚠️ v3.9.3 起修復：雲端下載失敗 / 本地為空 時唔上傳，避免用空 DB 覆蓋雲端清走晒資料
       if (SUPA_URL && SUPA_KEY && !isDBEmpty()) {
         setTimeout(function(){ saveToSupabase(function(ok2){
           if (ok2) { setLastSyncTime(); document.getElementById('lastSyncTime').textContent = getLastSyncTime(); }
           else { console.warn('[afterLoginSync] 上傳 Supabase 失敗，下次登入會自動重試'); }
-          renderDashboard(); renderCurrentTab(); // v4.0.2: 同步後重新渲染，避免行程表顯示中間狀態
         }); }, 1500);
       } else if (isDBEmpty()) {
         console.warn('[afterLoginSync] 本地無數據，跳過自動上傳，避免清空白雲端');
-        if (!ok) toast('⚠️ 雲端下載失敗，已跳過自動上傳（雲端資料保留）', 'error');
-        renderDashboard(); renderCurrentTab();
-      } else {
-        renderDashboard(); renderCurrentTab();
+        if (!ok) toast('⚠️ 無法從雲端下載資料，已保留雲端資料避免被清走。請檢查網絡或稍後重試（你部機暫時顯示空白）', 'error');
       }
     });
   }
 }
 
 document.addEventListener('DOMContentLoaded',function(){
-  var SAFE_MODE = /[?&]nosw=1/.test(location.search);
-  // v4.0.2: 註冊 Service Worker（network-first），確保 iPad/手機永遠用最新版 HTML，解決「推上少先見到」
-  if ('serviceWorker' in navigator && !SAFE_MODE) {
-    window.addEventListener('load', function() {
-      navigator.serviceWorker.register('sw.js').catch(function(err){ console.warn('[SW] 註冊失敗:', err); });
-    });
-  }
   // v3.8.5: 手機介面改底部導航
-  var CURRENT_VER = APP_VER;
+  var CURRENT_VER = 'v3.9.4';
   var cachedVer = localStorage.getItem('app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, clearing cache and reloading...');
     localStorage.setItem('app_version', CURRENT_VER);
+    // 嘗試清除 HTTP cache（部分瀏覽器支援）
     if (window.caches) {
       caches.keys().then(function(names) {
         names.forEach(function(name) { caches.delete(name); });
       });
     }
-    // 防 loop 保護：同一 session 只准 reload 一次
-    var already=false; try{ already=sessionStorage.getItem('app_reloaded_once'); }catch(e){}
-    if(!already){
-      try{ sessionStorage.setItem('app_reloaded_once','1'); }catch(e){}
-      setTimeout(function(){ window.location.reload(true); }, 500);
-    }
+    setTimeout(function(){ window.location.reload(true); }, 500);
     return;
   }
   localStorage.setItem('app_version', CURRENT_VER);
@@ -2605,7 +2533,6 @@ document.addEventListener('DOMContentLoaded',function(){
 // INCOME/EXPENSE CATEGORIES
 // ===================================================================
 var INCOME_CATS = ['佣金收入','轉介費','花紅','其他收入'];
-var NEW_CLIENT_CHANNELS = ['社交媒體出post','自己組織活動','參加新活動','叫朋友介紹新朋友','其他'];
 var EXPENSE_CATS = ['餐飲','交通','娛樂','購物','家居','醫療','教育','通訊','保險','其他支出'];
 
 // ===================================================================
@@ -2624,20 +2551,7 @@ function generateTimeSlots() {
 // ===================================================================
 // CHART.JS
 // ===================================================================
-(function(){
-  var s=document.createElement('script');
-  s.src='./chart.umd.min.js';
-  s.onload=function(){chartLib=Chart;renderDashboardCharts();};
-  s.onerror=function(){
-    console.warn('本地 Chart.js 載入失敗，轉用 CDN');
-    var c=document.createElement('script');
-    c.src='https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
-    c.onload=function(){chartLib=Chart;renderDashboardCharts();};
-    c.onerror=function(){console.warn('Chart.js unavailable');};
-    document.head.appendChild(c);
-  };
-  document.head.appendChild(s);
-})();
+(function(){var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';s.onload=function(){chartLib=Chart;renderDashboardCharts();};s.onerror=function(){console.warn('Chart.js unavailable');};document.head.appendChild(s);})();
 function destroyChart(id){if(chartInstances[id]){chartInstances[id].destroy();delete chartInstances[id];}}
 
 // ===================================================================
@@ -2742,26 +2656,8 @@ function renderDashboardCharts() {
   for (var i=11; i>=0; i--) { var dm=new Date(y,m-i,1); labels.push(dm.getFullYear()+'/'+(dm.getMonth()+1)); var s=0; DB.commissions.filter(function(c){var d=new Date(c.date);return d.getMonth()===dm.getMonth()&&d.getFullYear()===dm.getFullYear();}).forEach(function(c){s+=Number(c.amount)||0;}); d12.push(s); }
   chartInstances['chartCommission'] = new chartLib(document.getElementById('chartCommission'),{type:'line',data:{labels:labels,datasets:[{data:d12,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.1)',fill:true,tension:0.4,pointRadius:2}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:function(v){return'HK$'+v.toLocaleString();}}}}}});
   destroyChart('chartGoal');
-  var ag=null;
-  for (var i=0;i<DB.goals.length;i++){
-    var g=DB.goals[i];
-    if(g.type==='PC') continue;
-    if(g.period==='monthly'&&g.year===y&&g.month===m+1){ag=g;break;}
-    if(!ag && g.period==='range'){
-      var gsm=(g.startMonth||1)-1, gem=(g.endMonth||12)-1;
-      if((g.startYear<y||(g.startYear===y&&gsm<=m))&&(g.endYear>y||(g.endYear===y&&gem>=m))) ag=g;
-    }
-  }
-  var r=0;
-  if(ag){
-    if(ag.period==='monthly'){
-      r=Math.min(100,Math.round(DB.commissions.filter(function(c){var d=new Date(c.date);return d.getMonth()===m&&d.getFullYear()===y;}).reduce(function(s,c){return s+(Number(c.amount)||0);},0)/ag.target*100));
-    } else if(ag.period==='range'){
-      var rs=new Date(ag.startYear,(ag.startMonth||1)-1,(ag.startDay||1)), re=new Date(y,m,new Date().getDate(),23,59,59,999);
-      var acc=DB.commissions.filter(function(c){var d=new Date(c.date);return d>=rs&&d<=re;}).reduce(function(s,c){return s+(Number(c.amount)||0);},0);
-      r=Math.min(100,Math.round(acc/ag.target*100));
-    }
-  }
+  var ag=null; for (var i=0;i<DB.goals.length;i++){if(DB.goals[i].period==='monthly'&&DB.goals[i].year===y&&DB.goals[i].month===m+1){ag=DB.goals[i];break;}}
+  var r=ag?Math.min(100,Math.round(DB.commissions.filter(function(c){var d=new Date(c.date);return d.getMonth()===m&&d.getFullYear()===y;}).reduce(function(s,c){return s+(Number(c.amount)||0);},0)/ag.target*100)):0;
   chartInstances['chartGoal'] = new chartLib(document.getElementById('chartGoal'),{type:'doughnut',data:{labels:['已完成','剩餘'],datasets:[{data:[r,100-r],backgroundColor:r>=100?['#22c55e','#e5e7eb']:['#3b82f6','#e5e7eb'],borderWidth:0}]},options:{responsive:true,cutout:'75%',plugins:{legend:{display:false},tooltip:{enabled:false}}}});
   destroyChart('chartPolicyType'); var tc={}; DB.policies.forEach(function(p){tc[p.type]=(tc[p.type]||0)+1;}); var pt=Object.keys(tc), pn=pt.map(function(k){return tc[k];});
   chartInstances['chartPolicyType'] = new chartLib(document.getElementById('chartPolicyType'),{type:'doughnut',data:{labels:pt,datasets:[{data:pn,backgroundColor:['#3b82f6','#22c55e','#eab308','#ef4444','#a855f7','#06b6d4','#f97316','#64748b'],borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,plugins:{legend:{position:'bottom'}}}});
@@ -2798,7 +2694,7 @@ function renderClientPolicies() {
     var pcCell = polPCs.length > 0
       ? '<button class="btn btn-sm" style="background:var(--purple50);color:var(--purple700);border:1px solid var(--purple300);font-weight:600;cursor:pointer" onclick="showPolicyPC(\''+esc(p.policyNo||'')+'\')">'+pcMoney(pcTotal)+'<br><span style="font-size:10px;font-weight:400">'+polPCs.length+' 筆</span></button>'
       : '—';
-    ph += '<tr><td>'+esc(p.policyNo||'—')+'</td><td>'+esc(p.clientName)+'</td><td>'+esc(p.type)+'</td><td>'+money(p.premium)+'</td><td>'+esc(p.commissionRate)+'%</td><td>'+esc(dFmt(p.insureDate))+'</td><td><span class="badge '+sc+'">'+esc(p.status)+'</span></td><td>'+pcCell+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'policy\','+JSON.stringify(p.id)+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'policies\','+JSON.stringify(p.id)+')">刪除</button></td></tr>';
+    ph += '<tr><td>'+esc(p.policyNo||'—')+'</td><td>'+esc(p.clientName)+'</td><td>'+esc(p.type)+'</td><td>'+money(p.premium)+'</td><td>'+esc(p.commissionRate)+'%</td><td>'+esc(dFmt(p.insureDate))+'</td><td><span class="badge '+sc+'">'+esc(p.status)+'</span></td><td>'+pcCell+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'policy\','+p.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'policies\','+p.id+')">刪除</button></td></tr>';
   });
   document.getElementById('policyTable').innerHTML = ph;
 }
@@ -2809,9 +2705,9 @@ function renderClientPolicies() {
 function renderIncomes() {
   var h = '';
   var incomeItems = DB.incomes.filter(function(item){ return INCOME_CATS.indexOf(item.category) >= 0; });
-  if (incomeItems.length === 0) h = '<tr><td colspan="5" class="empty">尚無收入記錄</td></tr>';
+  if (incomeItems.length === 0) h = '<tr><td colspan="6" class="empty">尚無收入記錄</td></tr>';
   else incomeItems.forEach(function(item){
-    h += '<tr><td>'+esc(dFmt(item.date))+'</td><td><span class="badge badge-gray">'+esc(item.category)+'</span></td><td class="amt-pos">'+money(item.amount)+'</td><td>'+esc(item.notes||'—')+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'income\','+JSON.stringify(item.id)+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'incomes\','+JSON.stringify(item.id)+')">刪除</button></td></tr>';
+    h += '<tr><td>'+esc(dFmt(item.date))+'</td><td><span class="badge badge-gray">'+esc(item.category)+'</span></td><td class="amt-pos">'+money(item.amount)+'</td><td>'+esc(item.policyNo||'—')+'</td><td>'+esc(item.notes||'—')+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'income\','+item.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'incomes\','+item.id+')">刪除</button></td></tr>';
   });
   document.getElementById('incomeTable').innerHTML = h;
 }
@@ -2863,7 +2759,7 @@ function renderExpenses() {
   else {
     allItems.forEach(function(item){
       var bal = balanceMap[item.id] || 0;
-      h += '<tr><td>'+esc(dFmt(item.date))+'</td><td><span class="badge badge-gray">'+esc(item.category)+'</span></td><td class="amt-neg">'+money(item.amount)+'</td><td>'+esc(item.payment||'—')+'</td><td style="font-weight:600;color:'+(bal>=0?'var(--blue700)':'var(--red500)')+'">'+money(bal)+'</td><td>'+esc(item.notes||'—')+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'expense\','+JSON.stringify(item.id)+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'expenses\','+JSON.stringify(item.id)+')">刪除</button></td></tr>';
+      h += '<tr><td>'+esc(dFmt(item.date))+'</td><td><span class="badge badge-gray">'+esc(item.category)+'</span></td><td class="amt-neg">'+money(item.amount)+'</td><td>'+esc(item.payment||'—')+'</td><td style="font-weight:600;color:'+(bal>=0?'var(--blue700)':'var(--red500)')+'">'+money(bal)+'</td><td>'+esc(item.notes||'—')+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'expense\','+item.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'expenses\','+item.id+')">刪除</button></td></tr>';
     });
   }
   document.getElementById('expenseTable').innerHTML = h;
@@ -2877,7 +2773,7 @@ function renderPCs() {
   if (DB.pcs.length === 0) h = '<tr><td colspan="7" class="empty">尚無 PC 記錄</td></tr>';
   else DB.pcs.forEach(function(pc){
     var tc = pc.pcType==='H&P'?'badge-blue':pc.pcType==='ILAS'?'badge-purple':pc.pcType==='SAVING'?'badge-green':pc.pcType==='PENSION'?'badge-yellow':'badge-gray';
-    h += '<tr><td>'+esc(dFmt(pc.date))+'</td><td><span class="badge '+tc+'">'+esc(pc.pcType||'—')+'</span></td><td>'+esc(pc.clientName||'—')+'</td><td>'+esc(pc.policyNo||'—')+'</td><td class="amt-pos">'+pcMoney(pc.amount)+'</td><td>'+esc(pc.notes||'—')+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'pc\','+JSON.stringify(pc.id)+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'pcs\','+JSON.stringify(pc.id)+')">刪除</button></td></tr>';
+    h += '<tr><td>'+esc(dFmt(pc.date))+'</td><td><span class="badge '+tc+'">'+esc(pc.pcType||'—')+'</span></td><td>'+esc(pc.clientName||'—')+'</td><td>'+esc(pc.policyNo||'—')+'</td><td class="amt-pos">'+pcMoney(pc.amount)+'</td><td>'+esc(pc.notes||'—')+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'pc\','+pc.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'pcs\','+pc.id+')">刪除</button></td></tr>';
   });
   document.getElementById('pcTable').innerHTML = h;
 }
@@ -2941,7 +2837,7 @@ function renderGoals() {
   var h = ''; if (DB.goals.length===0) h='<div class="empty"><div class="icon">🎯</div>尚無目標，點擊新增開始設定</div>';
   else DB.goals.forEach(function(g){
     var mn=['','1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
-    var pl = g.period==='monthly'?g.year+'年'+mn[g.month]:g.period==='quarterly'?g.year+'年Q'+g.quarter:g.period==='range'?(g.startYear+'年'+(g.startMonth||1)+'月'+(g.startDay||1)+'日 – '+g.endYear+'年'+(g.endMonth||12)+'月'+((g.endDay)||new Date(g.endYear,(g.endMonth||12),0).getDate())+'日'):g.year+'年度目標';
+    var pl = g.period==='monthly'?g.year+'年'+mn[g.month]:g.period==='quarterly'?g.year+'年Q'+g.quarter:g.year+'年度目標';
     var isPC = g.type === 'PC';
     var dataSource = isPC ? DB.pcs : DB.commissions;
     var actual = 0;
@@ -2954,21 +2850,10 @@ function renderGoals() {
         }
         return false;
       }).reduce(function(s,c){return s+(Number(c.amount)||0);},0);
-    } else if (g.period==='range') {
-      var rs = new Date(g.startYear, (g.startMonth||1)-1, (g.startDay||1));
-      var re = new Date(g.endYear, (g.endMonth||12)-1, (g.endDay|| new Date(g.endYear,(g.endMonth||12),0).getDate()), 23, 59, 59, 999);
-      actual = dataSource.filter(function(c){
-        var d=new Date(c.date);
-        if (d>=rs && d<=re) {
-          if (isPC && g.pcType && g.pcType !== '全部') return c.pcType === g.pcType;
-          return true;
-        }
-        return false;
-      }).reduce(function(s,c){return s+(Number(c.amount)||0);},0);
     } else {
       var s2,e2;
-      if (g.period==='quarterly') { s2=new Date(g.year,(g.quarter-1)*3,1); e2=new Date(g.year,(g.quarter-1)*3+3,0,23,59,59,999); }
-      else { s2=new Date(g.year,0,1); e2=new Date(g.year,11,31,23,59,59,999); }
+      if (g.period==='quarterly') { s2=new Date(g.year,(g.quarter-1)*3,1); e2=new Date(g.year,(g.quarter-1)*3+3,0); }
+      else { s2=new Date(g.year,0,1); e2=new Date(g.year,11,31); }
       actual = dataSource.filter(function(c){
         var d=new Date(c.date);
         if (d>=s2 && d<=e2) {
@@ -2981,7 +2866,7 @@ function renderGoals() {
     var pct = g.target>0 ? Math.round(actual/g.target*100) : 0; if (pct>100) pct=100;
     var bc = pct>=100?'var(--green500)':pct>=70?'var(--blue500)':'var(--yellow500)';
     var typeLabel = isPC ? ('PC' + (g.pcType && g.pcType !== '全部' ? ' — ' + g.pcType : '')) : '佣金';
-    h += '<div class="goal-card"><div class="goal-header"><div class="goal-title">'+esc(typeLabel)+' — '+esc(pl)+'</div><span class="badge '+(pct>=100?'badge-green':'badge-blue')+'">'+pct+'%</span></div><div class="goal-meta">目標: '+pcMoney(g.target)+' | 已達成: '+pcMoney(actual)+' | 差距: '+pcMoney(g.target-actual)+'</div><div class="progress-bar"><div class="progress-fill" style="width:'+pct+'%;background:'+bc+'"></div></div><div style="margin-top:8px"><button class="btn btn-sm btn-outline" onclick="openForm(\'goal\','+JSON.stringify(g.id)+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'goals\','+JSON.stringify(g.id)+')">刪除</button></div></div>';
+    h += '<div class="goal-card"><div class="goal-header"><div class="goal-title">'+esc(typeLabel)+' — '+esc(pl)+'</div><span class="badge '+(pct>=100?'badge-green':'badge-blue')+'">'+pct+'%</span></div><div class="goal-meta">目標: '+pcMoney(g.target)+' | 已達成: '+pcMoney(actual)+' | 差距: '+pcMoney(g.target-actual)+'</div><div class="progress-bar"><div class="progress-fill" style="width:'+pct+'%;background:'+bc+'"></div></div><div style="margin-top:8px"><button class="btn btn-sm btn-outline" onclick="openForm(\'goal\','+g.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'goals\','+g.id+')">刪除</button></div></div>';
   });
   document.getElementById('goalList').innerHTML = h;
 }
@@ -3023,11 +2908,10 @@ function renderSchedules() {
       daySchedules.forEach(function(s){
         var sc = s.status==='已完成'?'badge-green':s.status==='已確認'?'badge-blue':s.status==='已取消'?'badge-red':'badge-yellow';
         var hasNotes = (s.meetingNotes && s.meetingNotes.trim()) || (s.followUp && s.followUp.trim());
-        html += '<div style="background:var(--blue50);border-radius:6px;padding:6px 8px;margin-bottom:4px;font-size:11px;cursor:pointer" onclick="openForm(\'schedule\','+JSON.stringify(s.id)+')">';
+        html += '<div style="background:var(--blue50);border-radius:6px;padding:6px 8px;margin-bottom:4px;font-size:11px;cursor:pointer" onclick="openForm(\'schedule\','+s.id+')">';
         html += '<div style="font-weight:600;color:var(--blue700)">'+normalizeTime(s.startTime)+' - '+normalizeTime(s.endTime)+(hasNotes?' 📝':'')+'</div>';
         html += '<div style="color:var(--blue500);margin-top:2px;cursor:pointer;text-decoration:underline" onclick="event.stopPropagation();showQuickView(\''+esc(s.clientName||'')+'\')">'+esc(s.clientName||'')+'</div>';
         html += '<div style="color:var(--gray400)">'+esc(s.purpose||'')+'</div>';
-        if (s.activity) html += '<div style="color:var(--gray500)">🎯 '+esc(s.activity)+'</div>';
         html += '<span class="badge '+sc+'" style="margin-top:2px">'+esc(s.status)+'</span>';
         html += '</div>';
       });
@@ -3044,7 +2928,7 @@ function renderSchedules() {
       var sc = s.status==='已完成'?'badge-green':s.status==='已確認'?'badge-blue':s.status==='已取消'?'badge-red':'badge-yellow';
       var hasNotes = (s.meetingNotes && s.meetingNotes.trim()) || (s.followUp && s.followUp.trim());
       var notesBtn = hasNotes ? '<button class="btn btn-sm btn-outline" style="border-color:var(--blue500);color:var(--blue500)" onclick="event.stopPropagation();showMeetingNotes('+s.id+')">📝 查看</button>' : '<span style="color:var(--gray300);font-size:11px">—</span>';
-      h += '<tr><td>'+esc(dFmtHK(s.date))+'</td><td>'+normalizeTime(s.startTime)+'-'+normalizeTime(s.endTime)+'</td><td><a style="color:var(--blue500);cursor:pointer;text-decoration:underline" onclick="showQuickView(\''+esc(s.clientName||'')+'\')">'+esc(s.clientName||'—')+'</a></td><td>'+esc(s.purpose||'—')+'</td><td>'+esc(s.location||'—')+'</td><td>'+esc(s.activity||'—')+'</td><td><span class="badge '+sc+'">'+esc(s.status)+'</span></td><td>'+notesBtn+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'schedule\','+JSON.stringify(s.id)+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'schedules\','+JSON.stringify(s.id)+')">刪除</button></td></tr>';
+      h += '<tr><td>'+esc(dFmt(s.date))+'</td><td>'+normalizeTime(s.startTime)+'-'+normalizeTime(s.endTime)+'</td><td><a style="color:var(--blue500);cursor:pointer;text-decoration:underline" onclick="showQuickView(\''+esc(s.clientName||'')+'\')">'+esc(s.clientName||'—')+'</a></td><td>'+esc(s.purpose||'—')+'</td><td>'+esc(s.location||'—')+'</td><td><span class="badge '+sc+'">'+esc(s.status)+'</span></td><td>'+notesBtn+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'schedule\','+s.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'schedules\','+s.id+')">刪除</button></td></tr>';
     });
   }
   document.getElementById('scheduleTable').innerHTML = h;
@@ -3104,7 +2988,7 @@ function showQuickView(clientName) {
     html += '<div style="font-size:13px;font-weight:600;color:var(--gray600);margin:10px 0 6px">📝 會面筆記紀錄 ('+pastMeetings.length+')</div>';
     pastMeetings.forEach(function(s){
       html += '<div style="background:var(--gray50);border-radius:8px;padding:10px;margin-bottom:8px;border-left:3px solid var(--green500)">';
-      html += '<div style="font-size:12px;color:var(--gray500);margin-bottom:4px">'+esc(dFmtHK(s.date))+' '+normalizeTime(s.startTime)+'-'+normalizeTime(s.endTime)+' | '+esc(s.purpose||'')+(s.newClientChannels&&s.newClientChannels.length?' ('+s.newClientChannels.map(esc).join('、')+')':'')+(s.activity?' | 🎯 '+esc(s.activity):'')+'</div>';
+      html += '<div style="font-size:12px;color:var(--gray500);margin-bottom:4px">'+esc(dFmt(s.date))+' '+normalizeTime(s.startTime)+'-'+normalizeTime(s.endTime)+' | '+esc(s.purpose||'')+'</div>';
       if (s.meetingNotes && s.meetingNotes.trim()) {
         html += '<div style="font-size:12px;margin-bottom:4px"><b>📝 筆記：</b><span style="white-space:pre-wrap">'+esc(s.meetingNotes.substring(0,200))+(s.meetingNotes.length>200?'...':'')+'</span></div>';
       }
@@ -3122,7 +3006,7 @@ function showQuickView(clientName) {
     html += '<table style="font-size:12px"><thead><tr><th>日期</th><th>時間</th><th>目的</th><th>狀態</th></tr></thead><tbody>';
     scheds.forEach(function(s){
       var sc = s.status==='已完成'?'badge-green':s.status==='已確認'?'badge-blue':'badge-yellow';
-      html += '<tr><td>'+esc(dFmtHK(s.date))+'</td><td>'+normalizeTime(s.startTime)+'-'+normalizeTime(s.endTime)+'</td><td>'+esc(s.purpose)+(s.newClientChannels&&s.newClientChannels.length?' ('+s.newClientChannels.map(esc).join('、')+')':'')+'</td><td><span class="badge '+sc+'">'+esc(s.status)+'</span></td></tr>';
+      html += '<tr><td>'+esc(dFmt(s.date))+'</td><td>'+normalizeTime(s.startTime)+'-'+normalizeTime(s.endTime)+'</td><td>'+esc(s.purpose)+'</td><td><span class="badge '+sc+'">'+esc(s.status)+'</span></td></tr>';
     });
     html += '</tbody></table>';
   }
@@ -3145,7 +3029,7 @@ function showMeetingNotes(scheduleId) {
   title.innerHTML = '📝 會面筆記 — ' + esc(s.clientName||'') + ' (' + esc(dFmt(s.date)) + ')';
   var html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">';
   html += '<div style="background:var(--blue50);border-radius:8px;padding:8px 10px"><div style="font-size:11px;color:var(--gray400)">時間</div><div style="font-weight:600">'+normalizeTime(s.startTime)+' - '+normalizeTime(s.endTime)+'</div></div>';
-  html += '<div style="background:var(--blue50);border-radius:8px;padding:8px 10px"><div style="font-size:11px;color:var(--gray400)">目的</div><div style="font-weight:600">'+esc(s.purpose||'—')+(s.newClientChannels&&s.newClientChannels.length?'<div style="font-size:11px;color:var(--gray500);font-weight:400;margin-top:3px">'+s.newClientChannels.map(esc).join('、')+'</div>':'')+'</div></div>';
+  html += '<div style="background:var(--blue50);border-radius:8px;padding:8px 10px"><div style="font-size:11px;color:var(--gray400)">目的</div><div style="font-weight:600">'+esc(s.purpose||'—')+'</div></div>';
   html += '</div>';
   if (s.meetingNotes && s.meetingNotes.trim()) {
     html += '<div style="margin-bottom:14px"><div style="font-size:13px;font-weight:600;color:var(--gray600);margin-bottom:6px">📝 會面筆記</div><div style="background:var(--gray50);border-radius:8px;padding:12px;font-size:13px;line-height:1.6;white-space:pre-wrap">'+esc(s.meetingNotes)+'</div></div>';
@@ -3236,24 +3120,13 @@ function openForm(type, id) {
     var yearOpts = []; for (var yi=yr-2; yi<=yr+3; yi++) yearOpts.push({val:yi, label:yi+'年'});
     var qOpts = [{val:1,label:'Q1 (1-3月)'},{val:2,label:'Q2 (4-6月)'},{val:3,label:'Q3 (7-9月)'},{val:4,label:'Q4 (10-12月)'}];
     var mOpts = []; for (var mi=1; mi<=12; mi++) mOpts.push({val:mi, label:mi+'月'});
-    var rangeYOpts = []; for (var ri=yr-2; ri<=yr+3; ri++) rangeYOpts.push({val:ri, label:ri+'年'});
-    var dayOpts = []; for (var di=1; di<=31; di++) dayOpts.push({val:di, label:di+'日'});
     h += fs('目標類型','type',['佣金','PC'],g.type||'佣金')
       +fs('PC類型','pcType',['全部','H&P','ILAS','SAVING','PENSION','Others'],g.pcType||'全部')
-      +fs('目標週期','period',[{val:'monthly',label:'月度目標'},{val:'quarterly',label:'季度目標'},{val:'yearly',label:'年度目標'},{val:'range',label:'跨月目標（自訂起止日）'}],g.period||'monthly')
-      + fs('年份','year',yearOpts,Number(g.year||yr))
-      + '<div id="goalFieldMonth">'+fs('每月目標','month',mOpts,Number(g.month||(new Date().getMonth()+1)))+'</div>'
-      + '<div id="goalFieldQuarter">'+fs('季度目標','quarter',qOpts,Number(g.quarter||Math.ceil((new Date().getMonth()+1)/3)))+'</div>'
-      + '<div id="goalFieldRange" style="display:none">'
-        + fs('起始年','startYear',rangeYOpts,Number(g.startYear||yr))
-        + fs('起始月','startMonth',mOpts,Number(g.startMonth||1))
-        + fs('起始日','startDay',dayOpts,Number(g.startDay||1))
-        + fs('終止年','endYear',rangeYOpts,Number(g.endYear||yr))
-        + fs('終止月','endMonth',mOpts,Number(g.endMonth||12))
-        + fs('終止日','endDay',dayOpts,Number(g.endDay||new Date(g.endYear||yr,(g.endMonth||12),0).getDate()))
-      + '</div>'
-      + fg('目標金額','target','number',g.target||'')
-      + fg('描述','desc','text',g.desc||'');
+      +fs('年度','year',yearOpts,Number(g.year||yr))
+      +fs('季度目標','quarter',qOpts,Number(g.quarter||Math.ceil((new Date().getMonth()+1)/3)))
+      +fs('每月目標','month',mOpts,Number(g.month||new Date().getMonth()+1))
+      +fg('目標PC','target','number',g.target||'')
+      +fg('描述','desc','text',g.desc||'');
   }
   else if (type === 'schedule') {
     var sc = id?findById('schedules',id):{};
@@ -3264,9 +3137,7 @@ function openForm(type, id) {
       +fTime('結束時間','endTime',timeSlots,sc.endTime||'11:00')
       +fClient('客戶','clientName',sc.clientName||'')
       +fs('會面目的','purpose',['講解保單','續保跟進','理財諮詢','索償處理','新客開發','售後服務','招聘增員','其他'],sc.purpose||'')
-      +'<div id="newClientChannelsWrap" style="display:'+((sc.purpose==='新客開發')?'block':'none')+'"><div class="form-group"><label>新客開發渠道（可多選）</label>'+renderChannelCheckboxes('newClientChannels', NEW_CLIENT_CHANNELS, sc.newClientChannels||[])+'</div></div>'
       +fg('地點','location','text',sc.location||'')
-      +fg('活動','activity','text',sc.activity||'')
       +fs('狀態','status',['待處理','已確認','已完成','已取消'],sc.status||'待處理')
       +ft('📝 會面筆記','meetingNotes',sc.meetingNotes||'', isDone?'記低今次傾咗嘅重點、客戶關注事項、報價內容等':'（完成會面後填寫）')
       +ft('📋 跟進事項','followUp',sc.followUp||'','下次要跟進嘅事項，例如：準備報價單、安排體檢、跟進文件等')
@@ -3277,6 +3148,7 @@ function openForm(type, id) {
     h += fg('日期','date','date',inc.date||new Date().toISOString().slice(0,10))
       +fs('分類','category',INCOME_CATS,inc.category||'佣金收入')
       +fg('金額(HK$)','amount','number',inc.amount||0)
+      +fg('保單編號','policyNo','text',inc.policyNo||'')
       +fs('付款方式','payment',TYPES.payment,inc.payment||'')
       +fg('備註','notes','text',inc.notes||'');
   }
@@ -3312,9 +3184,6 @@ function openForm(type, id) {
         hint.style.display = exists ? 'none' : 'block';
       });
     }
-    var pSel = document.getElementById('f_purpose');
-    if (pSel) pSel.addEventListener('change', onPurposeChange);
-    onPurposeChange();
   }
   // 目標類型切換：佣金時隱藏 PC 類型，PC 時顯示
   if (editType === 'goal') {
@@ -3328,28 +3197,10 @@ function openForm(type, id) {
       goalTypeSel.addEventListener('change', togglePcType);
       togglePcType();
     }
-    // 目標週期切換：按選擇顯示 月度/季度/跨月 欄位
-    var goalPeriodSel = document.getElementById('f_period');
-    if (goalPeriodSel) {
-      function toggleGoalPeriod() {
-        var p = goalPeriodSel.value;
-        var mf = document.getElementById('goalFieldMonth');
-        var qf = document.getElementById('goalFieldQuarter');
-        var rf = document.getElementById('goalFieldRange');
-        if (mf) mf.style.display = (p==='monthly') ? '' : 'none';
-        if (qf) qf.style.display = (p==='quarterly') ? '' : 'none';
-        if (rf) rf.style.display = (p==='range') ? '' : 'none';
-      }
-      goalPeriodSel.addEventListener('change', toggleGoalPeriod);
-      toggleGoalPeriod();
-    }
   }
 }
 
-function fg(label, name, type, value) {
-  var extra = type==='number' ? ' step="any" min="0" inputmode="decimal"' : '';
-  return '<div class="form-group"><label>'+label+'</label><input type="'+type+'" id="f_'+name+'" value="'+(value||'')+'"'+extra+'></div>';
-}
+function fg(label, name, type, value) { return '<div class="form-group"><label>'+label+'</label><input type="'+type+'" id="f_'+name+'" value="'+(value||'')+'"></div>'; }
 function ft(label, name, value, placeholder) { return '<div class="form-group"><label>'+label+'</label><textarea id="f_'+name+'" rows="4" placeholder="'+(placeholder||'')+'" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px;font-family:inherit;resize:vertical">'+esc(value||'')+'</textarea></div>'; }
 function fs(label, name, options, selected) {
   var isObj = options.length>0 && typeof options[0]==='object';
@@ -3360,46 +3211,18 @@ function fs(label, name, options, selected) {
   });
   h += '</select></div>'; return h;
 }
-// ===== 新客開發渠道（可多選）=====
-function renderChannelCheckboxes(name, options, checked){
-  var vals = (checked||[]);
-  var html = '<div class="chk-group" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">';
-  (options||[]).forEach(function(opt){
-    var id = 'nc_'+opt;
-    var isC = vals.indexOf(opt) >= 0;
-    html += '<label style="display:inline-flex;align-items:center;gap:6px;background:var(--gray50);border:1px solid var(--gray200);border-radius:6px;padding:6px 10px;font-size:13px;cursor:pointer"><input type="checkbox" id="'+id+'" value="'+esc(opt)+'"'+(isC?' checked':'')+'> '+esc(opt)+'</label>';
-  });
-  html += '</div>';
-  return html;
-}
-function getCheckedChannels(){
-  var arr=[];
-  NEW_CLIENT_CHANNELS.forEach(function(opt){ var cb=document.getElementById('nc_'+opt); if(cb&&cb.checked) arr.push(opt); });
-  return arr;
-}
-function onPurposeChange(){
-  var p = document.getElementById('f_purpose');
-  var wrap = document.getElementById('newClientChannelsWrap');
-  if (p && wrap) wrap.style.display = (p.value==='新客開發') ? 'block' : 'none';
-}
 // 時間欄：text input + datalist 下拉，可揀可打字
 function normalizeTime(raw) {
   if (!raw) return '';
   var s = String(raw).trim();
-  // 輔助：由 24h 小時數決定上下午 prefix
-  function ap(h){ return h < 12 ? '上午' : '下午'; }
-  // 已經係 HH:MM（無上下午字）：補上下午字，保持 24 小時制
-  var mHM = s.match(/^(\d{1,2}):(\d{2})$/);
-  if (mHM) {
-    var h0 = parseInt(mHM[1],10);
-    return ap(h0) + String(h0).padStart(2,'0') + ':' + mHM[2];
-  }
-  // 從 ISO 日期抽 HH:MM：1899-12-30T14:23:18.000Z → 下午14:23
-  var m = s.match(/T(\d{2}):(\d{2})/);
-  if (m) return ap(parseInt(m[1],10)) + m[1] + ':' + m[2];
-  // 從時間字串抽 HH:MM：14:23:18 → 下午14:23
-  var m2 = s.match(/(\d{2}):(\d{2}):\d{2}/);
-  if (m2) return ap(parseInt(m2[1],10)) + m2[1] + ':' + m2[2];
+  // 已經係 HH:MM
+  if (/^\d{1,2}:\d{2}$/.test(s)) return s;
+  // 從 ISO 日期抽 HH:MM：1899-12-30T04:23:18.000Z → 04:23
+  var m = s.match(/T(\d{2}:\d{2})/);
+  if (m) return m[1];
+  // 從時間字串抽 HH:MM：04:23:18 → 04:23
+  var m2 = s.match(/(\d{2}:\d{2}):\d{2}/);
+  if (m2) return m2[1];
   // Excel 序列日期（小數，0~1 之間）：0.182986 → 04:24
   // 注意：必須 n < 1，因為 Excel 時間值係小數，整數係日期部分
   var n = parseFloat(s);
@@ -3407,17 +3230,7 @@ function normalizeTime(raw) {
     var frac = n % 1;
     var totalMin = Math.round(frac * 24 * 60);
     var h2 = Math.floor(totalMin / 60) % 24, m3 = totalMin % 60;
-    return ap(h2) + String(h2).padStart(2,'0')+':'+String(m3).padStart(2,'0');
-  }
-  // 12 小時制：2:00 PM / 2:00pm / 下午2:30 / 上午9:00 → 下午14:00（24h + 上下午字）
-  var lc = s.toLowerCase();
-  var isPM = /(pm|下午|晏)/.test(lc), isAM = /(am|上午|朝)/.test(lc);
-  var tm12 = s.match(/(\d{1,2}):(\d{2})/);
-  if (tm12 && (isPM || isAM)) {
-    var hh = parseInt(tm12[1],10), mm = parseInt(tm12[2],10);
-    if (isPM && hh < 12) hh += 12;
-    if (isAM && hh === 12) hh = 0;
-    return ap(hh) + String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0');
+    return String(h2).padStart(2,'0')+':'+String(m3).padStart(2,'0');
   }
   return s;
 }
@@ -3434,24 +3247,6 @@ function fixAllScheduleTimes(forceSave) {
   });
   if (fixed > 0 && forceSave !== false) saveDB();
   return fixed;
-}
-// v4.0.2: 行程表去重（silent 版，唔會再 call saveDB，避免遞歸），防止跨裝置編輯累積重複
-function dedupeSchedulesSilent() {
-  if (!DB || !DB.schedules) return 0;
-  var seen = {}, dups = 0, kept = [];
-  DB.schedules.forEach(function(s) {
-    var key = (String(s.date||'').slice(0,10)) + '|' + normalizeTime(s.startTime) + '|' + normalizeTime(s.endTime) + '|' + (s.clientName||'') + '|' + (s.purpose||'') + '|' + (s.activity||'');
-    if (seen[key]) { dups++; return; }
-    seen[key] = true; kept.push(s);
-  });
-  if (dups > 0) DB.schedules = kept;
-  return dups;
-}
-// v4.0.2: 行程表去重（含儲存），防止跨裝置編輯累積重複紀錄 → 解決「數據唔穩定」
-function dedupeSchedules() {
-  var d = dedupeSchedulesSilent();
-  if (d > 0) saveDB();
-  return d;
 }
 function fTime(label, name, slots, selected) {
   var v = normalizeTime(selected) || '10:00';
@@ -3481,7 +3276,7 @@ function fClient(label, name, value) {
 function closeModal() { document.getElementById('modalBg').classList.remove('show'); }
 
 function saveTo(key, obj) {
-  if (editId) { for (var i=0;i<DB[key].length;i++) if (String(DB[key][i].id)===String(editId)) { DB[key][i]=obj; return; } }
+  if (editId) { for (var i=0;i<DB[key].length;i++) if (DB[key][i].id===editId) { DB[key][i]=obj; return; } }
   DB[key].push(obj);
 }
 
@@ -3493,22 +3288,22 @@ function saveForm() {
   else if (editType === 'policy') {
     var cid = val('f_clientId'), cn = '';
     DB.clients.forEach(function(c){ if (String(c.id)===String(cid)) cn = c.name; });
-    var o = {id:editId||uid(),policyNo:val('f_policyNo'),clientId:cid,clientName:cn,type:val('f_type'),premium:toNum(val('f_premium')),commissionRate:toNum(val('f_commissionRate')),insureDate:val('f_insureDate'),status:val('f_status')};
+    var o = {id:editId||uid(),policyNo:val('f_policyNo'),clientId:cid,clientName:cn,type:val('f_type'),premium:val('f_premium'),commissionRate:val('f_commissionRate'),insureDate:val('f_insureDate'),status:val('f_status')};
     saveTo('policies',o);
   }
   else if (editType === 'commission') {
-    var o = {id:editId||uid(),date:val('f_date'),clientName:val('f_clientName'),policyNo:val('f_policyNo'),type:val('f_type'),amount:toNum(val('f_amount')),notes:val('f_notes')};
+    var o = {id:editId||uid(),date:val('f_date'),clientName:val('f_clientName'),policyNo:val('f_policyNo'),type:val('f_type'),amount:val('f_amount'),notes:val('f_notes')};
     saveTo('commissions',o);
   }
   else if (editType === 'expense') {
-    var o = {id:editId||uid(),date:val('f_date'),category:val('f_category'),amount:toNum(val('f_amount')),payment:val('f_payment'),notes:val('f_notes')};
+    var o = {id:editId||uid(),date:val('f_date'),category:val('f_category'),amount:val('f_amount'),payment:val('f_payment'),notes:val('f_notes')};
     saveTo('expenses',o);
     // 也寫入 incomes 保持雲端兼容
     var incObj = {id:o.id,date:o.date,category:o.category,amount:o.amount,clientName:'',policyNo:'',payment:o.payment,notes:o.notes};
     saveTo('incomes',incObj);
   }
   else if (editType === 'goal') {
-    var o = {id:editId||uid(),type:val('f_type'),pcType:val('f_pcType'),period:val('f_period')||'monthly',year:Number(val('f_year')),month:Number(val('f_month')),quarter:Number(val('f_quarter')),startYear:Number(val('f_startYear')),startMonth:Number(val('f_startMonth')),startDay:Number(val('f_startDay')),endYear:Number(val('f_endYear')),endMonth:Number(val('f_endMonth')),endDay:Number(val('f_endDay')),target:toNum(val('f_target')),desc:val('f_desc')};
+    var o = {id:editId||uid(),type:val('f_type'),pcType:val('f_pcType'),period:val('f_period'),year:Number(val('f_year')),month:Number(val('f_month')),quarter:Number(val('f_quarter')),target:Number(val('f_target')),desc:val('f_desc')};
     saveTo('goals',o);
   }
   else if (editType === 'schedule') {
@@ -3524,19 +3319,19 @@ function saveForm() {
         toast('✓ 已連結客戶「'+clientName+'」');
       }
     }
-    var o = {id:editId||uid(),date:val('f_date'),startTime:normalizeTime(val('f_startTime')),endTime:normalizeTime(val('f_endTime')),clientName:clientName,purpose:val('f_purpose'),newClientChannels:getCheckedChannels(),location:val('f_location'),activity:val('f_activity'),status:val('f_status'),meetingNotes:val('f_meetingNotes'),followUp:val('f_followUp'),notes:val('f_notes')};
+    var o = {id:editId||uid(),date:val('f_date'),startTime:normalizeTime(val('f_startTime')),endTime:normalizeTime(val('f_endTime')),clientName:clientName,purpose:val('f_purpose'),location:val('f_location'),status:val('f_status'),meetingNotes:val('f_meetingNotes'),followUp:val('f_followUp'),notes:val('f_notes')};
     saveTo('schedules',o);
   }
   else if (editType === 'income') {
     var cat = val('f_category');
-    var o = {id:editId||uid(),date:val('f_date'),category:cat,amount:toNum(val('f_amount')),clientName:val('f_clientName'),policyNo:'',payment:val('f_payment'),notes:val('f_notes')};
+    var o = {id:editId||uid(),date:val('f_date'),category:cat,amount:val('f_amount'),clientName:val('f_clientName'),policyNo:val('f_policyNo'),payment:val('f_payment'),notes:val('f_notes')};
     saveTo('incomes',o);
     // 雲端兼容：同步寫入 commissions
     var commObj = {id:o.id,date:o.date,clientName:o.clientName,policyNo:o.policyNo,type:cat,amount:o.amount,notes:o.notes};
     saveTo('commissions',commObj);
   }
   else if (editType === 'pc') {
-    var o = {id:editId||uid(),date:val('f_date'),pcType:val('f_pcType'),clientName:val('f_clientName'),policyNo:val('f_policyNo'),amount:toNum(val('f_amount')),notes:val('f_notes')};
+    var o = {id:editId||uid(),date:val('f_date'),pcType:val('f_pcType'),clientName:val('f_clientName'),policyNo:val('f_policyNo'),amount:val('f_amount'),notes:val('f_notes')};
     saveTo('pcs',o);
   }
   closeModal(); saveDB(); toast(editId?'已更新':'已新增');
@@ -3580,7 +3375,7 @@ function doDelClient(id) {
 
 function del(key, id) {
   if (!confirm('確定刪除？')) return;
-  DB[key] = DB[key].filter(function(x){ return String(x.id)!==String(id); });
+  DB[key] = DB[key].filter(function(x){ return x.id!==id; });
   // 如果刪除 incomes，同步刪除對應的 commissions/expenses
   if (key === 'incomes') {
     DB.commissions = DB.commissions.filter(function(x){ return x.id!==id; });
@@ -3591,7 +3386,7 @@ function del(key, id) {
   renderCurrentTab();
 }
 
-function findById(key, id) { for (var i=0;i<DB[key].length;i++) if (String(DB[key][i].id)===String(id)) return DB[key][i]; return {}; }
+function findById(key, id) { for (var i=0;i<DB[key].length;i++) if (DB[key][i].id===id) return DB[key][i]; return {}; }
 function val(id) { return (document.getElementById(id)||{}).value||''; }
 
 // ===================================================================
@@ -3622,45 +3417,6 @@ function exportForManager() {
   toast('已匯出給經理的報告檔 📄\n經理可用「經理總覽頁」匯入多份報告');
 }
 
-// 匯出報告 CSV（Excel 友善）：依目前「報告」頁選定期間，抽出佣金 / 開支 / PC 明細
-function exportReportCSV() {
-  var r = getPeriod(reportPeriod), s = r[0], e = r[1];
-  var pn = {month:'本月',quarter:'本季',half:'本半年',year:'本年'}[reportPeriod] || '';
-  var cm = DB.commissions.filter(function(c){ var d=new Date(c.date); return d>=s&&d<=e; });
-  var ex = DB.expenses.filter(function(x){ var d=new Date(x.date); return d>=s&&d<=e; });
-  var pc = DB.pcs.filter(function(p){ var d=new Date(p.date); return d>=s&&d<=e; });
-  var rows = [];
-  rows.push(['保經管家 報告匯出（'+pn+'）']);
-  rows.push(['代理人', agentName||'']);
-  rows.push(['期間', dFmt(s)+' ~ '+dFmt(e)]);
-  rows.push([]);
-  rows.push(['=== 佣金明細 ===']);
-  rows.push(['日期','客戶','保單編號','類型','金額(HK$)']);
-  cm.forEach(function(c){ rows.push([dFmt(c.date), c.clientName||'', c.policyNo||'', c.type||'', toNum(c.amount)]); });
-  rows.push([]);
-  rows.push(['=== 開支明細 ===']);
-  rows.push(['日期','分類','金額(HK$)','備註']);
-  ex.forEach(function(x){ rows.push([dFmt(x.date), x.category||'', toNum(x.amount), x.notes||'']); });
-  rows.push([]);
-  rows.push(['=== PC 明細 ===']);
-  rows.push(['日期','PC類型','客戶','保單編號','金額(PC)']);
-  pc.forEach(function(p){ rows.push([dFmt(p.date), p.pcType||'', p.clientName||'', p.policyNo||'', toNum(p.amount)]); });
-  // 每格用雙引號包住，逗號 / 換行 / 雙引號正確轉義
-  var csv = rows.map(function(row){
-    return row.map(function(cell){
-      var t = (cell==null?'':String(cell));
-      if (/[",\n\r]/.test(t)) t = '"'+t.replace(/"/g,'""')+'"';
-      return t;
-    }).join(',');
-  }).join('\r\n');
-  // UTF-8 BOM：令 Excel（Windows / 中文）正確顯示中文，唔會變亂碼
-  var blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8;'});
-  var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = 'report_'+pn+'_'+encodeURIComponent(agentName||'agent')+'_'+new Date().toISOString().slice(0,10)+'.csv';
-  a.click();
-  toast('已匯出 CSV（'+cm.length+' 筆佣金 / '+ex.length+' 筆開支 / '+pc.length+' 筆 PC）');
-}
-
 function doImport(evt) {
   var file = evt.target.files[0]; if (!file) return;
   var reader = new FileReader();
@@ -3689,100 +3445,9 @@ setInterval(function(){
     saveToCloud();
   }
 }, 30000);
-
-// ===== Excel 備份匯出（按需載入 SheetJS，離線首次會緩存）=====
-function ensureXLSX(cb){
-  if (window.XLSX) return cb();
-  var s=document.createElement('script');
-  s.src='xlsx.full.min.js';
-  s.onload=cb;
-  s.onerror=function(){ toast('⚠️ Excel 庫載入失敗（請檢查網絡或離線緩存）','error'); };
-  document.head.appendChild(s);
-}
-function unionKeys(arr){
-  var seen={}, headers=[];
-  (arr||[]).forEach(function(o){
-    if(o && typeof o==='object'){ Object.keys(o).forEach(function(k){ if(!(k in seen)){ seen[k]=1; headers.push(k); } }); }
-  });
-  return headers;
-}
-function objsToAoa(arr){
-  if(!arr || !arr.length) return [['（無資料）']];
-  var headers=unionKeys(arr);
-  var rows=[[].concat(headers)];
-  arr.forEach(function(o){
-    var row=headers.map(function(h){
-      var v=o?o[h]:'';
-      if(v && typeof v==='object') return JSON.stringify(v);
-      return v==null?'':v;
-    });
-    rows.push(row);
-  });
-  return rows;
-}
-function forceTextCols(ws){
-  if(!ws||!ws['!ref']||!window.XLSX) return;
-  var range=XLSX.utils.decode_range(ws['!ref']);
-  var hdr={};
-  for(var c=range.s.c;c<=range.e.c;c++){
-    var hc=ws[XLSX.utils.encode_cell({r:range.s.r,c:c})];
-    if(hc&&hc.v!=null) hdr[c]=String(hc.v);
-  }
-  for(var c2=range.s.c;c2<=range.e.c;c2++){
-    var nm=hdr[c2]||'';
-    if(/date|time|日期|時間|投保/i.test(nm)){
-      for(var r=range.s.r+1;r<=range.e.r;r++){
-        var ad=XLSX.utils.encode_cell({r:r,c:c2});
-        var cell=ws[ad];
-        if(cell&&cell.v!=null){ cell.t='s'; cell.v=String(cell.v); cell.z='@'; }
-      }
-    }
-  }
-}
-function exportBackupXLSX(){
-  ensureXLSX(function(){
-    try{
-      var keys=['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'];
-      var labels={clients:'客戶',policies:'保單',commissions:'佣金',expenses:'開支',goals:'目標',schedules:'日程',pcs:'PC',incomes:'收入'};
-      var sheets={};
-      keys.forEach(function(k){ sheets[labels[k]] = objsToAoa(DB[k]||[]); });
-      sheets['備份資訊']=[
-        ['保經管家 數據備份'],
-        ['代理人', agentName||''],
-        ['匯出時間', new Date().toLocaleString('zh-HK')],
-        ['版本', (window.CURRENT_VER||'')],
-        ['資料鍵', STORE_KEY]
-      ];
-      var wb=XLSX.utils.book_new();
-      Object.keys(sheets).forEach(function(name){
-        var ws=XLSX.utils.aoa_to_sheet(sheets[name]);
-        forceTextCols(ws);
-        XLSX.utils.book_append_sheet(wb, ws, name.slice(0,31));
-      });
-      XLSX.writeFile(wb, 'backup_'+(agentName||'agent')+'_'+new Date().toISOString().slice(0,10)+'.xlsx');
-      toast('✅ 已匯出 Excel 備份（'+keys.length+' 個工作表）');
-    }catch(e){ console.error(e); toast('匯出失敗：'+(e&&e.message||e),'error'); }
-  });
-}
 </script>
-<script src="./sw-register.js"></script>
 <script>
-// PIN 輸入框（改用文字+遮罩）只允許數字，避免 iOS/微信彈唔到鍵盤
-(function(){
-  function bindPinFilter(){
-    var pins = document.querySelectorAll('input[style*="text-security"]');
-    for (var i=0;i<pins.length;i++){
-      (function(el){
-        el.addEventListener('input', function(){
-          var v = el.value.replace(/\D/g,'');
-          if (v !== el.value) el.value = v;
-        });
-      })(pins[i]);
-    }
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindPinFilter);
-  else bindPinFilter();
-})();
+if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(function(r){console.log('[PWA] Service Worker 已註冊:',r.scope);}).catch(function(e){console.warn('[PWA] SW 註冊失敗:',e);});}
 </script>
 </body>
 </html>
