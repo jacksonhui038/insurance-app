@@ -4,7 +4,7 @@
  *    chart.umd.min.js / xlsx.full.min.js / manifest.json / icon-192.png / qr-*.png）之後，記得將下方
  *    CACHE 版本號 +1（例如 v5 → v6），否則用家可能繼續用到舊快取。
  */
-const CACHE = 'baojing-cache-v7';
+const CACHE = 'baojing-cache-v8';
 const APP_SHELL = [
   './',
   'index.html',

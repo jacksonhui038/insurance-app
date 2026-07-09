@@ -1371,7 +1371,7 @@ function render(){
   }
 
   // Ranking chart
-  if(chartLib)renderCharts(ranks,maxComm,agentNames,y,m);
+  if(chartLib)renderCharts(ranks,maxPC,agentNames,y,m);
 
   // Detail panel
   if(selectedAgent)renderDetail();
@@ -1383,7 +1383,7 @@ function render(){
 // ============================================================
 // CHARTS
 // ============================================================
-function renderCharts(ranks,maxComm,agentNames,y,m){
+function renderCharts(ranks,maxPC,agentNames,y,m){
   if(!chartLib)return;
   var isMobile = window.innerWidth <= 768;
   var topCount = isMobile ? 8 : 15;
