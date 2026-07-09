@@ -180,7 +180,7 @@ tr:hover td{background:var(--blue50)}
       </div>
       <hr style="border:none;border-top:1px solid var(--gray200);margin:14px 0">
       <button class="btn btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="padding:10px;font-size:13px;width:100%">🔄 切換到經理版</button>
-      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.9.3</p>
+      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.9.4</p>
     </div>
     <!-- LOGIN MODE -->
     <div id="loginMode" style="display:none">
@@ -814,6 +814,7 @@ function loadApiUrl() {
 var _syncRetryCount = 0;
 var _syncMaxRetry = 3;
 var _syncTimer = null;
+var _cloudLoadedThisSession = false; // v3.9.4: 本機今次 session 有冇成功從雲端下載過資料（防空 DB 清雲端）
 function saveToCloud(callback, retry) {
   if (!CLOUD_ENABLED || !agentName) { if (callback) callback(false); return; }
   var mgr = assignedManager || localStorage.getItem('insurance_mgr_'+encodeURIComponent(agentName)) || '';
@@ -935,6 +936,7 @@ function loadFromGoogleSheets(callback, retry) {
           }
         });
         saveDB(); setLastSyncTime();
+        _cloudLoadedThisSession = true; // v3.9.4: 標記已成功下載雲端
         if (callback) callback(true);
         else { toast('☁️ 已從雲端合併數據'); renderDashboard(); renderCurrentTab(); }
       } else {
@@ -969,6 +971,13 @@ function registerToCloud(agentName, managerName, team, callback) {
 // ===== Supabase 同步函數 =====
 function saveToSupabase(callback) {
   if (!SUPA_URL || !SUPA_KEY || !agentName) { if (callback) callback(false); return; }
+  // v3.9.4: 鐵規 — 本機未成功從雲端下載過、而本地又係空 DB 時，絕對唔上傳，
+  // 否則會用空資料 UPSERT 覆蓋雲端，清走晒雲端現有資料（呢個就係「另一部電腦開到無資料」嘅元兇）
+  if (isDBEmpty() && !_cloudLoadedThisSession) {
+    console.warn('[saveToSupabase] 本地為空且本機未成功下載雲端，跳過上傳以保護雲端資料');
+    if (callback) callback(false, 'skip-empty-protect');
+    return;
+  }
   var mgr = assignedManager || localStorage.getItem('insurance_mgr_'+encodeURIComponent(agentName)) || '';
   var team = assignedTeam || localStorage.getItem('insurance_team_'+encodeURIComponent(agentName)) || '';
   // v3.6.0: 發送前修復所有壞時間格式
@@ -1075,7 +1084,7 @@ function doForceUpload(payload, mgr, team) {
     toast('❌ 上傳失敗：' + e.message, 'error');
   });
 }
-function loadFromSupabase(callback) {
+function loadFromSupabase(callback, retry) {
   if (!SUPA_URL || !SUPA_KEY || !agentName) { if (callback) callback(false); return; }
   var controller = new AbortController();
   var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
@@ -1105,11 +1114,19 @@ function loadFromSupabase(callback) {
       // v3.6.0: 修復雲端帶入嘅壞時間格式（Excel/ISO 日期）
       fixAllScheduleTimes(true);
       saveDB(); setLastSyncTime();
+      _cloudLoadedThisSession = true; // v3.9.4: 標記已成功下載雲端
       if (callback) callback(true);
       else { toast('☁️ 已從 Supabase 合併數據'); renderDashboard(); renderCurrentTab(); }
-    } else { if (callback) callback(false); }
+    } else {
+      // v3.9.4: 第一次失敗自動重試一次（應對瞬間網絡抖動）
+      if (!retry) { setTimeout(function(){ loadFromSupabase(callback, true); }, 2000); }
+      else { if (callback) callback(false); }
+    }
   })
-  .catch(function(e){ clearTimeout(timeoutId); console.error('[loadFromSupabase]',e); if (callback) callback(false); });
+  .catch(function(e){ clearTimeout(timeoutId); console.error('[loadFromSupabase]',e);
+    if (!retry) { setTimeout(function(){ loadFromSupabase(callback, true); }, 2000); }
+    else { if (callback) callback(false); }
+  });
 }
 function supabaseDeleteAgent(name, callback) {
   if (!SUPA_URL || !SUPA_KEY) { if (callback) callback(false); return; }
@@ -2462,13 +2479,16 @@ function isDBEmpty() {
 
 function afterLoginSync() {
   loadApiUrl();
+  _cloudLoadedThisSession = false; // v3.9.4: 每次登入先當未下載，強制先 download 再 upload
   if (CLOUD_ENABLED && agentName) {
     document.getElementById('cloudStatus').style.display = 'flex';
     document.getElementById('lastSyncTime').textContent = getLastSyncTime();
     // 1. 先從雲端下載（合併最新數據）
     loadFromCloud(function(ok){
+      // v3.9.4: 下載完無論成功與否都重新渲染，確保 UI 反映雲端最新數據（解決「落咗但畫面空白」）
+      renderDashboard(); renderCurrentTab();
       // 2. 下載完畢後，只有「本地有數據」先自動上傳到 Supabase
-      //    ⚠️ v3.9.3 修復：雲端下載失敗 / 本地為空 時唔上傳，避免用空 DB 覆蓋雲端清走晒資料
+      //    ⚠️ v3.9.3 起修復：雲端下載失敗 / 本地為空 時唔上傳，避免用空 DB 覆蓋雲端清走晒資料
       if (SUPA_URL && SUPA_KEY && !isDBEmpty()) {
         setTimeout(function(){ saveToSupabase(function(ok2){
           if (ok2) { setLastSyncTime(); document.getElementById('lastSyncTime').textContent = getLastSyncTime(); }
@@ -2476,7 +2496,7 @@ function afterLoginSync() {
         }); }, 1500);
       } else if (isDBEmpty()) {
         console.warn('[afterLoginSync] 本地無數據，跳過自動上傳，避免清空白雲端');
-        if (!ok) toast('⚠️ 雲端下載失敗，已跳過自動上傳（雲端資料保留）', 'error');
+        if (!ok) toast('⚠️ 無法從雲端下載資料，已保留雲端資料避免被清走。請檢查網絡或稍後重試（你部機暫時顯示空白）', 'error');
       }
     });
   }
@@ -2484,7 +2504,7 @@ function afterLoginSync() {
 
 document.addEventListener('DOMContentLoaded',function(){
   // v3.8.5: 手機介面改底部導航
-  var CURRENT_VER = 'v3.9.3';
+  var CURRENT_VER = 'v3.9.4';
   var cachedVer = localStorage.getItem('app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, clearing cache and reloading...');
