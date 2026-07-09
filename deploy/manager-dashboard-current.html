@@ -192,7 +192,7 @@ tr:hover td{background:var(--blue50)}
       <h2>經理登入</h2>
       <div class="lock-sub">輸入姓名同 PIN 碼</div>
       <label class="lock-label">姓名</label>
-      <input type="text" class="lock-input" id="mgrLoginName" placeholder="例如：Jackson Hui" style="letter-spacing:normal;font-size:15px;text-align:left;margin-bottom:12px" autocomplete="off">
+      <input type="text" class="lock-input" id="mgrLoginName" placeholder="英文全名大寫，例如：CHAN CHI HANG" style="letter-spacing:normal;font-size:15px;text-align:left;margin-bottom:12px;text-transform:uppercase" oninput="this.value=this.value.replace(/[^a-zA-Z\s]/g,'').toUpperCase()" autocomplete="off">
       <label class="lock-label">職級</label>
       <select id="mgrLoginRole" style="width:100%;padding:10px 12px;border-radius:8px;border:2px solid var(--gray200);font-size:14px;font-family:inherit;margin-bottom:12px;background:var(--white)">
         <option value="">-- 請選擇職級 --</option>
@@ -216,7 +216,7 @@ tr:hover td{background:var(--blue50)}
       <h2>首次設定</h2>
       <div class="lock-sub">設定你的姓名、職級同 PIN 碼</div>
       <label class="lock-label">經理姓名</label>
-      <input type="text" class="lock-input" id="mgrName" placeholder="例如：CHAN CHI HANG" style="letter-spacing:normal;font-size:15px;text-align:left;margin-bottom:12px" autocomplete="off">
+      <input type="text" class="lock-input" id="mgrName" placeholder="英文全名大寫，例如：CHAN CHI HANG" style="letter-spacing:normal;font-size:15px;text-align:left;margin-bottom:12px;text-transform:uppercase" oninput="this.value=this.value.replace(/[^a-zA-Z\s]/g,'').toUpperCase()" autocomplete="off">
       <label class="lock-label">職級</label>
       <select id="mgrSetupRole" style="width:100%;padding:10px 12px;border-radius:8px;border:2px solid var(--gray200);font-size:14px;font-family:inherit;margin-bottom:12px;background:var(--white)">
         <option value="">-- 請選擇職級 --</option>
@@ -573,6 +573,8 @@ function doMgrLogin() {
   var btn = document.getElementById('mgrLoginBtn');
   err.textContent = '';
   if (!name) { err.textContent = '請輸入姓名'; return; }
+  // v3.9.8: 強制英文全名大寫
+  if (!/^[A-Z\s]+$/.test(name)) { err.textContent = '⚠️ 姓名必須為英文全名大寫（A–Z + 空格），例如 CHAN TAI MAN'; return; }
   if (!role) { err.textContent = '請選擇職級'; return; }
   if (!pin || pin.length < 4) { err.textContent = 'PIN 碼至少 4 位數字'; return; }
   btn.textContent = '進入中...'; btn.disabled = true;
@@ -597,6 +599,8 @@ function doSetupPin(){
   var err = document.getElementById('setupErr');
   err.textContent='';
   if(!name){err.textContent='請輸入姓名';return;}
+  // v3.9.8: 強制英文全名大寫
+  if(!/^[A-Z\s]+$/.test(name)){err.textContent='⚠️ 姓名必須為英文全名大寫（A–Z + 空格），例如 CHAN CHI HANG';return;}
   if(!role){err.textContent='請選擇職級';return;}
   if(!pin||pin.length<4){err.textContent='PIN 碼至少 4 位數字';return;}
   if(!/^\d+$/.test(pin)){err.textContent='PIN 碼只能含數字';return;}
@@ -1291,8 +1295,17 @@ function render(){
     '<div class="stat-card" style="border-left-color:#ef4444"><div class="label">人均月佣</div><div class="value">'+money(agentNames.length>0?Math.round(monthComm/agentNames.length):0)+'</div><div class="sub">人均客戶: '+Math.round(totalClients/agentNames.length)+'</div></div>';
 
   // Agent ranking
+  // v3.9.8: 頂層（未下鑽）過濾 — 有經理跟緊嘅純 Agent 唔喺頂層顯示，只可透過 🔽 下鑼直屬經理見到
+  var isTopLevel = (rootStack.length === 0);
+  var mgrMap = buildTeamMgrMap();
   var ranks=[];
   agentNames.forEach(function(a){
+    // 頂層時：如果呢個人有經理（mgrMap 有記錄）而且佢自己冇下屬（純 Agent），就跳過
+    if (isTopLevel) {
+      var hasMgr = Object.keys(mgrMap).some(function(k){ return (mgrMap[k]||[]).indexOf(a) >= 0; });
+      var hasSubs = (mgrMap[a] || []).length > 0;
+      if (hasMgr && !hasSubs) return; // 有經理 + 冇下屬 = 純 Agent，唔喺頂層顯示
+    }
     var d=TEAM[a];
     var mc=0,yc=0;
     d.commissions.forEach(function(c){var dt=new Date(c.date);if(dt.getMonth()===m&&dt.getFullYear()===y)mc+=Number(c.amount)||0;if(dt.getFullYear()===y)yc+=Number(c.amount)||0;});
