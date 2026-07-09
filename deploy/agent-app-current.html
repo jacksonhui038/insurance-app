@@ -180,7 +180,7 @@ tr:hover td{background:var(--blue50)}
       </div>
       <hr style="border:none;border-top:1px solid var(--gray200);margin:14px 0">
       <button class="btn btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="padding:10px;font-size:13px;width:100%">🔄 切換到經理版</button>
-      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.9.4</p>
+      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.9.5</p>
     </div>
     <!-- LOGIN MODE -->
     <div id="loginMode" style="display:none">
@@ -815,6 +815,24 @@ var _syncRetryCount = 0;
 var _syncMaxRetry = 3;
 var _syncTimer = null;
 var _cloudLoadedThisSession = false; // v3.9.4: 本機今次 session 有冇成功從雲端下載過資料（防空 DB 清雲端）
+var _cloudDataSnapshot = null; // v3.9.5: 登入時下載到嘅雲端 data 快照，用嚟保護 role/manager/team 等 metadata 同雲端既有記錄，避免 save 時成個 data 被本地 DB 覆蓋清走
+
+// v3.9.5: 構建上傳用 data —— 以雲端快照為基底，保留 role/manager/team 等 metadata 同雲端既有記錄，
+// 再將本地 8 個資料陣列按 ID 合併（union，本地優先），確保雲端永遠唔會因局部 DB 而失落記錄或被清走 role
+function buildUploadData() {
+  var base = (_cloudDataSnapshot && typeof _cloudDataSnapshot === 'object') ? JSON.parse(JSON.stringify(_cloudDataSnapshot)) : {};
+  ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k){
+    var cloudArr = (base[k] && Array.isArray(base[k])) ? base[k] : [];
+    var localArr = (DB[k] && Array.isArray(DB[k])) ? DB[k] : [];
+    var map = {};
+    cloudArr.forEach(function(it){ if (it && it.id != null) map[it.id] = it; });
+    localArr.forEach(function(it){ if (it && it.id != null) map[it.id] = it; }); // 本地優先
+    base[k] = Object.values(map);
+  });
+  // 保留其他 metadata 欄位（role/manager/team 等）；_pinHash 用本地值，否則保留雲端
+  base._pinHash = (agentPIN ? hashPin(agentPIN) : (base._pinHash || ''));
+  return base;
+}
 function saveToCloud(callback, retry) {
   if (!CLOUD_ENABLED || !agentName) { if (callback) callback(false); return; }
   var mgr = assignedManager || localStorage.getItem('insurance_mgr_'+encodeURIComponent(agentName)) || '';
@@ -982,7 +1000,9 @@ function saveToSupabase(callback) {
   var team = assignedTeam || localStorage.getItem('insurance_team_'+encodeURIComponent(agentName)) || '';
   // v3.6.0: 發送前修復所有壞時間格式
   fixAllScheduleTimes(false);
-  var payload = JSON.stringify({name:agentName,data:Object.assign({},DB,{_pinHash:agentPIN?hashPin(agentPIN):''}),manager:mgr,team:team});
+  // v3.9.5: 用 buildUploadData() 取代直接 Object.assign({},DB)，確保保留 role/manager/team 同雲端既有記錄（MERGE 唔係 REPLACE）
+  var uploadData = buildUploadData();
+  var payload = JSON.stringify({name:agentName,data:uploadData,manager:mgr,team:team});
   var payloadSize = new Blob([payload]).size;
   if (payloadSize > 5 * 1024 * 1024) console.warn('[saveToSupabase] Payload size:', Math.round(payloadSize/1024), 'KB');
   var controller = new AbortController();
@@ -1019,33 +1039,28 @@ function forceUploadToSupabase() {
   fixAllScheduleTimes(false);
   var mgr = assignedManager || localStorage.getItem('insurance_mgr_'+encodeURIComponent(agentName)) || '';
   var team = assignedTeam || localStorage.getItem('insurance_team_'+encodeURIComponent(agentName)) || '';
-  var payload = JSON.stringify({name:agentName,data:Object.assign({},DB,{_pinHash:agentPIN?hashPin(agentPIN):'',_forceUpload:new Date().toISOString()}),manager:mgr,team:team});
-  // 先做連線測試
-  var testController = new AbortController();
-  var testTimeout = setTimeout(function(){ testController.abort(); }, 10000);
-  fetch(SUPA_URL + '/rest/v1/agents?limit=1&select=name', {
-    method:'GET',
-    headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY},
-    signal:testController.signal
+  // v3.9.5: 先拉取雲端最新資料做基底（保留 role/manager/team 同雲端既有記錄），再合併本地，避免清走雲端
+  var getC = new AbortController();
+  var getT = setTimeout(function(){ getC.abort(); }, 15000);
+  fetch(SUPA_URL + '/rest/v1/agents?name=eq.'+encodeURIComponent(agentName)+'&select=data', {
+    headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Cache-Control':'no-cache'},
+    signal:getC.signal
   })
-  .then(function(res){
-    clearTimeout(testTimeout);
-    if (!res.ok) throw new Error('HTTP '+res.status);
-    // 連線成功，開始上傳
+  .then(function(res){ clearTimeout(getT); return res.json(); })
+  .then(function(rows){
+    if (rows && rows.length>0 && rows[0].data) _cloudDataSnapshot = JSON.parse(JSON.stringify(rows[0].data));
+    var uploadData = buildUploadData();
+    uploadData._forceUpload = new Date().toISOString();
+    var payload = JSON.stringify({name:agentName,data:uploadData,manager:mgr,team:team});
     doForceUpload(payload, mgr, team);
   })
   .catch(function(e){
-    clearTimeout(testTimeout);
-    console.error('[forceUpload] connection test failed:', e);
-    var msg = String(e);
-    if (msg.indexOf('abort') >= 0 || msg.indexOf('timeout') >= 0) {
-      msg = '連線超時（10秒）— 請檢查網絡或確認 Supabase 未暫停';
-    } else if (msg.indexOf('Failed to fetch') >= 0 || msg.indexOf('NetworkError') >= 0) {
-      msg = '網絡錯誤 — 請檢查：① 網絡連接 ② Supabase 是否已暫停（免費版7天無活動會暫停）③ 是否有 VPN/防火牆阻擋';
-    } else if (msg.indexOf('CORS') >= 0) {
-      msg = 'CORS 錯誤 — Supabase 可能未允許此域名存取';
-    }
-    toast('✕ 上傳失敗：' + msg, 'error');
+    clearTimeout(getT);
+    console.warn('[forceUpload] 拉取雲端失敗，改用現有基底上傳', e);
+    var uploadData = buildUploadData();
+    uploadData._forceUpload = new Date().toISOString();
+    var payload = JSON.stringify({name:agentName,data:uploadData,manager:mgr,team:team});
+    doForceUpload(payload, mgr, team);
   });
 }
 function doForceUpload(payload, mgr, team) {
@@ -1095,6 +1110,8 @@ function loadFromSupabase(callback, retry) {
   .then(function(res){ clearTimeout(timeoutId); return res.json(); })
   .then(function(rows){
     if (rows && rows.length>0 && rows[0].data) {
+      // v3.9.5: 保存雲端快照（保護 metadata 同雲端既有記錄，供 saveToSupabase 合併用）
+      _cloudDataSnapshot = JSON.parse(JSON.stringify(rows[0].data));
       // v3.6.0: 徹底簡化登入流程 + 修復 race condition
       var hasData = false;
       ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k){
@@ -2480,6 +2497,7 @@ function isDBEmpty() {
 function afterLoginSync() {
   loadApiUrl();
   _cloudLoadedThisSession = false; // v3.9.4: 每次登入先當未下載，強制先 download 再 upload
+  _cloudDataSnapshot = null; // v3.9.5: 每次登入清空舊快照，避免上一個 user 嘅 metadata 漏落呢個 user
   if (CLOUD_ENABLED && agentName) {
     document.getElementById('cloudStatus').style.display = 'flex';
     document.getElementById('lastSyncTime').textContent = getLastSyncTime();
@@ -2504,7 +2522,7 @@ function afterLoginSync() {
 
 document.addEventListener('DOMContentLoaded',function(){
   // v3.8.5: 手機介面改底部導航
-  var CURRENT_VER = 'v3.9.4';
+  var CURRENT_VER = 'v3.9.5';
   var cachedVer = localStorage.getItem('app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, clearing cache and reloading...');
