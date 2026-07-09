@@ -84,6 +84,15 @@ tr:hover td{background:var(--blue50)}
 .badge-blue{background:var(--blue100);color:var(--blue700)}
 .badge-purple{background:#f3e8ff;color:#9333ea}
 .badge-gray{background:var(--gray100);color:var(--gray500)}
+/* CHECKBOX GROUP for purpose multi-select */
+.checkbox-group{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.checkbox-group label{display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border-radius:6px;border:1px solid var(--gray300);background:var(--white);font-size:12px;cursor:pointer;transition:all .15s;margin:0}
+.checkbox-group label.checked{border-color:var(--blue500);background:var(--blue50);color:var(--blue700)}
+.checkbox-group label input[type="checkbox"]{margin:0;width:auto}
+.checkbox-group label:hover{border-color:var(--blue400)}
+.purpose-sub{display:none;margin:6px 0 8px 16px;padding:8px 12px;background:var(--gray50);border-radius:6px;border:1px solid var(--gray200)}
+.purpose-sub.show{display:block}
+.purpose-sub .checkbox-group label{font-size:11px}
 /* FORMS */
 .form-group{margin-bottom:14px}
 .form-group label{display:block;font-size:12px;color:var(--gray500);margin-bottom:4px;font-weight:500}
@@ -180,7 +189,7 @@ tr:hover td{background:var(--blue50)}
       </div>
       <hr style="border:none;border-top:1px solid var(--gray200);margin:14px 0">
       <button class="btn btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="padding:10px;font-size:13px;width:100%">🔄 切換到經理版</button>
-      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.9.8</p>
+      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.9.9</p>
     </div>
     <!-- LOGIN MODE -->
     <div id="loginMode" style="display:none">
@@ -2551,7 +2560,7 @@ function afterLoginSync() {
 
 document.addEventListener('DOMContentLoaded',function(){
   // v3.8.5: 手機介面改底部導航
-  var CURRENT_VER = 'v3.9.8';
+  var CURRENT_VER = 'v3.9.9';
   var cachedVer = localStorage.getItem('app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, clearing cache and reloading...');
@@ -2958,7 +2967,7 @@ function renderSchedules() {
         html += '<div style="background:var(--blue50);border-radius:6px;padding:6px 8px;margin-bottom:4px;font-size:11px;cursor:pointer" onclick="openForm(\'schedule\','+s.id+')">';
         html += '<div style="font-weight:600;color:var(--blue700)">'+normalizeTime(s.startTime)+' - '+normalizeTime(s.endTime)+(hasNotes?' 📝':'')+'</div>';
         html += '<div style="color:var(--blue500);margin-top:2px;cursor:pointer;text-decoration:underline" onclick="event.stopPropagation();showQuickView(\''+esc(s.clientName||'')+'\')">'+esc(s.clientName||'')+'</div>';
-        html += '<div style="color:var(--gray400)">'+esc(s.purpose||'')+'</div>';
+        html += '<div style="color:var(--gray400)">'+fmtPurposes(s.purpose)+'</div>';
         html += '<span class="badge '+sc+'" style="margin-top:2px">'+esc(s.status)+'</span>';
         html += '</div>';
       });
@@ -2975,7 +2984,7 @@ function renderSchedules() {
       var sc = s.status==='已完成'?'badge-green':s.status==='已確認'?'badge-blue':s.status==='已取消'?'badge-red':'badge-yellow';
       var hasNotes = (s.meetingNotes && s.meetingNotes.trim()) || (s.followUp && s.followUp.trim());
       var notesBtn = hasNotes ? '<button class="btn btn-sm btn-outline" style="border-color:var(--blue500);color:var(--blue500)" onclick="event.stopPropagation();showMeetingNotes('+s.id+')">📝 查看</button>' : '<span style="color:var(--gray300);font-size:11px">—</span>';
-      h += '<tr><td>'+esc(dFmt(s.date))+'</td><td>'+normalizeTime(s.startTime)+'-'+normalizeTime(s.endTime)+'</td><td><a style="color:var(--blue500);cursor:pointer;text-decoration:underline" onclick="showQuickView(\''+esc(s.clientName||'')+'\')">'+esc(s.clientName||'—')+'</a></td><td>'+esc(s.purpose||'—')+'</td><td>'+esc(s.location||'—')+'</td><td><span class="badge '+sc+'">'+esc(s.status)+'</span></td><td>'+notesBtn+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'schedule\','+s.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'schedules\','+s.id+')">刪除</button></td></tr>';
+      h += '<tr><td>'+esc(dFmt(s.date))+'</td><td>'+normalizeTime(s.startTime)+'-'+normalizeTime(s.endTime)+'</td><td><a style="color:var(--blue500);cursor:pointer;text-decoration:underline" onclick="showQuickView(\''+esc(s.clientName||'')+'\')">'+esc(s.clientName||'—')+'</a></td><td>'+fmtPurposes(s.purpose||'—')+'</td><td>'+esc(s.location||'—')+'</td><td><span class="badge '+sc+'">'+esc(s.status)+'</span></td><td>'+notesBtn+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'schedule\','+s.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'schedules\','+s.id+')">刪除</button></td></tr>';
     });
   }
   document.getElementById('scheduleTable').innerHTML = h;
@@ -3035,7 +3044,7 @@ function showQuickView(clientName) {
     html += '<div style="font-size:13px;font-weight:600;color:var(--gray600);margin:10px 0 6px">📝 會面筆記紀錄 ('+pastMeetings.length+')</div>';
     pastMeetings.forEach(function(s){
       html += '<div style="background:var(--gray50);border-radius:8px;padding:10px;margin-bottom:8px;border-left:3px solid var(--green500)">';
-      html += '<div style="font-size:12px;color:var(--gray500);margin-bottom:4px">'+esc(dFmt(s.date))+' '+normalizeTime(s.startTime)+'-'+normalizeTime(s.endTime)+' | '+esc(s.purpose||'')+'</div>';
+      html += '<div style="font-size:12px;color:var(--gray500);margin-bottom:4px">'+esc(dFmt(s.date))+' '+normalizeTime(s.startTime)+'-'+normalizeTime(s.endTime)+' | '+fmtPurposes(s.purpose)+'</div>';
       if (s.meetingNotes && s.meetingNotes.trim()) {
         html += '<div style="font-size:12px;margin-bottom:4px"><b>📝 筆記：</b><span style="white-space:pre-wrap">'+esc(s.meetingNotes.substring(0,200))+(s.meetingNotes.length>200?'...':'')+'</span></div>';
       }
@@ -3053,7 +3062,7 @@ function showQuickView(clientName) {
     html += '<table style="font-size:12px"><thead><tr><th>日期</th><th>時間</th><th>目的</th><th>狀態</th></tr></thead><tbody>';
     scheds.forEach(function(s){
       var sc = s.status==='已完成'?'badge-green':s.status==='已確認'?'badge-blue':'badge-yellow';
-      html += '<tr><td>'+esc(dFmt(s.date))+'</td><td>'+normalizeTime(s.startTime)+'-'+normalizeTime(s.endTime)+'</td><td>'+esc(s.purpose)+'</td><td><span class="badge '+sc+'">'+esc(s.status)+'</span></td></tr>';
+      html += '<tr><td>'+esc(dFmt(s.date))+'</td><td>'+normalizeTime(s.startTime)+'-'+normalizeTime(s.endTime)+'</td><td>'+fmtPurposes(s.purpose)+'</td><td><span class="badge '+sc+'">'+esc(s.status)+'</span></td></tr>';
     });
     html += '</tbody></table>';
   }
@@ -3076,7 +3085,7 @@ function showMeetingNotes(scheduleId) {
   title.innerHTML = '📝 會面筆記 — ' + esc(s.clientName||'') + ' (' + esc(dFmt(s.date)) + ')';
   var html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">';
   html += '<div style="background:var(--blue50);border-radius:8px;padding:8px 10px"><div style="font-size:11px;color:var(--gray400)">時間</div><div style="font-weight:600">'+normalizeTime(s.startTime)+' - '+normalizeTime(s.endTime)+'</div></div>';
-  html += '<div style="background:var(--blue50);border-radius:8px;padding:8px 10px"><div style="font-size:11px;color:var(--gray400)">目的</div><div style="font-weight:600">'+esc(s.purpose||'—')+'</div></div>';
+  html += '<div style="background:var(--blue50);border-radius:8px;padding:8px 10px"><div style="font-size:11px;color:var(--gray400)">目的</div><div style="font-weight:600">'+fmtPurposes(s.purpose||'—')+'</div></div>';
   html += '</div>';
   if (s.meetingNotes && s.meetingNotes.trim()) {
     html += '<div style="margin-bottom:14px"><div style="font-size:13px;font-weight:600;color:var(--gray600);margin-bottom:6px">📝 會面筆記</div><div style="background:var(--gray50);border-radius:8px;padding:12px;font-size:13px;line-height:1.6;white-space:pre-wrap">'+esc(s.meetingNotes)+'</div></div>';
@@ -3183,7 +3192,7 @@ function openForm(type, id) {
       +fTime('開始時間','startTime',timeSlots,sc.startTime||'10:00')
       +fTime('結束時間','endTime',timeSlots,sc.endTime||'11:00')
       +fClient('客戶','clientName',sc.clientName||'')
-      +fs('會面目的','purpose',['講解保單','續保跟進','理財諮詢','索償處理','新客開發','售後服務','招聘增員','其他'],sc.purpose||'')
+      +fPurpose(sc.purpose||'')
       +fg('地點','location','text',sc.location||'')
       +fs('狀態','status',['待處理','已確認','已完成','已取消'],sc.status||'待處理')
       +ft('📝 會面筆記','meetingNotes',sc.meetingNotes||'', isDone?'記低今次傾咗嘅重點、客戶關注事項、報價內容等':'（完成會面後填寫）')
@@ -3258,7 +3267,71 @@ function fs(label, name, options, selected) {
   });
   h += '</select></div>'; return h;
 }
-// 時間欄：text input + datalist 下拉，可揀可打字
+// 會面目的 — 多選 checkbox 群組（可多選，新客開發有子選項分支）
+function fPurpose(selected) {
+  var sel = (selected||'').split(',').map(function(s){return s.trim();});
+  var mainOpts = ['講解保單','續保跟進','理財諮詢','索償處理','整合強積金','開立僱主強積金','售後服務','招聘增員','參加活動','其他'];
+  var subOpts = ['社交媒體出post','自己組織活動','參加新活動','叫朋友介紹新朋友','其他'];
+  var isSubShow = sel.indexOf('新客開發') >= 0;
+  var h = '<div class="form-group"><label>會面目的（可多選）</label><div class="checkbox-group" id="f_purpose_group">';
+  mainOpts.forEach(function(opt){
+    var checked = sel.indexOf(opt) >= 0 ? ' checked' : '';
+    h += '<label class="'+(checked?'checked':'')+'"><input type="checkbox" value="'+esc(opt)+'" onchange="purposeToggle(this)"'+checked+'>'+esc(opt)+'</label>';
+  });
+  // 新客開發
+  var ck = sel.indexOf('新客開發') >= 0 ? ' checked' : '';
+  h += '<label class="'+(ck?'checked':'')+'" style="border-color:#a855f7;color:#9333ea"><input type="checkbox" value="新客開發" onchange="purposeToggle(this)"'+ck+'>新客開發 ⏷</label>';
+  h += '</div>';
+  // 子選項（新客開發分支）
+  h += '<div id="f_purpose_sub" class="purpose-sub'+(isSubShow?' show':'')+'">';
+  h += '<div style="font-size:11px;color:var(--gray400);margin-bottom:4px">▸ 新客開發方式：</div><div class="checkbox-group">';
+  subOpts.forEach(function(opt){
+    var checked = sel.indexOf(opt) >= 0 ? ' checked' : '';
+    h += '<label class="'+(checked?'checked':'')+'"><input type="checkbox" value="'+esc(opt)+'" onchange="purposeSubToggle(this)"'+checked+'>'+esc(opt)+'</label>';
+  });
+  h += '</div></div></div>';
+  return h;
+}
+// 收集會面目的已選值（主選項 + 子選項）
+function getPurposeValues() {
+  var vals = [];
+  document.querySelectorAll('#f_purpose_group input[type="checkbox"]').forEach(function(cb){
+    if (cb.checked) vals.push(cb.value);
+  });
+  var subEl = document.getElementById('f_purpose_sub');
+  if (subEl) {
+    subEl.querySelectorAll('input[type="checkbox"]').forEach(function(cb){
+      if (cb.checked) vals.push(cb.value);
+    });
+  }
+  return vals.join(', ');
+}
+// 新客開發 toggle 子選項顯示
+function purposeToggle(el) {
+  if (el.value === '新客開發') {
+    var sub = document.getElementById('f_purpose_sub');
+    if (sub) {
+      sub.classList.toggle('show', el.checked);
+      // 取消剔選時，清除子選項
+      if (!el.checked) {
+        sub.querySelectorAll('input[type="checkbox"]').forEach(function(cb){ cb.checked = false; });
+      }
+    }
+  }
+  // 更新 label 樣式
+  el.parentElement.classList.toggle('checked', el.checked);
+}
+function purposeSubToggle(el) {
+  el.parentElement.classList.toggle('checked', el.checked);
+}
+// 格式化會面目的顯示（多選時顯示 badge）
+function fmtPurposes(p) {
+  if (!p || p === '—') return esc(p||'—');
+  var parts = p.split(',').map(function(s){return s.trim();}).filter(function(s){return s;});
+  if (parts.length === 0) return '—';
+  if (parts.length === 1) return esc(parts[0]);
+  return parts.map(function(s){ return '<span class="badge badge-blue" style="margin:1px 2px">'+esc(s)+'</span>'; }).join('');
+}
 function normalizeTime(raw) {
   if (!raw) return '';
   var s = String(raw).trim();
@@ -3366,7 +3439,7 @@ function saveForm() {
         toast('✓ 已連結客戶「'+clientName+'」');
       }
     }
-    var o = {id:editId||uid(),date:val('f_date'),startTime:normalizeTime(val('f_startTime')),endTime:normalizeTime(val('f_endTime')),clientName:clientName,purpose:val('f_purpose'),location:val('f_location'),status:val('f_status'),meetingNotes:val('f_meetingNotes'),followUp:val('f_followUp'),notes:val('f_notes')};
+    var o = {id:editId||uid(),date:val('f_date'),startTime:normalizeTime(val('f_startTime')),endTime:normalizeTime(val('f_endTime')),clientName:clientName,purpose:getPurposeValues(),location:val('f_location'),status:val('f_status'),meetingNotes:val('f_meetingNotes'),followUp:val('f_followUp'),notes:val('f_notes')};
     saveTo('schedules',o);
   }
   else if (editType === 'income') {
