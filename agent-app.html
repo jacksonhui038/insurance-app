@@ -1,6 +1,22 @@
 <!DOCTYPE html>
 <html lang="zh-HK">
 <head>
+<script>
+var APP_VER='v4.0.1',APP_VER_KEY='app_version';
+(function(){
+  var v=localStorage.getItem(APP_VER_KEY)||'';
+  var changed = !!(v && v!==APP_VER);
+  if(!changed) return;
+  console.log('[CacheBuster] '+v+'→'+APP_VER);
+  localStorage.setItem(APP_VER_KEY,APP_VER);
+  function doReload(){ location.replace(location.href.split('?')[0]+'?v='+Date.now()); }
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.getRegistrations().then(function(regs){
+      return Promise.all(regs.map(function(r){ return r.unregister(); }));
+    }).then(doReload).catch(doReload);
+  } else { doReload(); }
+})();
+</script>
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
@@ -2536,7 +2552,7 @@ function afterLoginSync() {
 
 document.addEventListener('DOMContentLoaded',function(){
   // v3.8.5: 手機介面改底部導航
-  var CURRENT_VER = 'v4.0.0';
+  var CURRENT_VER = 'v4.0.1';
   var cachedVer = localStorage.getItem('app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, clearing cache and reloading...');
