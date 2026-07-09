@@ -1300,13 +1300,14 @@ function render(){
   var mgrMap = buildTeamMgrMap();
   var ranks=[];
   agentNames.forEach(function(a){
-    // 頂層時：如果呢個人有經理（mgrMap 有記錄）而且佢自己冇下屬（純 Agent），就跳過
+    var d=TEAM[a];
+    // 頂層時：有經理 + 冇下屬 + 純 Agent → 隱藏；有職級 title 嘅照顯示
     if (isTopLevel) {
       var hasMgr = Object.keys(mgrMap).some(function(k){ return (mgrMap[k]||[]).indexOf(a) >= 0; });
       var hasSubs = (mgrMap[a] || []).length > 0;
-      if (hasMgr && !hasSubs) return; // 有經理 + 冇下屬 = 純 Agent，唔喺頂層顯示
+      if (hasMgr && !hasSubs && (d.role === 'Agent' || !d.role)) return;
     }
-    var d=TEAM[a];
+    
     var mc=0,yc=0;
     d.commissions.forEach(function(c){var dt=new Date(c.date);if(dt.getMonth()===m&&dt.getFullYear()===y)mc+=Number(c.amount)||0;if(dt.getFullYear()===y)yc+=Number(c.amount)||0;});
     var mpc=0,ypc=0;
