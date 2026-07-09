@@ -1,26 +1,20 @@
 <!DOCTYPE html>
 <html lang="zh-HK">
 <head>
-<script>// 版本強制刷新：版本號改變時一次性解除舊 SW 並重載，確保用到最新 HTML
-var MGR_VER='v4.0.3',MGR_VER_KEY='mgr_app_version';
+<script>// v3.9.5 強制破 cache + 強制解除舊 SW：sync script 喺一切之前執行
+var MGR_VER='v3.9.5',MGR_VER_KEY='mgr_app_version';
 (function(){
-  // 安全模式：?nosw=1 跳過版本強制刷新（iPad 卡死時救急用）
-  if (/[?&]nosw=1/.test(location.search)) return;
   var v=localStorage.getItem(MGR_VER_KEY)||'';
-  var changed = !!(v && v!==MGR_VER);
-  if(!changed) return;
-  console.log('[CacheBuster] '+v+'→'+MGR_VER);
-  localStorage.setItem(MGR_VER_KEY,MGR_VER);
-  function safeReload(){
-    try { if(sessionStorage.getItem('mgr_reloaded_once')) return; sessionStorage.setItem('mgr_reloaded_once','1'); } catch(e){}
-    location.replace(location.href.split('?')[0]+'?v='+Date.now());
-  }
-  // 舊版有問題 SW 曾攔截 Supabase，升級時一次性解除，隨後頁尾會註冊全新 SW
+  if(v&&v!==MGR_VER){console.log('[CacheBuster] '+v+'→'+MGR_VER);localStorage.setItem(MGR_VER_KEY,MGR_VER);}
+  // v3.9.0: 強制解除所有 Service Worker 並清除 cache（iOS PWA 舊 SW 會攔截 Supabase）
+  function finish(){localStorage.setItem(MGR_VER_KEY,MGR_VER);}
+  if('caches' in window){caches.keys().then(function(ns){return Promise.all(ns.map(function(n){return caches.delete(n);}));}).then(finish).catch(finish);}else{finish();}
   if('serviceWorker' in navigator){
     navigator.serviceWorker.getRegistrations().then(function(regs){
-      return Promise.all(regs.map(function(r){ return r.unregister(); }));
-    }).then(safeReload).catch(safeReload);
-  } else { safeReload(); }
+      regs.forEach(function(r){r.unregister(); console.log('[SW] unregistered', r.scope);});
+    }).catch(function(e){console.log('[SW] unregister error', e);});
+  }
+  if(v&&v!==MGR_VER){location.replace(location.href.split('?')[0]+'?v='+Date.now());}
 })();
 </script>
 <meta charset="UTF-8">
@@ -181,7 +175,7 @@ tr:hover td{background:var(--blue50)}
     <!-- CHOICE -->
     <div id="lockChoice">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <button onclick="try{window.location.href='agent-app.html'}catch(e){location.href='agent-app.html'}" style="padding:6px 14px;border:1px solid var(--gray300);border-radius:8px;background:var(--gray100);color:var(--gray600);cursor:pointer;font-size:13px;display:flex;align-items:center;gap:4px">◀ 返回</button>
+        <button onclick="try{window.location.href='https://jacksonhui038.github.io/insurance-app/agent-app.html'}catch(e){location.href='https://jacksonhui038.github.io/insurance-app/agent-app.html'}" style="padding:6px 14px;border:1px solid var(--gray300);border-radius:8px;background:var(--gray100);color:var(--gray600);cursor:pointer;font-size:13px;display:flex;align-items:center;gap:4px">◀ 返回</button>
         <span style="font-size:11px;color:var(--gray400)">經理版</span>
       </div>
       <div class="lock-icon">📊</div>
@@ -190,7 +184,7 @@ tr:hover td{background:var(--blue50)}
       <button class="lock-btn lock-btn-primary" onclick="if(typeof showMgrLogin!=='function'){alert('頁面載入未完成，請 Ctrl+Shift+R 強制刷新');return;}try{showMgrLogin()}catch(e){console.error(e);alert('登入畫面錯誤：'+e.message);}" style="margin-bottom:8px">🔐 登入</button>
       <button class="lock-btn lock-btn-outline" onclick="if(typeof showMgrSetup!=='function'){alert('頁面載入未完成，請 Ctrl+Shift+R 強制刷新');return;}try{showMgrSetup()}catch(e){console.error(e);alert('設定畫面錯誤：'+e.message);}">📝 首次設定</button>
       <hr style="border:none;border-top:1px solid var(--gray200);margin:14px 0">
-      <button class="lock-btn lock-btn-outline" onclick="window.location.href='agent-app.html'" style="border:1px dashed var(--blue500);color:var(--blue700);background:var(--blue50)">🔄 切換到代理人版</button>
+      <button class="lock-btn lock-btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/agent-app.html'" style="border:1px dashed var(--blue500);color:var(--blue700);background:var(--blue50)">🔄 切換到代理人版</button>
     </div>
     <!-- LOGIN (name + PIN + role, no confirm) -->
     <div id="lockLogin" style="display:none">
@@ -210,7 +204,7 @@ tr:hover td{background:var(--blue50)}
         <option value="ASM">ASM — 經銷經理</option>
       </select>
       <label class="lock-label">PIN 碼</label>
-      <input type="text" style="-webkit-text-security:disc;text-security:disc" inputmode="numeric" class="lock-input" id="mgrLoginPin" placeholder="••••" maxlength="6"  autocomplete="off" onkeydown="if(event.key==='Enter')doMgrLogin()">
+      <input type="password" class="lock-input" id="mgrLoginPin" placeholder="••••" maxlength="6" inputmode="numeric" autocomplete="off" onkeydown="if(event.key==='Enter')doMgrLogin()">
       <button class="lock-btn lock-btn-primary" onclick="if(typeof doMgrLogin!=='function'){alert('頁面載入未完成，請 Ctrl+Shift+R 強制刷新');return;}try{doMgrLogin()}catch(e){console.error(e);alert('登入時發生錯誤：'+e.message);}" id="mgrLoginBtn">登入</button>
       <div class="lock-err" id="mgrLoginErr"></div>
       <button class="lock-btn lock-btn-outline" onclick="if(typeof showMgrChoice!=='function'){location.reload();return;}try{showMgrChoice()}catch(e){console.error(e);location.reload();}">返回</button>
@@ -234,9 +228,9 @@ tr:hover td{background:var(--blue50)}
         <option value="ASM">ASM — 經銷經理</option>
       </select>
       <label class="lock-label">設定 PIN 碼（4-6 位數字）</label>
-      <input type="text" style="-webkit-text-security:disc;text-security:disc" inputmode="numeric" class="lock-input" id="mgrPinSetup" placeholder="••••" maxlength="6"  autocomplete="off" onkeydown="if(event.key==='Enter')document.getElementById('mgrPinConfirm').focus()">
+      <input type="password" class="lock-input" id="mgrPinSetup" placeholder="••••" maxlength="6" inputmode="numeric" autocomplete="off" onkeydown="if(event.key==='Enter')document.getElementById('mgrPinConfirm').focus()">
       <label class="lock-label">確認 PIN 碼</label>
-      <input type="text" style="-webkit-text-security:disc;text-security:disc" inputmode="numeric" class="lock-input" id="mgrPinConfirm" placeholder="••••" maxlength="6"  autocomplete="off" onkeydown="if(event.key==='Enter')doSetupPin()">
+      <input type="password" class="lock-input" id="mgrPinConfirm" placeholder="••••" maxlength="6" inputmode="numeric" autocomplete="off" onkeydown="if(event.key==='Enter')doSetupPin()">
       <button class="lock-btn lock-btn-primary" onclick="if(typeof doSetupPin!=='function'){alert('頁面載入未完成，請 Ctrl+Shift+R 強制刷新');return;}try{doSetupPin()}catch(e){console.error(e);alert('設定錯誤：'+e.message);}">設定並進入</button>
       <div class="lock-err" id="setupErr"></div>
       <button class="lock-btn lock-btn-outline" onclick="if(typeof showMgrChoice!=='function'){location.reload();return;}try{showMgrChoice()}catch(e){console.error(e);location.reload();}">返回</button>
@@ -247,7 +241,7 @@ tr:hover td{background:var(--blue50)}
       <h2 id="lockTitleUnlock">歡迎回來</h2>
       <div class="lock-sub" id="lockSubUnlock">請輸入 PIN 碼解鎖</div>
       <p style="font-size:14px;color:var(--gray600);margin-bottom:16px">歡迎回來，<b id="lockMgrName">—</b></p>
-      <input type="text" style="-webkit-text-security:disc;text-security:disc" inputmode="numeric" class="lock-input" id="mgrPinUnlock" placeholder="輸入 PIN 碼" maxlength="6"  autocomplete="off" onkeydown="if(event.key==='Enter')doUnlock()" autofocus>
+      <input type="password" class="lock-input" id="mgrPinUnlock" placeholder="輸入 PIN 碼" maxlength="6" inputmode="numeric" autocomplete="off" onkeydown="if(event.key==='Enter')doUnlock()" autofocus>
       <button class="lock-btn lock-btn-primary" onclick="if(typeof doUnlock!=='function'){alert('頁面載入未完成，請 Ctrl+Shift+R 強制刷新');return;}try{doUnlock()}catch(e){console.error(e);alert('解鎖錯誤：'+e.message);}">解鎖</button>
       <div class="lock-err" id="unlockErr"></div>
       <button class="lock-btn lock-btn-outline" onclick="if(typeof showMgrChoice!=='function'){location.reload();return;}try{showMgrChoice()}catch(e){console.error(e);location.reload();}">切換帳戶</button>
@@ -266,7 +260,6 @@ tr:hover td{background:var(--blue50)}
       <button class="btn btn-white" onclick="window.MGR_SHOW_ALL_AGENTS=false;mgrLoadFromCloud()" id="mgrCloudBtn">☁️ 載入團隊數據</button>
       <button class="btn btn-white" id="mgrShowAllBtn" onclick="mgrShowAll()">👁️ 顯示全部</button>
       <button class="btn btn-white" onclick="document.getElementById('multiImport').click()">📥 匯入 JSON（備用）</button>
-      <button class="btn btn-white" onclick="exportTeamXLSX()">📥 匯出 Excel 備份</button>
       <button class="btn btn-white" onclick="showMergeModal()">🔗 合併代理人</button>
       <button class="btn btn-white" onclick="showDeleteAgentModal()">🗑️ 刪除代理人</button>
       <button class="btn btn-white" onclick="showResetPinModal()">🔑 重置 PIN</button>
@@ -275,7 +268,7 @@ tr:hover td{background:var(--blue50)}
       <button class="btn btn-white" onclick="clearAll()">清除全部</button>
       <button class="btn btn-white" onclick="showAccountModal()">👤 帳號</button>
       <button class="btn btn-white" onclick="mgrShowCloudSetup()">⚙️ 設定</button>
-      <button class="btn btn-outline" onclick="window.location.href='agent-app.html'" style="border:1px dashed var(--blue500);color:var(--blue700);background:var(--blue50)">🔄 切換到代理人版</button>
+      <button class="btn btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/agent-app.html'" style="border:1px dashed var(--blue500);color:var(--blue700);background:var(--blue50)">🔄 切換到代理人版</button>
     </div>
   </div>
 
@@ -329,8 +322,8 @@ tr:hover td{background:var(--blue50)}
 
     <!-- Charts -->
     <div class="charts-row">
-      <div class="chart-card"><h3>🏆 代理人 PC 排名</h3><canvas id="chartRanking"></canvas></div>
-      <div class="chart-card"><h3>📊 月度 PC 趨勢（全團隊）</h3><canvas id="chartTeamTrend"></canvas></div>
+      <div class="chart-card"><h3>🏆 代理人佣金排名</h3><canvas id="chartRanking"></canvas></div>
+      <div class="chart-card"><h3>📊 月度佣金趨勢（全團隊）</h3><canvas id="chartTeamTrend"></canvas></div>
     </div>
 
     <!-- Performance Table -->
@@ -416,11 +409,11 @@ tr:hover td{background:var(--blue50)}
     </div>
     <div style="margin-bottom:14px">
       <label style="font-size:12px;color:var(--gray500);font-weight:500;display:block;margin-bottom:4px">新 PIN 碼（4-6 位數字）</label>
-      <input type="text" style="-webkit-text-security:disc;text-security:disc" inputmode="numeric" id="resetPinInput" placeholder="輸入新 PIN 碼" maxlength="6"  pattern="[0-9]*" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px">
+      <input type="password" id="resetPinInput" placeholder="輸入新 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px">
     </div>
     <div style="margin-bottom:14px">
       <label style="font-size:12px;color:var(--gray500);font-weight:500;display:block;margin-bottom:4px">確認新 PIN 碼</label>
-      <input type="text" style="-webkit-text-security:disc;text-security:disc" inputmode="numeric" id="resetPinConfirm" placeholder="再次輸入新 PIN 碼" maxlength="6"  pattern="[0-9]*" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px">
+      <input type="password" id="resetPinConfirm" placeholder="再次輸入新 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px">
     </div>
     <div id="resetPinStatus" style="border-radius:8px;padding:12px;margin-bottom:14px;font-size:12px;display:none"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end">
@@ -592,8 +585,7 @@ function doMgrLogin() {
   var hdr = document.getElementById('mgrNameDisplay');
   if (hdr) hdr.textContent = role + '：' + name;
   render();
-  try { mgrAutoLoadIfCloud(); } catch(e) { console.warn('auto load cloud failed', e); }
-  toast('登入成功！自動載入團隊數據中...');
+  toast('登入成功！請按「載入團隊數據」查看下屬資料');
   btn.textContent = '登入'; btn.disabled = false;
 }
 
@@ -637,7 +629,6 @@ function unlockOK(){
   var hdr = document.getElementById('mgrNameDisplay');
   if(hdr && mgrName) hdr.textContent = (mgrRole?mgrRole+'：':'經理：') + mgrName;
   render();
-  try { mgrAutoLoadIfCloud(); } catch(e) { console.warn('auto load cloud failed', e); }
 }
 
 function doResetMgr(){
@@ -1012,13 +1003,6 @@ function mgrShowAll() {
   }
 }
 
-function mgrAutoLoadIfCloud(){
-  if(!MGR_CLOUD_ENABLED){ return; }
-  if(typeof mgrLoadFromCloud !== 'function'){ return; }
-  // 解鎖後自動載入雲端團隊數據，唔使每次手撳（失敗會有 toast 提示，手動掣仍可用）
-  toast('☁️ 自動載入團隊數據中...', 'info');
-  setTimeout(function(){ mgrLoadFromCloud(); }, 400);
-}
 function mgrLoadFromCloud() {
   // 防止重複點擊
   var btn = document.getElementById('mgrCloudBtn');
@@ -1284,17 +1268,6 @@ function drillToRoot(name){
 function render(){
   var agentNames = getTree(currentRoot);
   if(agentNames.length===0)return;
-  // v4.0.0: 職級修正映射表 — 雲端 role 欄位未更新時，以此為準
-  var ROLE_CORRECTIONS = {
-    'WONG WAI KIT': 'SDM',
-    'HUI YUEN SHU': 'ASM',
-    'TSANG OI TING': 'SASM'
-  };
-  agentNames.forEach(function(a){
-    if (ROLE_CORRECTIONS[a] && TEAM[a]) {
-      TEAM[a].role = ROLE_CORRECTIONS[a];
-    }
-  });
   var rootName = currentRoot || '全團隊';
 
   // Summary
@@ -1324,19 +1297,7 @@ function render(){
     var mpc=0,ypc=0;
     if(d.pcs) d.pcs.forEach(function(pc){var dt=new Date(pc.date);if(dt.getMonth()===m&&dt.getFullYear()===y)mpc+=Number(pc.amount)||0;if(dt.getFullYear()===y)ypc+=Number(pc.amount)||0;});
     var me=0;d.expenses.forEach(function(e){var dt=new Date(e.date);if(dt.getMonth()===m&&dt.getFullYear()===y)me+=Number(e.amount)||0;});
-    var goalRate=0, rgStart=null, rgEnd=null, rgTarget=0;
-    (d.goals||[]).forEach(function(g){
-      if(g.period==='monthly'&&g.year===y&&g.month===m+1&&g.target>0){goalRate=Math.round(mc/g.target*100);}
-      else if(g.period==='range'&&g.target>0){
-        var rsm=(g.startMonth||1)-1, rem=(g.endMonth||12)-1;
-        var rsd=g.startDay||1, red=g.endDay||new Date(g.endYear,(g.endMonth||12),0).getDate();
-        if((g.startYear<y||(g.startYear===y&&rsm<=m))&&(g.endYear>y||(g.endYear===y&&rem>=m))){ rgStart=new Date(g.startYear,rsm,rsd); rgEnd=new Date(g.endYear,rem,red,23,59,59,999); rgTarget=g.target; }
-      }
-    });
-    if(goalRate===0 && rgTarget>0){
-      var rgComm = d.commissions.filter(function(c){var dt=new Date(c.date);return dt>=rgStart&&dt<=rgEnd;}).reduce(function(s,c){return s+(Number(c.amount)||0);},0);
-      goalRate=Math.round(rgComm/rgTarget*100);
-    }
+    var goalRate=0;(d.goals||[]).forEach(function(g){if(g.period==='monthly'&&g.year===y&&g.month===m+1&&g.target>0)goalRate=Math.round(mc/g.target*100);});
     ranks.push({name:a,role:d.role||'Agent',clients:d.clients.length,policies:d.policies.length,monthComm:mc,yearComm:yc,monthPC:mpc,yearPC:ypc,expenses:me,goalRate:Math.min(goalRate,999),net:mc-me,supervisor:d.supervisor||''});
   });
   var roleOrder={'SDD':1,'DD':2,'SDM':3,'DM':4,'SASM':5,'ASM':6,'Agent':7};
@@ -1344,9 +1305,9 @@ function render(){
     var ra=roleOrder[a.role]||99;
     var rb=roleOrder[b.role]||99;
     if(ra!==rb)return ra-rb;
-    return b.monthPC-a.monthPC;
+    return b.monthComm-a.monthComm;
   });
-  var maxPC=ranks.length>0?ranks[0].monthPC:1;
+  var maxComm=ranks.length>0?ranks[0].monthComm:1;
   var roleColors={'SDD':'#1e40af','DD':'#2563eb','SDM':'#3b82f6','DM':'#60a5fa','SASM':'#93c5fd','ASM':'#bfdbfe','Agent':'#e5e7eb'};
   var tableHtml='';
   ranks.forEach(function(r,i){
@@ -1376,7 +1337,7 @@ function render(){
   }
 
   // Ranking chart
-  if(chartLib)renderCharts(ranks,maxPC,agentNames,y,m);
+  if(chartLib)renderCharts(ranks,maxComm,agentNames,y,m);
 
   // Detail panel
   if(selectedAgent)renderDetail();
@@ -1388,18 +1349,18 @@ function render(){
 // ============================================================
 // CHARTS
 // ============================================================
-function renderCharts(ranks,maxPC,agentNames,y,m){
+function renderCharts(ranks,maxComm,agentNames,y,m){
   if(!chartLib)return;
   var isMobile = window.innerWidth <= 768;
   var topCount = isMobile ? 8 : 15;
-  var top=ranks.slice(0,topCount),labels=top.map(function(r){return r.name;}),data=top.map(function(r){return r.monthPC;});
+  var top=ranks.slice(0,topCount),labels=top.map(function(r){return r.name;}),data=top.map(function(r){return r.monthComm;});
   if(chartInstances['chartRanking'])chartInstances['chartRanking'].destroy();
-  chartInstances['chartRanking']=new chartLib(document.getElementById('chartRanking'),{type:'bar',data:{labels:labels,datasets:[{data:data,backgroundColor:'#3b82f6',borderRadius:6}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{callback:function(v){return 'PC '+Number(v).toLocaleString()}}},y:{ticks:{font:{size:isMobile?10:12}}}}}});
+  chartInstances['chartRanking']=new chartLib(document.getElementById('chartRanking'),{type:'bar',data:{labels:labels,datasets:[{data:data,backgroundColor:'#3b82f6',borderRadius:6}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{callback:function(v){return'HK$'+v.toLocaleString()}}},y:{ticks:{font:{size:isMobile?10:12}}}}}});
 
   if(chartInstances['chartTeamTrend'])chartInstances['chartTeamTrend'].destroy();
   var tlabels=[],tdata=[];
-  for(var i=5;i>=0;i--){var dm=new Date(y,m-i,1);tlabels.push(dm.getFullYear()+'/'+(dm.getMonth()+1));var ts=0;agentNames.forEach(function(a){if(TEAM[a].pcs)TEAM[a].pcs.forEach(function(pc){var d=new Date(pc.date);if(d.getMonth()===dm.getMonth()&&d.getFullYear()===dm.getFullYear())ts+=Number(pc.amount)||0;});});tdata.push(ts);}
-  chartInstances['chartTeamTrend']=new chartLib(document.getElementById('chartTeamTrend'),{type:'line',data:{labels:tlabels,datasets:[{data:tdata,borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,0.1)',fill:true,tension:0.4,pointRadius:isMobile?3:4,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:isMobile?10:12}}},y:{beginAtZero:true,ticks:{callback:function(v){return 'PC '+Number(v).toLocaleString()}}}}}});
+  for(var i=5;i>=0;i--){var dm=new Date(y,m-i,1);tlabels.push(dm.getFullYear()+'/'+(dm.getMonth()+1));var ts=0;agentNames.forEach(function(a){TEAM[a].commissions.forEach(function(c){var d=new Date(c.date);if(d.getMonth()===dm.getMonth()&&d.getFullYear()===dm.getFullYear())ts+=Number(c.amount)||0;});});tdata.push(ts);}
+  chartInstances['chartTeamTrend']=new chartLib(document.getElementById('chartTeamTrend'),{type:'line',data:{labels:tlabels,datasets:[{data:tdata,borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,0.1)',fill:true,tension:0.4,pointRadius:isMobile?3:4,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:isMobile?10:12}}},y:{beginAtZero:true,ticks:{callback:function(v){return'HK$'+v.toLocaleString()}}}}}});
 }
 
 // ============================================================
@@ -1713,10 +1674,10 @@ function renderDetailContent(){
     else{html='<table><thead><tr><th>日期</th><th>分類</th><th>金額</th><th>付款方式</th><th>備註</th></tr></thead><tbody>';d.expenses.forEach(function(e){html+='<tr><td>'+esc(df(e.date))+'</td><td><span class="badge badge-gray">'+esc(e.category)+'</span></td><td class="amt-neg">'+money(e.amount)+'</td><td>'+esc(e.payment||'—')+'</td><td>'+(e.notes?esc(e.notes):'—')+'</td></tr>';});html+='</tbody></table>';}
   }else if(detailTab==='schedules'){
     if(!d.schedules||d.schedules.length===0)html='<div class="empty">無行程記錄</div>';
-    else{html='<table><thead><tr><th>日期</th><th>時間</th><th>客戶</th><th>目的</th><th>地點</th><th>活動</th><th>狀態</th><th>會面筆記</th><th>跟進事項</th></tr></thead><tbody>';d.schedules.forEach(function(s){var sc=s.status==='已完成'?'badge-green':s.status==='已確認'?'badge-blue':s.status==='已取消'?'badge-red':'badge-yellow';var mn=s.meetingNotes?'<div style="font-size:11px;white-space:pre-wrap;max-width:200px;overflow:hidden;text-overflow:ellipsis">'+esc(s.meetingNotes.substring(0,100))+(s.meetingNotes.length>100?'...':'')+'</div>':'—';var fu=s.followUp?'<div style="font-size:11px;color:#a16207;white-space:pre-wrap;max-width:200px;overflow:hidden;text-overflow:ellipsis">'+esc(s.followUp.substring(0,100))+(s.followUp.length>100?'...':'')+'</div>':'—';html+='<tr><td>'+esc(dfHK(s.date))+'</td><td>'+esc(parseScheduleTime(s.startTime))+'-'+esc(parseScheduleTime(s.endTime))+'</td><td>'+esc(s.clientName||'—')+'</td><td>'+esc(s.purpose||'—')+'</td><td>'+esc(s.location||'—')+'</td><td>'+esc(s.activity||'—')+'</td><td><span class="badge '+sc+'">'+esc(s.status)+'</span></td><td>'+mn+'</td><td>'+fu+'</td></tr>';});html+='</tbody></table>';}
+    else{html='<table><thead><tr><th>日期</th><th>時間</th><th>客戶</th><th>目的</th><th>地點</th><th>狀態</th><th>會面筆記</th><th>跟進事項</th></tr></thead><tbody>';d.schedules.forEach(function(s){var sc=s.status==='已完成'?'badge-green':s.status==='已確認'?'badge-blue':s.status==='已取消'?'badge-red':'badge-yellow';var mn=s.meetingNotes?'<div style="font-size:11px;white-space:pre-wrap;max-width:200px;overflow:hidden;text-overflow:ellipsis">'+esc(s.meetingNotes.substring(0,100))+(s.meetingNotes.length>100?'...':'')+'</div>':'—';var fu=s.followUp?'<div style="font-size:11px;color:#a16207;white-space:pre-wrap;max-width:200px;overflow:hidden;text-overflow:ellipsis">'+esc(s.followUp.substring(0,100))+(s.followUp.length>100?'...':'')+'</div>':'—';html+='<tr><td>'+esc(df(s.date))+'</td><td>'+esc(s.startTime||'')+'-'+esc(s.endTime||'')+'</td><td>'+esc(s.clientName||'—')+'</td><td>'+esc(s.purpose||'—')+'</td><td>'+esc(s.location||'—')+'</td><td><span class="badge '+sc+'">'+esc(s.status)+'</span></td><td>'+mn+'</td><td>'+fu+'</td></tr>';});html+='</tbody></table>';}
   }else if(detailTab==='goals'){
     if(!d.goals||d.goals.length===0)html='<div class="empty">無目標記錄</div>';
-    else{html='<table><thead><tr><th>類型</th><th>週期</th><th>年份</th><th>月份/季度</th><th>目標金額</th><th>描述</th></tr></thead><tbody>';var mn=['','1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];d.goals.forEach(function(g){var per=esc(g.period==='monthly'?'月度':g.period==='quarterly'?'季度':g.period==='range'?'跨月':'年度');var perVal=esc(g.period==='monthly'?mn[g.month||1]:g.period==='quarterly'?'Q'+g.quarter:g.period==='range'?(g.startYear+'-'+(g.startMonth||1)+'-'+(g.startDay||1)+' 至 '+g.endYear+'-'+(g.endMonth||12)+'-'+((g.endDay)||new Date(g.endYear,(g.endMonth||12),0).getDate())):'全年');var yrCol=g.period==='range'?(g.startYear+'→'+g.endYear):g.year;html+='<tr><td>'+esc(g.type)+'</td><td>'+per+'</td><td>'+yrCol+'</td><td>'+perVal+'</td><td>'+money(g.target)+'</td><td>'+esc(g.desc||'—')+'</td></tr>';});html+='</tbody></table>';}
+    else{html='<table><thead><tr><th>類型</th><th>週期</th><th>年份</th><th>月份/季度</th><th>目標金額</th><th>描述</th></tr></thead><tbody>';var mn=['','1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];d.goals.forEach(function(g){html+='<tr><td>'+esc(g.type)+'</td><td>'+esc(g.period==='monthly'?'月度':g.period==='quarterly'?'季度':'年度')+'</td><td>'+g.year+'</td><td>'+esc(g.period==='monthly'?mn[g.month||1]:g.period==='quarterly'?'Q'+g.quarter:'全年')+'</td><td>'+money(g.target)+'</td><td>'+esc(g.desc||'—')+'</td></tr>';});html+='</tbody></table>';}
   }
   document.getElementById('detailContent').innerHTML=html;
 }
@@ -2317,29 +2278,8 @@ function doRegisterMgr() {
 // ============================================================
 function money(n){return'HK$ '+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function df(s){if(!s)return'';var d=new Date(s);return isNaN(d)?'':d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
-function dfHK(s){if(!s)return'';var d=new Date(s);if(isNaN(d))return'';return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();}
 function parseScheduleDate(s){if(!s)return'';if(typeof s!=='string')s=String(s);if(s.indexOf('T')!==-1)return s.split('T')[0];return df(s);}
-function parseScheduleTime(s){
-  if(!s)return'';
-  if(typeof s!=='string')s=String(s);
-  function ap(h){ return h<12?'上午':'下午'; }
-  // 已經係 HH:MM（無上下午字）
-  var mHM=s.match(/^(\d{1,2}):(\d{2})$/);
-  if(mHM){var h0=parseInt(mHM[1],10);return ap(h0)+String(h0).padStart(2,'0')+':'+mHM[2];}
-  // ISO 日期
-  if(s.indexOf('T')!==-1){var tp=s.split('T')[1]||'';var m=tp.match(/^(\d{2}):(\d{2})/);return m?ap(parseInt(m[1],10))+m[1]+':'+m[2]:'';}
-  // 12 小時制：2:00 PM / 下午2:30 / 上午9:00 → 下午14:00
-  var lc=s.toLowerCase();
-  var isPM=/(pm|下午|晏)/.test(lc), isAM=/(am|上午|朝)/.test(lc);
-  var tm12=s.match(/(\d{1,2}):(\d{2})/);
-  if(tm12&&(isPM||isAM)){
-    var hh=parseInt(tm12[1],10), mm=parseInt(tm12[2],10);
-    if(isPM&&hh<12)hh+=12;
-    if(isAM&&hh===12)hh=0;
-    return ap(hh)+String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0');
-  }
-  return s;
-}
+function parseScheduleTime(s){if(!s)return'';if(typeof s!=='string')s=String(s);if(s.indexOf('T')!==-1){var tp=s.split('T')[1]||'';var m=tp.match(/^(\d{2}):(\d{2})/);return m?m[1]+':'+m[2]:'';}var m=s.match(/^(\d{2}):(\d{2})/);return m?m[1]+':'+m[2]:s;}
 function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function toast(msg,type){type=type||'success';var el=document.createElement('div');el.className='toast toast-'+type;el.textContent=msg;document.getElementById('toastBox').appendChild(el);setTimeout(function(){el.remove()},2600);}
 
@@ -2349,16 +2289,9 @@ function toast(msg,type){type=type||'success';var el=document.createElement('div
 var _chartReady = new Promise(function(resolve){
   var _resolved = false;
   var s=document.createElement('script');
-  s.src='./chart.umd.min.js';
+  s.src='https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
   s.onload=function(){chartLib=Chart;_resolved=true;resolve(true);};
-  s.onerror=function(){
-    console.warn('本地 Chart.js 載入失敗，轉用 CDN');
-    var c=document.createElement('script');
-    c.src='https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
-    c.onload=function(){chartLib=Chart;_resolved=true;resolve(true);};
-    c.onerror=function(){console.warn('Chart.js unavailable');_resolved=true;resolve(false);};
-    document.head.appendChild(c);
-  };
+  s.onerror=function(){console.warn('Chart.js unavailable');_resolved=true;resolve(false);};
   document.head.appendChild(s);
 });
 function whenReady(fn){ return _chartReady.then(function(){ fn(); }); }
@@ -2367,87 +2300,10 @@ if (MGR_CLOUD_ENABLED && document.getElementById('mgrCloudBtn')) document.getEle
 initLock();
 initActivitySelectors();
 updateActivitySelectorVisibility();
-
-// ===== 團隊 Excel 備份匯出（按需載入 SheetJS，離線首次會緩存）=====
-function ensureXLSX(cb){
-  if (window.XLSX) return cb();
-  var s=document.createElement('script');
-  s.src='xlsx.full.min.js';
-  s.onload=cb;
-  s.onerror=function(){ toast('⚠️ Excel 庫載入失敗（請檢查網絡或離線緩存）','error'); };
-  document.head.appendChild(s);
-}
-function unionKeys(arr){
-  var seen={}, headers=[];
-  (arr||[]).forEach(function(o){
-    if(o && typeof o==='object'){ Object.keys(o).forEach(function(k){ if(!(k in seen)){ seen[k]=1; headers.push(k); } }); }
-  });
-  return headers;
-}
-function forceTextCols(ws){
-  if(!ws||!ws['!ref']||!window.XLSX) return;
-  var range=XLSX.utils.decode_range(ws['!ref']);
-  var hdr={};
-  for(var c=range.s.c;c<=range.e.c;c++){
-    var hc=ws[XLSX.utils.encode_cell({r:range.s.r,c:c})];
-    if(hc&&hc.v!=null) hdr[c]=String(hc.v);
-  }
-  for(var c2=range.s.c;c2<=range.e.c;c2++){
-    var nm=hdr[c2]||'';
-    if(/date|time|日期|時間|投保/i.test(nm)){
-      for(var r=range.s.r+1;r<=range.e.r;r++){
-        var ad=XLSX.utils.encode_cell({r:r,c:c2});
-        var cell=ws[ad];
-        if(cell&&cell.v!=null){ cell.t='s'; cell.v=String(cell.v); cell.z='@'; }
-      }
-    }
-  }
-}
-function exportTeamXLSX(){
-  ensureXLSX(function(){
-    try{
-      if(!TEAM || !Object.keys(TEAM).length){ toast('⚠️ 尚無團隊數據，請先載入','error'); return; }
-      var keys=['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'];
-      var labels={clients:'客戶',policies:'保單',commissions:'佣金',expenses:'開支',goals:'目標',schedules:'日程',pcs:'PC',incomes:'收入'};
-      var sheets={};
-      keys.forEach(function(k){
-        var combined=[];
-        Object.keys(TEAM).forEach(function(an){ (TEAM[an][k]||[]).forEach(function(o){ combined.push(o); }); });
-        if(!combined.length){ sheets[labels[k]]=[['（無資料）']]; return; }
-        var headers=unionKeys(combined);
-        var rows=[['代理人'].concat(headers)];
-        Object.keys(TEAM).forEach(function(an){
-          (TEAM[an][k]||[]).forEach(function(o){
-            var row=[an].concat(headers.map(function(h){
-              var v=o?o[h]:'';
-              if(v && typeof v==='object') return JSON.stringify(v);
-              return v==null?'':v;
-            }));
-            rows.push(row);
-          });
-        });
-        sheets[labels[k]]=rows;
-      });
-      var ov=[['代理人','所屬經理','團隊','客戶數','保單數','佣金總額','PC數','目標數']];
-      Object.keys(TEAM).forEach(function(an){
-        var d=TEAM[an]||{};
-        var commTotal=(d.commissions||[]).reduce(function(s,c){ return s+(Number(c.amount)||0); },0);
-        ov.push([an, d.managerName||'', d.team||'', (d.clients||[]).length, (d.policies||[]).length, commTotal, (d.pcs||[]).length, (d.goals||[]).length]);
-      });
-      sheets['團隊總覽']=ov;
-      var wb=XLSX.utils.book_new();
-      Object.keys(sheets).forEach(function(name){
-        var ws=XLSX.utils.aoa_to_sheet(sheets[name]);
-        forceTextCols(ws);
-        XLSX.utils.book_append_sheet(wb, ws, name.slice(0,31));
-      });
-      XLSX.writeFile(wb, 'team_backup_'+new Date().toISOString().slice(0,10)+'.xlsx');
-      toast('✅ 已匯出團隊 Excel 備份（'+Object.keys(sheets).length+' 個工作表）');
-    }catch(e){ console.error(e); toast('匯出失敗：'+(e&&e.message||e),'error'); }
-  });
-}
 </script>
-<script src="./sw-register.js"></script>
+<script>
+if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(function(r){console.log('[PWA] Service Worker 已註冊:',r.scope);}).catch(function(e){console.warn('[PWA] SW 註冊失敗:',e);});}
+</script>
 
 <!-- MANAGER CLOUD SETUP MODAL -->
 <style>
@@ -2533,15 +2389,15 @@ function exportTeamXLSX(){
       <h4>修改 PIN 碼</h4>
       <div class="form-group">
         <label>目前 PIN 碼</label>
-        <input type="text" style="-webkit-text-security:disc;text-security:disc" inputmode="numeric" id="acctOldPin" placeholder="••••" maxlength="6"  autocomplete="off">
+        <input type="password" id="acctOldPin" placeholder="••••" maxlength="6" inputmode="numeric" autocomplete="off">
       </div>
       <div class="form-group">
         <label>新 PIN 碼（4-6 位數字）</label>
-        <input type="text" style="-webkit-text-security:disc;text-security:disc" inputmode="numeric" id="acctNewPin" placeholder="••••" maxlength="6"  autocomplete="off">
+        <input type="password" id="acctNewPin" placeholder="••••" maxlength="6" inputmode="numeric" autocomplete="off">
       </div>
       <div class="form-group">
         <label>確認新 PIN 碼</label>
-        <input type="text" style="-webkit-text-security:disc;text-security:disc" inputmode="numeric" id="acctNewPin2" placeholder="••••" maxlength="6"  autocomplete="off">
+        <input type="password" id="acctNewPin2" placeholder="••••" maxlength="6" inputmode="numeric" autocomplete="off">
       </div>
       <div class="acct-err" id="acctPinErr"></div>
       <div class="modal-actions" style="margin-top:8px">
@@ -2554,50 +2410,17 @@ function exportTeamXLSX(){
 <script>
 // v3.9.0: 強制解除舊 SW + Supabase fetch 加 ?apikey= 後備
 (function(){
-  var SAFE_MODE = /[?&]nosw=1/.test(location.search);
-  var CURRENT_VER = MGR_VER;
+  var CURRENT_VER = 'v3.9.5';
   window.MGR_CURRENT_VER = CURRENT_VER;
-  if (SAFE_MODE) { localStorage.setItem('mgr_app_version', CURRENT_VER); return; }
   // sync script 已經處理咗 cache，呢度只係 fallback
   var cachedVer = localStorage.getItem('mgr_app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     localStorage.setItem('mgr_app_version', CURRENT_VER);
-    // 防 loop 保護：同一 session 只准 reload 一次
-    var already=false; try{ already=sessionStorage.getItem('mgr_reloaded_once'); }catch(e){}
-    if(!already){
-      try{ sessionStorage.setItem('mgr_reloaded_once','1'); }catch(e){}
-      location.replace(location.href.split('?')[0] + '?v=' + Date.now());
-    }
+    location.replace(location.href.split('?')[0] + '?v=' + Date.now());
     return;
   }
   localStorage.setItem('mgr_app_version', CURRENT_VER);
 })();
-</script>
-<script>
-// PIN 輸入框（改用文字+遮罩）只允許數字，避免 iOS/微信彈唔到鍵盤
-(function(){
-  function bindPinFilter(){
-    var pins = document.querySelectorAll('input[style*="text-security"]');
-    for (var i=0;i<pins.length;i++){
-      (function(el){
-        el.addEventListener('input', function(){
-          var v = el.value.replace(/\D/g,'');
-          if (v !== el.value) el.value = v;
-        });
-      })(pins[i]);
-    }
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindPinFilter);
-  else bindPinFilter();
-})();
-</script>
-<script>
-// v4.0.1: 註冊 Service Worker（network-first），確保 iPad/手機永遠用最新版 HTML
-if ('serviceWorker' in navigator && !/[?&]nosw=1/.test(location.search)) {
-  window.addEventListener('load', function() {
-    navigator.serviceWorker.register('sw.js').catch(function(err){ console.warn('[SW] 註冊失敗:', err); });
-  });
-}
 </script>
 </body>
 </html>
