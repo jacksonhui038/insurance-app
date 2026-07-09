@@ -1010,10 +1010,15 @@ function saveToSupabase(callback) {
   function doUpload() {
     var mgr = assignedManager || localStorage.getItem('insurance_mgr_'+encodeURIComponent(agentName)) || '';
     var team = assignedTeam || localStorage.getItem('insurance_team_'+encodeURIComponent(agentName)) || '';
+    // v3.9.9: 修正 top-level manager column 被 localStorage 舊值覆蓋 — 優先使用 uploadData.manager（雲端 data.manager），再 fallback 去 localStorage
+    var uploadData = buildUploadData();
+    if (uploadData && uploadData.manager && (!mgr || mgr !== uploadData.manager)) {
+      mgr = uploadData.manager;
+      localStorage.setItem('insurance_mgr_'+encodeURIComponent(agentName), mgr);
+    }
     // v3.6.0: 發送前修復所有壞時間格式
     fixAllScheduleTimes(false);
     // v3.9.5: 用 buildUploadData() 取代直接 Object.assign({},DB)，確保保留 role/manager/team 同雲端既有記錄（MERGE 唔係 REPLACE）
-    var uploadData = buildUploadData();
     var payload = JSON.stringify({name:agentName,data:uploadData,manager:mgr,team:team});
     var payloadSize = new Blob([payload]).size;
     if (payloadSize > 5 * 1024 * 1024) console.warn('[saveToSupabase] Payload size:', Math.round(payloadSize/1024), 'KB');
