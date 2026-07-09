@@ -180,7 +180,7 @@ tr:hover td{background:var(--blue50)}
       </div>
       <hr style="border:none;border-top:1px solid var(--gray200);margin:14px 0">
       <button class="btn btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="padding:10px;font-size:13px;width:100%">🔄 切換到經理版</button>
-      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.9.5</p>
+      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.9.8</p>
     </div>
     <!-- LOGIN MODE -->
     <div id="loginMode" style="display:none">
@@ -199,7 +199,7 @@ tr:hover td{background:var(--blue50)}
     <div id="registerMode" style="display:none">
       <h3>📝 註冊新帳戶</h3>
       <p style="color:var(--gray500);margin-bottom:6px">設定你嘅姓名同 PIN 碼</p>
-      <div class="form-group"><label>姓名 <span style="color:var(--red500)">*</span> <span style="font-size:11px;color:var(--gray400)">⚠️ 確認後不可更改（英文全大寫）</span></label><input type="text" id="nameInput" placeholder="例如：CHAN TAI MAN" style="text-transform:uppercase" oninput="this.value=this.value.replace(/[^a-zA-Z\s]/g,'').toUpperCase()" onkeypress="return /[a-zA-Z\s]/.test(event.key)"></div>
+      <div class="form-group"><label>姓名 <span style="color:var(--red500)">*</span> <span style="font-size:11px;color:var(--red500);font-weight:600">⚠️ 必須為英文全名大寫（例：CHAN TAI MAN），確認後不可更改</span></label><input type="text" id="nameInput" placeholder="英文全名大寫，例如：CHAN TAI MAN" style="text-transform:uppercase" oninput="this.value=this.value.replace(/[^a-zA-Z\s]/g,'').toUpperCase()" onkeypress="return /[a-zA-Z\s]/.test(event.key)"></div>
       <div class="form-group"><label>PIN 碼（4-6 位數字）</label><input type="password" id="pinInput" placeholder="設定 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off"></div>
       <div class="form-group"><label>確認 PIN 碼</label><input type="password" id="pinConfirm" placeholder="再次輸入 PIN 碼" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off"></div>
       <hr style="border:none;border-top:1px solid var(--gray200);margin:14px 0">
@@ -1700,6 +1700,9 @@ function saveName() {
   var errEl = document.getElementById('regErr');
   errEl.style.display = 'none';
   if (!n) { errEl.textContent = '請輸入姓名'; errEl.style.display = 'block'; return; }
+  // v3.9.8: 強制英文全名大寫，唔係大寫唔比過關
+  if (!/^[A-Z\s]+$/.test(n)) { errEl.textContent = '⚠️ 姓名必須為英文全名大寫（只可 A–Z 及空格，不可有小寫/數字/中文），例如 CHAN TAI MAN'; errEl.style.display = 'block'; return; }
+  if (!/\s/.test(n.trim())) { errEl.textContent = '⚠️ 請輸入完整英文名（名 + 姓，中間留空格），例如 CHAN TAI MAN'; errEl.style.display = 'block'; return; }
   if (!pin || pin.length < 4) { errEl.textContent = 'PIN 碼至少 4 位數字'; errEl.style.display = 'block'; return; }
   if (!/^\d+$/.test(pin)) { errEl.textContent = 'PIN 碼只能含數字'; errEl.style.display = 'block'; return; }
   if (pin !== pin2) { errEl.textContent = 'PIN 碼不一致'; errEl.style.display = 'block'; return; }
@@ -2546,7 +2549,7 @@ function afterLoginSync() {
 
 document.addEventListener('DOMContentLoaded',function(){
   // v3.8.5: 手機介面改底部導航
-  var CURRENT_VER = 'v3.9.5';
+  var CURRENT_VER = 'v3.9.8';
   var cachedVer = localStorage.getItem('app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, clearing cache and reloading...');
