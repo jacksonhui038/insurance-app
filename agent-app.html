@@ -3346,14 +3346,20 @@ function onPurposeChange(){
 function normalizeTime(raw) {
   if (!raw) return '';
   var s = String(raw).trim();
-  // 已經係 HH:MM
-  if (/^\d{1,2}:\d{2}$/.test(s)) return s;
-  // 從 ISO 日期抽 HH:MM：1899-12-30T04:23:18.000Z → 04:23
-  var m = s.match(/T(\d{2}:\d{2})/);
-  if (m) return m[1];
-  // 從時間字串抽 HH:MM：04:23:18 → 04:23
-  var m2 = s.match(/(\d{2}:\d{2}):\d{2}/);
-  if (m2) return m2[1];
+  // 輔助：由 24h 小時數決定上下午 prefix
+  function ap(h){ return h < 12 ? '上午' : '下午'; }
+  // 已經係 HH:MM（無上下午字）：補上下午字，保持 24 小時制
+  var mHM = s.match(/^(\d{1,2}):(\d{2})$/);
+  if (mHM) {
+    var h0 = parseInt(mHM[1],10);
+    return ap(h0) + String(h0).padStart(2,'0') + ':' + mHM[2];
+  }
+  // 從 ISO 日期抽 HH:MM：1899-12-30T14:23:18.000Z → 下午14:23
+  var m = s.match(/T(\d{2}):(\d{2})/);
+  if (m) return ap(parseInt(m[1],10)) + m[1] + ':' + m[2];
+  // 從時間字串抽 HH:MM：14:23:18 → 下午14:23
+  var m2 = s.match(/(\d{2}):(\d{2}):\d{2}/);
+  if (m2) return ap(parseInt(m2[1],10)) + m2[1] + ':' + m2[2];
   // Excel 序列日期（小數，0~1 之間）：0.182986 → 04:24
   // 注意：必須 n < 1，因為 Excel 時間值係小數，整數係日期部分
   var n = parseFloat(s);
@@ -3361,9 +3367,9 @@ function normalizeTime(raw) {
     var frac = n % 1;
     var totalMin = Math.round(frac * 24 * 60);
     var h2 = Math.floor(totalMin / 60) % 24, m3 = totalMin % 60;
-    return String(h2).padStart(2,'0')+':'+String(m3).padStart(2,'0');
+    return ap(h2) + String(h2).padStart(2,'0')+':'+String(m3).padStart(2,'0');
   }
-  // 12 小時制：2:00 PM / 2:00pm / 下午2:30 / 上午9:00 → 24 小時
+  // 12 小時制：2:00 PM / 2:00pm / 下午2:30 / 上午9:00 → 下午14:00（24h + 上下午字）
   var lc = s.toLowerCase();
   var isPM = /(pm|下午|晏)/.test(lc), isAM = /(am|上午|朝)/.test(lc);
   var tm12 = s.match(/(\d{1,2}):(\d{2})/);
@@ -3371,7 +3377,7 @@ function normalizeTime(raw) {
     var hh = parseInt(tm12[1],10), mm = parseInt(tm12[2],10);
     if (isPM && hh < 12) hh += 12;
     if (isAM && hh === 12) hh = 0;
-    return String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0');
+    return ap(hh) + String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0');
   }
   return s;
 }
