@@ -2,19 +2,25 @@
 <html lang="zh-HK">
 <head>
 <script>
-var APP_VER='v4.0.1',APP_VER_KEY='app_version';
+var APP_VER='v4.0.2',APP_VER_KEY='app_version';
 (function(){
+  // 安全模式：?nosw=1 跳過版本強制刷新（iPad 卡死時救急用）
+  if (/[?&]nosw=1/.test(location.search)) return;
   var v=localStorage.getItem(APP_VER_KEY)||'';
   var changed = !!(v && v!==APP_VER);
   if(!changed) return;
   console.log('[CacheBuster] '+v+'→'+APP_VER);
   localStorage.setItem(APP_VER_KEY,APP_VER);
-  function doReload(){ location.replace(location.href.split('?')[0]+'?v='+Date.now()); }
+  // 防 loop 保護：同一 session 只准 reload 一次，避免版本號錯配造成無限重載
+  function safeReload(){
+    try { if(sessionStorage.getItem('app_reloaded_once')) return; sessionStorage.setItem('app_reloaded_once','1'); } catch(e){}
+    location.replace(location.href.split('?')[0]+'?v='+Date.now());
+  }
   if('serviceWorker' in navigator){
     navigator.serviceWorker.getRegistrations().then(function(regs){
       return Promise.all(regs.map(function(r){ return r.unregister(); }));
-    }).then(doReload).catch(doReload);
-  } else { doReload(); }
+    }).then(safeReload).catch(safeReload);
+  } else { safeReload(); }
 })();
 </script>
 <meta charset="UTF-8">
@@ -2558,25 +2564,30 @@ function afterLoginSync() {
 }
 
 document.addEventListener('DOMContentLoaded',function(){
+  var SAFE_MODE = /[?&]nosw=1/.test(location.search);
   // v4.0.2: 註冊 Service Worker（network-first），確保 iPad/手機永遠用最新版 HTML，解決「推上少先見到」
-  if ('serviceWorker' in navigator) {
+  if ('serviceWorker' in navigator && !SAFE_MODE) {
     window.addEventListener('load', function() {
       navigator.serviceWorker.register('sw.js').catch(function(err){ console.warn('[SW] 註冊失敗:', err); });
     });
   }
   // v3.8.5: 手機介面改底部導航
-  var CURRENT_VER = 'v4.0.2';
+  var CURRENT_VER = APP_VER;
   var cachedVer = localStorage.getItem('app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, clearing cache and reloading...');
     localStorage.setItem('app_version', CURRENT_VER);
-    // 嘗試清除 HTTP cache（部分瀏覽器支援）
     if (window.caches) {
       caches.keys().then(function(names) {
         names.forEach(function(name) { caches.delete(name); });
       });
     }
-    setTimeout(function(){ window.location.reload(true); }, 500);
+    // 防 loop 保護：同一 session 只准 reload 一次
+    var already=false; try{ already=sessionStorage.getItem('app_reloaded_once'); }catch(e){}
+    if(!already){
+      try{ sessionStorage.setItem('app_reloaded_once','1'); }catch(e){}
+      setTimeout(function(){ window.location.reload(true); }, 500);
+    }
     return;
   }
   localStorage.setItem('app_version', CURRENT_VER);
