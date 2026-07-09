@@ -2,7 +2,7 @@
 <html lang="zh-HK">
 <head>
 <script>// 版本強制刷新：版本號改變時一次性解除舊 SW 並重載，確保用到最新 HTML
-var MGR_VER='v4.0.0',MGR_VER_KEY='mgr_app_version';
+var MGR_VER='v4.0.1',MGR_VER_KEY='mgr_app_version';
 (function(){
   var v=localStorage.getItem(MGR_VER_KEY)||'';
   var changed = !!(v && v!==MGR_VER);
@@ -2578,6 +2578,14 @@ function exportTeamXLSX(){
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindPinFilter);
   else bindPinFilter();
 })();
+</script>
+<script>
+// v4.0.1: 註冊 Service Worker（network-first），確保 iPad/手機永遠用最新版 HTML
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('sw.js').catch(function(err){ console.warn('[SW] 註冊失敗:', err); });
+  });
+}
 </script>
 </body>
 </html>

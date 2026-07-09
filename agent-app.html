@@ -957,6 +957,7 @@ function loadFromGoogleSheets(callback, retry) {
             DB[k] = Object.values(localMap);
           }
         });
+        dedupeSchedules();
         saveDB(); setLastSyncTime();
         if (callback) callback(true);
         else { toast('☁️ 已從雲端合併數據'); renderDashboard(); renderCurrentTab(); }
@@ -1127,6 +1128,7 @@ function loadFromSupabase(callback) {
       });
       // v3.6.0: 修復雲端帶入嘅壞時間格式（Excel/ISO 日期）
       fixAllScheduleTimes(true);
+      dedupeSchedules();
       saveDB(); setLastSyncTime();
       if (callback) callback(true);
       else { toast('☁️ 已從 Supabase 合併數據'); renderDashboard(); renderCurrentTab(); }
@@ -1189,6 +1191,7 @@ function loadDB() {
 }
 
 function saveDB() {
+  dedupeSchedulesSilent(); // v4.0.2: 每次儲存前先去重，防止重複行程累積（解決數據唔穩定）
   var storeKey = getStoreKey();
   try {
     localStorage.setItem(storeKey, JSON.stringify(DB));
@@ -2541,18 +2544,28 @@ function afterLoginSync() {
         setTimeout(function(){ saveToSupabase(function(ok2){
           if (ok2) { setLastSyncTime(); document.getElementById('lastSyncTime').textContent = getLastSyncTime(); }
           else { console.warn('[afterLoginSync] 上傳 Supabase 失敗，下次登入會自動重試'); }
+          renderDashboard(); renderCurrentTab(); // v4.0.2: 同步後重新渲染，避免行程表顯示中間狀態
         }); }, 1500);
       } else if (isDBEmpty()) {
         console.warn('[afterLoginSync] 本地無數據，跳過自動上傳，避免清空白雲端');
         if (!ok) toast('⚠️ 雲端下載失敗，已跳過自動上傳（雲端資料保留）', 'error');
+        renderDashboard(); renderCurrentTab();
+      } else {
+        renderDashboard(); renderCurrentTab();
       }
     });
   }
 }
 
 document.addEventListener('DOMContentLoaded',function(){
+  // v4.0.2: 註冊 Service Worker（network-first），確保 iPad/手機永遠用最新版 HTML，解決「推上少先見到」
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function() {
+      navigator.serviceWorker.register('sw.js').catch(function(err){ console.warn('[SW] 註冊失敗:', err); });
+    });
+  }
   // v3.8.5: 手機介面改底部導航
-  var CURRENT_VER = 'v4.0.1';
+  var CURRENT_VER = 'v4.0.2';
   var cachedVer = localStorage.getItem('app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, clearing cache and reloading...');
@@ -3410,6 +3423,24 @@ function fixAllScheduleTimes(forceSave) {
   });
   if (fixed > 0 && forceSave !== false) saveDB();
   return fixed;
+}
+// v4.0.2: 行程表去重（silent 版，唔會再 call saveDB，避免遞歸），防止跨裝置編輯累積重複
+function dedupeSchedulesSilent() {
+  if (!DB || !DB.schedules) return 0;
+  var seen = {}, dups = 0, kept = [];
+  DB.schedules.forEach(function(s) {
+    var key = (String(s.date||'').slice(0,10)) + '|' + normalizeTime(s.startTime) + '|' + normalizeTime(s.endTime) + '|' + (s.clientName||'') + '|' + (s.purpose||'') + '|' + (s.activity||'');
+    if (seen[key]) { dups++; return; }
+    seen[key] = true; kept.push(s);
+  });
+  if (dups > 0) DB.schedules = kept;
+  return dups;
+}
+// v4.0.2: 行程表去重（含儲存），防止跨裝置編輯累積重複紀錄 → 解決「數據唔穩定」
+function dedupeSchedules() {
+  var d = dedupeSchedulesSilent();
+  if (d > 0) saveDB();
+  return d;
 }
 function fTime(label, name, slots, selected) {
   var v = normalizeTime(selected) || '10:00';
