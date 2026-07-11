@@ -189,7 +189,7 @@ tr:hover td{background:var(--blue50)}
       </div>
       <hr style="border:none;border-top:1px solid var(--gray200);margin:14px 0">
       <button class="btn btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="padding:10px;font-size:13px;width:100%">🔄 切換到經理版</button>
-      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.9.9</p>
+      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.10.1</p>
     </div>
     <!-- LOGIN MODE -->
     <div id="loginMode" style="display:none">
@@ -829,17 +829,25 @@ var _cloudDataSnapshot = null; // v3.9.5: 登入時下載到嘅雲端 data 快�
 // v3.9.5: 構建上傳用 data —— 以雲端快照為基底，保留 role/manager/team 等 metadata 同雲端既有記錄，
 // 再將本地 8 個資料陣列按 ID 合併（union，本地優先），確保雲端永遠唔會因局部 DB 而失落記錄或被清走 role
 function buildUploadData() {
-  var base = (_cloudDataSnapshot && typeof _cloudDataSnapshot === 'object') ? JSON.parse(JSON.stringify(_cloudDataSnapshot)) : {};
+  // v3.10.1: 以本地 DB 為權威（新增/修改/刪除全部反映本地），
+  // 雲端快照(_cloudDataSnapshot)只補充本地 DB 缺失嘅「頂層 metadata 欄位」(role/manager/team/_pinHash 等)。
+  // 舊版用雲端快照作 base 再 union 本地陣列，會令「本地刪除」永遠傳唔到雲端
+  // (雲端快照仲有被刪項 → union 恢復 → 上傳後經理版仲見到、代理人版再入又恢復)。
+  var base = {};
   ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k){
-    var cloudArr = (base[k] && Array.isArray(base[k])) ? base[k] : [];
-    var localArr = (DB[k] && Array.isArray(DB[k])) ? DB[k] : [];
-    var map = {};
-    cloudArr.forEach(function(it){ if (it && it.id != null) map[it.id] = it; });
-    localArr.forEach(function(it){ if (it && it.id != null) map[it.id] = it; }); // 本地優先
-    base[k] = Object.values(map);
+    base[k] = (DB[k] && Array.isArray(DB[k])) ? DB[k].slice() : []; // 本地優先，刪除即生效
   });
-  // 保留其他 metadata 欄位（role/manager/team 等）；_pinHash 用本地值，否則保留雲端
-  base._pinHash = (agentPIN ? hashPin(agentPIN) : (base._pinHash || ''));
+  // 補充雲端快照嘅 metadata 欄位（非陣列），本地有就用本地，冇就用雲端，避免清走 role/manager/team
+  var META_KEYS = ['role','manager','team','_pinHash','createdAt','registeredAt'];
+  if (_cloudDataSnapshot && typeof _cloudDataSnapshot === 'object') {
+    META_KEYS.forEach(function(mk){
+      if (base[mk] === undefined || base[mk] === null || base[mk] === '') {
+        if (_cloudDataSnapshot[mk] !== undefined) base[mk] = _cloudDataSnapshot[mk];
+      }
+    });
+  }
+  // _pinHash：本地 PIN 優先，否則保留雲端
+  base._pinHash = (agentPIN ? hashPin(agentPIN) : ((_cloudDataSnapshot && _cloudDataSnapshot._pinHash) || ''));
   return base;
 }
 function saveToCloud(callback, retry) {
@@ -2565,7 +2573,7 @@ function afterLoginSync() {
 
 document.addEventListener('DOMContentLoaded',function(){
   // v3.8.5: 手機介面改底部導航
-  var CURRENT_VER = 'v3.9.9';
+  var CURRENT_VER = 'v3.10.1';
   var cachedVer = localStorage.getItem('app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, clearing cache and reloading...');
@@ -3193,7 +3201,11 @@ function openForm(type, id) {
     var sc = id?findById('schedules',id):{};
     var timeSlots = generateTimeSlots();
     var isDone = sc.status === '已完成';
-    h += fg('日期','date','date',sc.date||new Date().toISOString().slice(0,10))
+    // 統一日期格式：ISO → YYYY-MM-DD
+    var scDate = (sc.date||'');
+    if (scDate.indexOf('T') >= 0) scDate = scDate.slice(0,10);
+    if (!scDate) scDate = new Date().toISOString().slice(0,10);
+    h += fg('日期','date','date',scDate)
       +fTime('開始時間','startTime',timeSlots,sc.startTime||'10:00')
       +fTime('結束時間','endTime',timeSlots,sc.endTime||'11:00')
       +fClient('客戶','clientName',sc.clientName||'')
@@ -3378,13 +3390,16 @@ function fTime(label, name, slots, selected) {
   if (!/^\d{2}:\d{2}$/.test(v)) v = '10:00';
   var listId = 'dl_time_'+name;
   var h = '<div class="form-group"><label>'+label+'</label>';
-  h += '<input type="text" id="f_'+name+'" value="'+esc(v)+'" list="'+listId+'" placeholder="揀或輸入時間 (HH:MM)" autocomplete="off" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px" oninput="this.value=this.value.replace(/[^0-9:]/g,\'\')">';
+  // 主輸入：原生 time picker（保證 HH:MM 格式）
+  h += '<div style="display:flex;align-items:center;gap:6px">';
+  h += '<input type="time" id="f_'+name+'" value="'+esc(v)+'" step="900" style="font-size:14px;padding:8px 10px;border:1px solid var(--gray300);border-radius:8px;flex:1;min-width:0" list="'+listId+'">';
+  h += '<button type="button" onclick="document.getElementById(\'f_'+name+'\').showPicker()" style="padding:8px 10px;border:1px solid var(--gray300);border-radius:8px;background:var(--gray50);cursor:pointer;font-size:16px;line-height:1;flex-shrink:0" title="揀時間">🕐</button>';
+  h += '</div>';
+  // datalist 備選（部分瀏覽器支援 time input + datalist）
   h += '<datalist id="'+listId+'">';
-  slots.forEach(function(t){
-    h += '<option value="'+esc(t)+'">';
-  });
+  slots.forEach(function(t){ h += '<option value="'+esc(t)+'">'; });
   h += '</datalist>';
-  h += '<small style="color:var(--gray500);font-size:11px">從下拉揀選，或直接輸入 HH:MM</small>';
+  h += '<small style="color:var(--gray500);font-size:11px">撳 🕐 揀時間（每15分鐘），或直接輸入 HH:MM</small>';
   h += '</div>';
   return h;
 }
@@ -3447,7 +3462,10 @@ function saveForm() {
         toast('✓ 已連結客戶「'+clientName+'」');
       }
     }
-    var o = {id:editId||uid(),date:val('f_date'),startTime:normalizeTime(val('f_startTime')),endTime:normalizeTime(val('f_endTime')),clientName:clientName,purpose:getPurposeValues(),location:val('f_location'),status:val('f_status'),meetingNotes:val('f_meetingNotes'),followUp:val('f_followUp'),notes:val('f_notes')};
+    // 日期統一存 YYYY-MM-DD（type="date" input 本身就係呢個格式）
+    var sDate = val('f_date');
+    if (sDate && sDate.indexOf('T') >= 0) sDate = sDate.slice(0,10);
+    var o = {id:editId||uid(),date:sDate,startTime:normalizeTime(val('f_startTime')),endTime:normalizeTime(val('f_endTime')),clientName:clientName,purpose:getPurposeValues(),location:val('f_location'),status:val('f_status'),meetingNotes:val('f_meetingNotes'),followUp:val('f_followUp'),notes:val('f_notes')};
     saveTo('schedules',o);
   }
   else if (editType === 'income') {
@@ -3477,6 +3495,7 @@ function delClient(id) {
   h += '<p style="color:var(--red500);font-weight:600">⚠️ 確認刪除客戶：「'+esc(c.name)+'」</p>';
   if (policyCount > 0) h += '<p style="color:var(--red500);font-size:12px">此客戶有 '+policyCount+' 份保單，刪除後相關保單不受影響。</p>';
   h += '<p style="font-size:12px;color:var(--gray400)">為安全起見，請輸入此客戶的<b>姓名</b>以確認刪除。</p>';
+  h += '<p style="font-size:11px;color:var(--blue600);font-weight:600">請輸入：'+esc((c.name||'').trim())+'</p>';
   h += '</div>';
   h += '<div class="form-group" style="margin-top:12px"><label>客戶姓名</label><input type="text" id="delClientName" placeholder="輸入姓名確認" style="border-color:var(--red500)"></div>';
   h += '<div id="delClientErr" style="color:var(--red500);font-size:12px;display:none;margin-top:6px"></div>';
@@ -3490,8 +3509,10 @@ function doDelClient(id) {
   if (!c) { closeModal(); return; }
   var inputName = (document.getElementById('delClientName').value||'').trim();
   var errEl = document.getElementById('delClientErr');
-  if (inputName !== c.name.trim()) {
-    errEl.textContent = '姓名不正確，請核對後重新輸入';
+  // 放寬匹配：雙方都 trim + 忽略大小寫（防止 trailing space / 大小寫問題）
+  var targetName = (c.name||'').trim();
+  if (inputName.toLowerCase() !== targetName.toLowerCase()) {
+    errEl.textContent = '姓名不正確，請輸入「'+esc(targetName)+'」以確認刪除';
     errEl.style.display = 'block';
     return;
   }
