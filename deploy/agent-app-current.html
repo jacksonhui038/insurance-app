@@ -189,7 +189,7 @@ tr:hover td{background:var(--blue50)}
       </div>
       <hr style="border:none;border-top:1px solid var(--gray200);margin:14px 0">
       <button class="btn btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="padding:10px;font-size:13px;width:100%">🔄 切換到經理版</button>
-      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.10.2</p>
+      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.10.3</p>
     </div>
     <!-- LOGIN MODE -->
     <div id="loginMode" style="display:none">
@@ -2573,7 +2573,7 @@ function afterLoginSync() {
 
 document.addEventListener('DOMContentLoaded',function(){
   // v3.8.5: 手機介面改底部導航
-  var CURRENT_VER = 'v3.10.2';
+  var CURRENT_VER = 'v3.10.3';
   var cachedVer = localStorage.getItem('app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, clearing cache and reloading...');
@@ -3490,7 +3490,7 @@ function delClient(id) {
   var c = findById('clients', id);
   if (!c) return;
   var policyCount = DB.policies.filter(function(p){ return String(p.clientId)===String(c.id); }).length;
-  // v3.10.2: 最高權限 (SDD) 直接用 confirm 刪除，唔使輸入客戶名
+  // v3.10.3: 最高權限 (SDD) 直接用 confirm 刪除，唔使輸入客戶名
   if (agentRole === 'SDD') {
     var _warn = policyCount > 0 ? '\n（此客戶有 '+policyCount+' 份保單，刪除後保單不受影響）' : '';
     if (!confirm('確定刪除客戶「'+(c.name||'')+'」？'+_warn)) return;
@@ -3534,10 +3534,13 @@ function doDelClient(id) {
 function del(key, id) {
   if (!confirm('確定刪除？')) return;
   DB[key] = DB[key].filter(function(x){ return x.id!==id; });
-  // 如果刪除 incomes，同步刪除對應的 commissions/expenses
+  // 雙向同步：刪除 incomes 時清理 commissions/expenses；刪除 expenses 時清理 incomes
   if (key === 'incomes') {
     DB.commissions = DB.commissions.filter(function(x){ return x.id!==id; });
     DB.expenses = DB.expenses.filter(function(x){ return x.id!==id; });
+  }
+  if (key === 'expenses') {
+    DB.incomes = DB.incomes.filter(function(x){ return x.id!==id; });
   }
   saveDB(); toast('已刪除','error');
   if (CLOUD_ENABLED && agentName) saveDBAutoSync();
