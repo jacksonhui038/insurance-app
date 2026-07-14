@@ -189,7 +189,7 @@ tr:hover td{background:var(--blue50)}
       </div>
       <hr style="border:none;border-top:1px solid var(--gray200);margin:14px 0">
       <button class="btn btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="padding:10px;font-size:13px;width:100%">🔄 切換到經理版</button>
-      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.10.6</p>
+      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.10.7</p>
     </div>
     <!-- LOGIN MODE -->
     <div id="loginMode" style="display:none">
@@ -2599,7 +2599,7 @@ function afterLoginSync() {
 
 document.addEventListener('DOMContentLoaded',function(){
   // v3.8.5: 手機介面改底部導航
-  var CURRENT_VER = 'v3.10.6';
+  var CURRENT_VER = 'v3.10.7';
   var cachedVer = localStorage.getItem('app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, clearing cache and reloading...');
@@ -2927,16 +2927,31 @@ function renderReportCharts(s, e) {
 // ===================================================================
 // GOALS
 // ===================================================================
+function parseYMD(s){ if(!s) return null; var p=String(s).slice(0,10); var a=p.split('-'); if(a.length<3||!a[0]||!a[1]||!a[2]) return null; var d=new Date(Number(a[0]),Number(a[1])-1,Number(a[2])); return isNaN(d.getTime())?null:d; }
 function renderGoals() {
   var now = new Date(), y = now.getFullYear(), m = now.getMonth();
   var h = ''; if (DB.goals.length===0) h='<div class="empty"><div class="icon">🎯</div>尚無目標，點擊新增開始設定</div>';
   else DB.goals.forEach(function(g){
     var mn=['','1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
-    var pl = g.period==='monthly'?g.year+'年'+mn[g.month]:g.period==='quarterly'?g.year+'年Q'+g.quarter:g.year+'年度目標';
+    var pl, actual = 0;
     var isPC = g.type === 'PC';
     var dataSource = isPC ? DB.pcs : DB.commissions;
-    var actual = 0;
-    if (g.period==='monthly') {
+    if (g.period === 'custom') {
+      // 自訂日期：按所選開始/結束範圍計進度（例如 7/20 - 10/20 比賽）
+      pl = (g.startDate||'?') + ' 至 ' + (g.endDate||'?');
+      var cs = parseYMD(g.startDate), ce = parseYMD(g.endDate);
+      if (cs && ce) {
+        actual = dataSource.filter(function(c){
+          var d = parseYMD(c.date);
+          if (d && d >= cs && d <= ce) {
+            if (isPC && g.pcType && g.pcType !== '全部') return c.pcType === g.pcType;
+            return true;
+          }
+          return false;
+        }).reduce(function(s,c){return s+(Number(c.amount)||0);},0);
+      }
+    } else if (g.period==='monthly') {
+      pl = g.year+'年'+mn[g.month];
       actual = dataSource.filter(function(c){
         var d=new Date(c.date);
         if (d.getMonth()===(g.month-1)&&d.getFullYear()===g.year) {
@@ -2946,9 +2961,11 @@ function renderGoals() {
         return false;
       }).reduce(function(s,c){return s+(Number(c.amount)||0);},0);
     } else {
+      var yr = g.year || new Date().getFullYear();
+      pl = (g.period==='quarterly'?yr+'年Q'+g.quarter:yr+'年度目標');
       var s2,e2;
-      if (g.period==='quarterly') { s2=new Date(g.year,(g.quarter-1)*3,1); e2=new Date(g.year,(g.quarter-1)*3+3,0); }
-      else { s2=new Date(g.year,0,1); e2=new Date(g.year,11,31); }
+      if (g.period==='quarterly') { s2=new Date(yr,(g.quarter-1)*3,1); e2=new Date(yr,(g.quarter-1)*3+3,0); }
+      else { s2=new Date(yr,0,1); e2=new Date(yr,11,31); }
       actual = dataSource.filter(function(c){
         var d=new Date(c.date);
         if (d>=s2 && d<=e2) {
@@ -3216,11 +3233,16 @@ function openForm(type, id) {
     var yearOpts = []; for (var yi=yr-2; yi<=yr+3; yi++) yearOpts.push({val:yi, label:yi+'年'});
     var qOpts = [{val:1,label:'Q1 (1-3月)'},{val:2,label:'Q2 (4-6月)'},{val:3,label:'Q3 (7-9月)'},{val:4,label:'Q4 (10-12月)'}];
     var mOpts = []; for (var mi=1; mi<=12; mi++) mOpts.push({val:mi, label:mi+'月'});
+    var periodOpts = [{val:'yearly',label:'年度'},{val:'quarterly',label:'季度'},{val:'monthly',label:'每月'},{val:'custom',label:'自訂日期'}];
+    var gPeriod = g.period||'yearly';
     h += fs('目標類型','type',['佣金','PC'],g.type||'佣金')
       +fs('PC類型','pcType',['全部','H&P','ILAS','SAVING','PENSION','Others'],g.pcType||'全部')
+      +fs('目標週期','period',periodOpts,gPeriod)
       +fs('年度','year',yearOpts,Number(g.year||yr))
       +fs('季度目標','quarter',qOpts,Number(g.quarter||Math.ceil((new Date().getMonth()+1)/3)))
       +fs('每月目標','month',mOpts,Number(g.month||new Date().getMonth()+1))
+      +fg('開始日期','startDate','date',g.startDate||'')
+      +fg('結束日期','endDate','date',g.endDate||'')
       +fg('目標金額','target','number',g.target||'')
       +fg('描述','desc','text',g.desc||'');
   }
@@ -3299,6 +3321,24 @@ function openForm(type, id) {
       }
       goalTypeSel.addEventListener('change', togglePcType);
       togglePcType();
+    }
+    // 目標週期切換：根據所選週期顯示對應欄位（自訂日期時顯示開始/結束日期）
+    var periodSel = document.getElementById('f_period');
+    if (periodSel) {
+      function togglePeriod() {
+        var p = periodSel.value;
+        function showField(id, on) {
+          var el = document.getElementById(id);
+          if (el) { var grp = el.closest('.form-group'); if (grp) grp.style.display = on ? '' : 'none'; }
+        }
+        showField('f_year', p !== 'custom');
+        showField('f_quarter', p === 'quarterly');
+        showField('f_month', p === 'monthly');
+        showField('f_startDate', p === 'custom');
+        showField('f_endDate', p === 'custom');
+      }
+      periodSel.addEventListener('change', togglePeriod);
+      togglePeriod();
     }
   }
 }
@@ -3476,7 +3516,7 @@ function saveForm() {
     saveTo('incomes',incObj);
   }
   else if (editType === 'goal') {
-    var o = {id:editId||uid(),type:val('f_type'),pcType:val('f_pcType'),period:val('f_period'),year:Number(val('f_year')),month:Number(val('f_month')),quarter:Number(val('f_quarter')),target:Number(val('f_target')),desc:val('f_desc')};
+    var o = {id:editId||uid(),type:val('f_type'),pcType:val('f_pcType'),period:val('f_period'),year:Number(val('f_year'))||0,month:Number(val('f_month'))||0,quarter:Number(val('f_quarter'))||0,startDate:val('f_startDate'),endDate:val('f_endDate'),target:Number(val('f_target')),desc:val('f_desc')};
     saveTo('goals',o);
   }
   else if (editType === 'schedule') {
