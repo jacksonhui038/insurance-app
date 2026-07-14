@@ -176,6 +176,10 @@ tr:hover td{background:var(--blue50)}
   .topbar-right .btn{padding:6px 8px;font-size:10px;flex-shrink:0;white-space:nowrap}
   .topbar-right .agent-badge{flex-shrink:0;margin-right:4px}
   .agent-badge{white-space:nowrap}
+  /* iOS Safari / PWA 瀏海/動態島避讓 */
+  @supports (-webkit-touch-callout: none){
+    .topbar{padding-top:60px !important}
+  }
   /* 手機版：雲端狀態同同步掣獨立一行，避免被狀態欄遮住 */
   #cloudStatus{position:static !important;display:flex !important;width:100%;justify-content:space-between;align-items:center;padding:8px 14px;background:var(--gray50);border-bottom:1px solid var(--gray200);box-sizing:border-box}
   #cloudStatus button{padding:8px 14px !important;font-size:13px !important;border-radius:12px !important}
@@ -211,7 +215,7 @@ tr:hover td{background:var(--blue50)}
       </div>
       <hr style="border:none;border-top:1px solid var(--gray200);margin:14px 0">
       <button class="btn btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="padding:10px;font-size:13px;width:100%">🔄 切換到經理版</button>
-      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.10.9</p>
+      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.10.10</p>
     </div>
     <!-- LOGIN MODE -->
     <div id="loginMode" style="display:none">
@@ -2626,7 +2630,7 @@ function afterLoginSync() {
 
 document.addEventListener('DOMContentLoaded',function(){
   // v3.8.5: 手機介面改底部導航
-  var CURRENT_VER = 'v3.10.9';
+  var CURRENT_VER = 'v3.10.10';
   var cachedVer = localStorage.getItem('app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, clearing cache and reloading...');
