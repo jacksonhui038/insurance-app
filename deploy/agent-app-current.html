@@ -169,10 +169,12 @@ tr:hover td{background:var(--blue50)}
   .bottom-nav-icon{font-size:20px;line-height:1}
   .bottom-nav-label{white-space:nowrap;overflow:hidden;text-overflow:clip;font-size:10px}
   .main{padding-bottom:calc(72px + env(safe-area-inset-bottom))}
-  .topbar{padding:max(10px, env(safe-area-inset-top)) 14px 10px;gap:8px;overflow-x:auto;white-space:nowrap}
-  .topbar h2{font-size:16px}
-  .topbar-right{flex-shrink:0;gap:6px}
-  .topbar-right .btn{padding:6px 10px;font-size:11px}
+  .topbar{padding:max(12px, env(safe-area-inset-top)) 14px 10px;gap:6px;overflow-x:hidden;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;box-sizing:border-box}
+  .topbar h2{font-size:16px;margin:0 0 4px 0}
+  .topbar-right{flex-shrink:0;gap:6px;display:flex;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:6px 0;width:100%;box-sizing:border-box}
+  .topbar-right::-webkit-scrollbar{display:none}
+  .topbar-right .btn{padding:6px 8px;font-size:10px;flex-shrink:0;white-space:nowrap}
+  .topbar-right .agent-badge{flex-shrink:0;margin-right:4px}
   .agent-badge{white-space:nowrap}
   /* 手機版：雲端狀態同同步掣獨立一行，避免被狀態欄遮住 */
   #cloudStatus{position:static !important;display:flex !important;width:100%;justify-content:space-between;align-items:center;padding:8px 14px;background:var(--gray50);border-bottom:1px solid var(--gray200);box-sizing:border-box}
@@ -209,7 +211,7 @@ tr:hover td{background:var(--blue50)}
       </div>
       <hr style="border:none;border-top:1px solid var(--gray200);margin:14px 0">
       <button class="btn btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="padding:10px;font-size:13px;width:100%">🔄 切換到經理版</button>
-      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.10.8</p>
+      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.10.9</p>
     </div>
     <!-- LOGIN MODE -->
     <div id="loginMode" style="display:none">
@@ -2624,7 +2626,7 @@ function afterLoginSync() {
 
 document.addEventListener('DOMContentLoaded',function(){
   // v3.8.5: 手機介面改底部導航
-  var CURRENT_VER = 'v3.10.8';
+  var CURRENT_VER = 'v3.10.9';
   var cachedVer = localStorage.getItem('app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, clearing cache and reloading...');
