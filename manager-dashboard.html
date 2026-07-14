@@ -2,7 +2,7 @@
 <html lang="zh-HK">
 <head>
 <script>// v3.9.5 強制破 cache + 強制解除舊 SW：sync script 喺一切之前執行
-var MGR_VER='v3.9.8d',MGR_VER_KEY='mgr_app_version';
+var MGR_VER='v3.9.8e',MGR_VER_KEY='mgr_app_version';
 (function(){
   var v=localStorage.getItem(MGR_VER_KEY)||'';
   if(v&&v!==MGR_VER){console.log('[CacheBuster] '+v+'→'+MGR_VER);localStorage.setItem(MGR_VER_KEY,MGR_VER);}
@@ -253,7 +253,7 @@ tr:hover td{background:var(--blue50)}
   <!-- HEADER -->
   <div class="header">
     <div>
-      <h1>📊 團隊總覽 <span style="font-size:11px;opacity:0.6;font-weight:400">v3.9.8d</span></h1>
+      <h1>📊 團隊總覽 <span style="font-size:11px;opacity:0.6;font-weight:400">v3.9.8e</span></h1>
       <div class="sub" id="mgrNameDisplay">保險經紀業務管理系統 · 經理視角</div>
     </div>
     <div class="header-actions">
@@ -2297,7 +2297,7 @@ function doRegisterMgr() {
 }
 // ============================================================
 function money(n){return'HK$ '+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
-function df(s){if(!s)return'';var d=new Date(s);return isNaN(d)?'':d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function df(s){if(!s)return'';var t=String(s).trim();if(t.indexOf('T')>=0)t=t.slice(0,10);var d=new Date(t+'T00:00:00');return isNaN(d)?'':d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function parseScheduleDate(s){if(!s)return'';if(typeof s!=='string')s=String(s);if(s.indexOf('T')!==-1)return s.split('T')[0];return df(s);}
 function parseScheduleTime(s){if(!s)return'';if(typeof s!=='string')s=String(s);if(s.indexOf('T')!==-1){var tp=s.split('T')[1]||'';var m=tp.match(/^(\d{2}):(\d{2})/);return m?m[1]+':'+m[2]:'';}var m=s.match(/^(\d{2}):(\d{2})/);return m?m[1]+':'+m[2]:s;}
 function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
@@ -2430,7 +2430,7 @@ if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(
 <script>
 // v3.9.0: 強制解除舊 SW + Supabase fetch 加 ?apikey= 後備
 (function(){
-  var CURRENT_VER = 'v3.9.8d';
+  var CURRENT_VER = 'v3.9.8e';
   window.MGR_CURRENT_VER = CURRENT_VER;
   // sync script 已經處理咗 cache，呢度只係 fallback
   var cachedVer = localStorage.getItem('mgr_app_version') || '';
