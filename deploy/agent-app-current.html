@@ -5,7 +5,22 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<!-- v3.10.8: 強制解除舊 Service Worker 同 caches，避免手機版載入舊數據 -->
+<script>
+(function(){
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(function(regs) {
+      regs.forEach(function(r) { r.unregister(); console.log('[SW] 強制解除:', r.scope); });
+    });
+  }
+  if (window.caches) {
+    caches.keys().then(function(names) {
+      names.forEach(function(name) { caches.delete(name); console.log('[Cache] 強制清除:', name); });
+    });
+  }
+})();
+</script>
 <title>保經管家 - 代理人版</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#2563eb">
@@ -145,6 +160,7 @@ tr:hover td{background:var(--blue50)}
 .sync-btn{cursor:pointer;background:var(--green500);color:#fff;border:none;padding:4px 14px;border-radius:12px;font-size:12px;font-weight:500;transition:all .15s}
 .sync-btn:hover{background:#16a34a}
 .bottom-nav{display:none}
+.mobile-sync-bar{display:none}
 @media(max-width:768px){
   .sidebar{display:none}
   .bottom-nav{position:fixed;bottom:0;left:0;right:0;display:flex;justify-content:space-around;align-items:center;background:var(--white);border-top:1px solid var(--gray200);padding:6px 0 8px;padding-bottom:calc(8px + env(safe-area-inset-bottom));z-index:1000}
@@ -153,11 +169,15 @@ tr:hover td{background:var(--blue50)}
   .bottom-nav-icon{font-size:20px;line-height:1}
   .bottom-nav-label{white-space:nowrap;overflow:hidden;text-overflow:clip;font-size:10px}
   .main{padding-bottom:calc(72px + env(safe-area-inset-bottom))}
-  .topbar{padding:10px 14px;gap:8px;overflow-x:auto;white-space:nowrap}
+  .topbar{padding:max(10px, env(safe-area-inset-top)) 14px 10px;gap:8px;overflow-x:auto;white-space:nowrap}
   .topbar h2{font-size:16px}
   .topbar-right{flex-shrink:0;gap:6px}
   .topbar-right .btn{padding:6px 10px;font-size:11px}
   .agent-badge{white-space:nowrap}
+  /* 手機版：雲端狀態同同步掣獨立一行，避免被狀態欄遮住 */
+  #cloudStatus{position:static !important;display:flex !important;width:100%;justify-content:space-between;align-items:center;padding:8px 14px;background:var(--gray50);border-bottom:1px solid var(--gray200);box-sizing:border-box}
+  #cloudStatus button{padding:8px 14px !important;font-size:13px !important;border-radius:12px !important}
+  #cloudStatus #lastSyncTime{font-size:12px !important}
   .content{padding:16px}
   .charts-grid,.charts-grid-2{grid-template-columns:1fr}
   .form-row{grid-template-columns:1fr}
@@ -189,7 +209,7 @@ tr:hover td{background:var(--blue50)}
       </div>
       <hr style="border:none;border-top:1px solid var(--gray200);margin:14px 0">
       <button class="btn btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="padding:10px;font-size:13px;width:100%">🔄 切換到經理版</button>
-      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.10.7</p>
+      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.10.8</p>
     </div>
     <!-- LOGIN MODE -->
     <div id="loginMode" style="display:none">
@@ -394,12 +414,6 @@ tr:hover td{background:var(--blue50)}
   <div class="topbar">
     <h2 id="pageTitle">總覽</h2>
     <div class="topbar-right">
-      <div id="cloudStatus" style="display:none;align-items:center;gap:6px;font-size:12px;color:var(--gray500);margin-right:4px">
-        <span style="color:var(--green500);font-size:14px">☁️</span>
-        <span id="lastSyncTime" style="color:var(--gray400)">尚未同步</span>
-        <button onclick="manualSync()" style="padding:3px 10px;border:none;background:var(--blue500);color:#fff;border-radius:10px;font-size:11px;cursor:pointer">同步</button>
-        <button onclick="forceUploadToSupabase()" style="padding:3px 10px;border:none;background:var(--orange500);color:#fff;border-radius:10px;font-size:11px;cursor:pointer" title="強制將本地數據上傳到 Supabase（修復遺漏）">⬆️ 強制上傳</button>
-      </div>
       <div class="agent-badge" id="agentBadgeBtn" title="切換代理人">
         <span class="dot"></span> <span id="agentNameDisplay">—</span>
         <button onclick="switchAgent()" title="切換代理人">切換</button>
@@ -411,6 +425,17 @@ tr:hover td{background:var(--blue50)}
       <button class="btn btn-outline btn-sm" onclick="document.getElementById('importInput').click()">📤 匯入</button>
       <button class="btn btn-outline btn-sm" onclick="showCloudSetup()">☁️ 雲端</button>
       <button class="btn btn-outline btn-sm" onclick="showDeleteAccountModal()" style="color:var(--red500);border-color:var(--red500)">🗑️ 刪除帳戶</button>
+    </div>
+  </div>
+  <!-- v3.10.8: 手機版雲端狀態同同步掣獨立一行，避免被狀態欄遮住 -->
+  <div id="cloudStatus" style="display:none;align-items:center;gap:8px;font-size:12px;color:var(--gray500);padding:8px 24px;background:var(--gray50);border-bottom:1px solid var(--gray200);justify-content:space-between">
+    <div style="display:flex;align-items:center;gap:6px">
+      <span style="color:var(--green500);font-size:14px">☁️</span>
+      <span id="lastSyncTime" style="color:var(--gray400)">尚未同步</span>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button onclick="manualSync()" style="padding:5px 12px;border:none;background:var(--blue500);color:#fff;border-radius:10px;font-size:12px;cursor:pointer">同步</button>
+      <button onclick="forceUploadToSupabase()" style="padding:5px 12px;border:none;background:var(--orange500);color:#fff;border-radius:10px;font-size:12px;cursor:pointer" title="強制將本地數據上傳到 Supabase（修復遺漏）">⬆️ 強制上傳</button>
     </div>
   </div>
   <div class="sync-bar">
@@ -2599,7 +2624,7 @@ function afterLoginSync() {
 
 document.addEventListener('DOMContentLoaded',function(){
   // v3.8.5: 手機介面改底部導航
-  var CURRENT_VER = 'v3.10.7';
+  var CURRENT_VER = 'v3.10.8';
   var cachedVer = localStorage.getItem('app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, clearing cache and reloading...');
@@ -3678,7 +3703,8 @@ setInterval(function(){
 }, 30000);
 </script>
 <script>
-if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(function(r){console.log('[PWA] Service Worker 已註冊:',r.scope);}).catch(function(e){console.warn('[PWA] SW 註冊失敗:',e);});}
+// v3.10.8: 暫停註冊 Service Worker，避免舊 cache 導致手機版載入舊數據
+// if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(function(r){console.log('[PWA] Service Worker 已註冊:',r.scope);}).catch(function(e){console.warn('[PWA] SW 註冊失敗:',e);});}
 </script>
 </body>
 </html>
