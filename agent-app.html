@@ -189,7 +189,7 @@ tr:hover td{background:var(--blue50)}
       </div>
       <hr style="border:none;border-top:1px solid var(--gray200);margin:14px 0">
       <button class="btn btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="padding:10px;font-size:13px;width:100%">🔄 切換到經理版</button>
-      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.10.4</p>
+      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.10.5</p>
     </div>
     <!-- LOGIN MODE -->
     <div id="loginMode" style="display:none">
@@ -970,6 +970,8 @@ function loadFromGoogleSheets(callback, retry) {
             DB[k] = Object.values(localMap);
           }
         });
+        // v3.10.5: content-based 去重（同 Supabase 路徑一致）
+        DB.schedules = deduplicateArray(DB.schedules, function(s){ return (s.date||'')+'|'+(s.clientName||'')+'|'+(s.startTime||''); });
         saveDB(); setLastSyncTime();
         _cloudLoadedThisSession = true; // v3.9.4: 標記已成功下載雲端
         if (callback) callback(true);
@@ -1174,6 +1176,11 @@ function loadFromSupabase(callback, retry) {
           DB[k] = Object.values(localMap);
         }
       });
+      // v3.10.5: content-based 去重 — 解決「id 重生成後本地舊 id + 雲端新 id 導致重複」
+      // schedules 用 date|clientName|startTime 做 composite key，其餘表用 id（已有去重）
+      DB.schedules = deduplicateArray(DB.schedules, function(s){
+        return (s.date||'')+'|'+(s.clientName||'')+'|'+(s.startTime||'');
+      });
       // v3.6.0: 修復雲端帶入嘅壞時間格式（Excel/ISO 日期）
       fixAllScheduleTimes(true);
       saveDB(); setLastSyncTime();
@@ -1243,6 +1250,8 @@ function loadDB() {
   _id++;
   // v3.6.0: 啟動時修復 localStorage 入面嘅壞時間格式
   fixAllScheduleTimes(true);
+  // v3.10.5: 啟動時 content-based 去重（防止 localStorage 已有重複數據）
+  DB.schedules = deduplicateArray(DB.schedules, function(s){ return (s.date||'')+'|'+(s.clientName||'')+'|'+(s.startTime||''); });
 }
 
 function saveDB() {
@@ -1690,6 +1699,8 @@ function tryLegacyLogin(name, pin, pinH, errEl, btn) {
             DB[k] = Object.values(localMap);
           }
         });
+        // v3.10.5: content-based 去重
+        DB.schedules = deduplicateArray(DB.schedules, function(s){ return (s.date||'')+'|'+(s.clientName||'')+'|'+(s.startTime||''); });
         saveDB();
         document.getElementById('nameModalBg').classList.remove('show');
         document.getElementById('agentNameDisplay').textContent = name;
@@ -2389,6 +2400,21 @@ function dFmt(s) { if (!s) return ''; var t = String(s).trim(); if (t.indexOf('T
 function toast(msg, type) { type = type||'success'; var el = document.createElement('div'); el.className = 'toast toast-'+type; el.textContent = msg; document.getElementById('toastBox').appendChild(el); setTimeout(function(){ el.remove(); }, 2600); }
 function esc(s) { if (!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
+// v3.10.5: content-based 去重 — 用自定義 key 函數對陣列去重，保留最後出現嘅（雲端優先）
+function deduplicateArray(arr, keyFn) {
+  if (!arr || !Array.isArray(arr) || arr.length === 0) return arr || [];
+  var seen = {};
+  var result = [];
+  for (var i = arr.length - 1; i >= 0; i--) {
+    var key = keyFn(arr[i]);
+    if (!seen[key]) {
+      seen[key] = true;
+      result.unshift(arr[i]);
+    }
+  }
+  return result;
+}
+
 // ===== 雲端同步 UI =====
 function manualSync() {
   if (!CLOUD_ENABLED) { toast('請先設定 API 網址','error'); showCloudSetup(); return; }
@@ -2573,7 +2599,7 @@ function afterLoginSync() {
 
 document.addEventListener('DOMContentLoaded',function(){
   // v3.8.5: 手機介面改底部導航
-  var CURRENT_VER = 'v3.10.4';
+  var CURRENT_VER = 'v3.10.5';
   var cachedVer = localStorage.getItem('app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, clearing cache and reloading...');
