@@ -1,5 +1,5 @@
 // 保經管家 Service Worker — PWA 緩存策略 v3.9.0
-var CACHE_NAME = 'baojing-v3.9.0';
+var CACHE_NAME = 'baojing-v3.10.8';
 var CACHE_URLS = [
   './',
   './index.html',
