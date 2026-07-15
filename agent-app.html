@@ -9,7 +9,7 @@
 <!-- v3.10.11: 強制解除舊 Service Worker + 自動偵測版本變化重載（多平台同步保證） -->
 <script>
 (function(){
-  var AGENT_VER='v3.10.25',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.26',AGENT_VER_KEY='agent_app_version';
   var stored=localStorage.getItem(AGENT_VER_KEY)||'';
   if(stored && stored!==AGENT_VER && !/v=new/.test(location.search)){
     console.log('[CacheBuster] agent '+stored+'→'+AGENT_VER+'，強制重載');
@@ -2718,6 +2718,7 @@ function saveMyManager() {
   toast('✅ 已設定直屬經理：' + mgr);
   // PATCH Supabase（如有連線）
   if (typeof SUPA_URL !== 'undefined' && SUPA_URL && SUPA_KEY) {
+    // 1) 更新頂層 manager 欄位
     fetch(SUPA_URL + '/rest/v1/agents?name=eq.' + encodeURIComponent(agentName), {
       method: 'PATCH',
       headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
@@ -2726,6 +2727,21 @@ function saveMyManager() {
       if (r.ok) { console.log('[my-manager] ✅ manager updated:', mgr); toast('☁️ 已同步到雲端'); }
       else r.text().then(function (t) { console.error('[my-manager] ❌', r.status, t); });
     }).catch(function (e) { console.error('[my-manager] ❌', e); });
+    // 2) 同步 data.manager（登入時優先讀 data.manager，唔改會「改極都改唔到」）
+    fetch(SUPA_URL + '/rest/v1/agents?name=eq.' + encodeURIComponent(agentName) + '&select=data', {
+      headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }
+    }).then(function (r) { return r.json(); }).then(function (rows) {
+      if (rows && rows[0] && rows[0].data) {
+        var d = rows[0].data;
+        if (d.manager === mgr) return; // 已經同步，唔使再寫
+        d.manager = mgr;
+        return fetch(SUPA_URL + '/rest/v1/agents?name=eq.' + encodeURIComponent(agentName), {
+          method: 'PATCH',
+          headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+          body: JSON.stringify({ data: d })
+        });
+      }
+    }).catch(function (e) { console.error('[my-manager] data sync ❌', e); });
   }
 }
 
