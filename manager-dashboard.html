@@ -3,7 +3,7 @@
 <head>
 <script>
 // 自動版本戳：每次部署 BUILD_ID 唔同 → URL 加 ?b=BUILD_ID → 瀏覽器/CDN 當新網址 → 一定去 server 攞最新（同事唔使清 cache）
-var BUILD_ID='20260715-163104';
+var BUILD_ID='20260715-182733';
 (function(){
   if (/[?&]nosw=1/.test(location.search)) return; // 安全模式唔重定向
   var bm = location.search.match(/[?&]b=([^&]+)/);
@@ -20,7 +20,7 @@ var BUILD_ID='20260715-163104';
 })();
 </script>
 <script>// v3.9.5 強制破 cache + 強制解除舊 SW：sync script 喺一切之前執行
-var MGR_VER='v3.10.18',MGR_VER_KEY='mgr_app_version';
+var MGR_VER='v3.10.22',MGR_VER_KEY='mgr_app_version';
 (function(){
   var v=localStorage.getItem(MGR_VER_KEY)||'';
   if(v&&v!==MGR_VER){console.log('[CacheBuster] '+v+'→'+MGR_VER);localStorage.setItem(MGR_VER_KEY,MGR_VER);}
@@ -821,6 +821,7 @@ function mgrLoadFromSupabase(silent) {
     if (rows && !Array.isArray(rows)) {
       console.error('[mgrLoadFromSupabase] unexpected response:', rows);
       var msg = rows.message || rows.error || rows.error_description || JSON.stringify(rows).slice(0,120);
+      mgrLastLoadError = '📦 回應非陣列：' + msg;
       toast('⚠️ Supabase 回應異常：' + msg, 'error');
       return false;
     }
@@ -915,7 +916,18 @@ function mgrLoadFromSupabase(silent) {
   .catch(function(e){
     clearTimeout(timeoutId);
     console.error('[mgrLoadFromSupabase]',e);
-    var msg = e.message || String(e) || '請檢查網絡或 Supabase 設定';
+    // v3.10.22: 記錄真正錯因，方便用家回報
+    var errName = e && e.name ? e.name : '';
+    var msg = e && e.message ? e.message : String(e);
+    if (errName === 'AbortError' || msg.indexOf('aborted') >= 0) {
+      mgrLastLoadError = '⏱️ 請求超時（30 秒）— 網絡慢或 Supabase 繁忙';
+    } else if (msg.indexOf('Failed to fetch') >= 0 || msg.indexOf('NetworkError') >= 0 || msg.indexOf('network') >= 0) {
+      mgrLastLoadError = '🌐 網絡連唔到 Supabase（DNS/防火牆/離線）';
+    } else if (msg.indexOf('401') >= 0 || msg.indexOf('Invalid') >= 0) {
+      mgrLastLoadError = '🔑 401 認證失敗（key 無效）';
+    } else {
+      mgrLastLoadError = '❌ ' + (errName ? errName + ': ' : '') + msg;
+    }
     // v3.8.5: 401 時自動清除壞 key 並重設為正確預設值
     if (msg.indexOf('401') >= 0 || msg.indexOf('Invalid') >= 0) {
       console.warn('[mgrLoadFromSupabase] 偵測到 401，自動清除 localStorage 並重設預設值');
@@ -926,7 +938,7 @@ function mgrLoadFromSupabase(silent) {
       MGR_CLOUD_ENABLED = true;
       if (!silent) toast('⚠️ Supabase key 無效，已自動重設。請再按「載入團隊數據」。', 'error');
     } else {
-      if (!silent) toast('⚠️ Supabase 載入失敗：' + msg, 'error');
+      if (!silent) toast('⚠️ Supabase 載入失敗：' + mgrLastLoadError, 'error');
     }
     return false;
   });
@@ -934,6 +946,7 @@ function mgrLoadFromSupabase(silent) {
 
 // v3.10.13: 經理版背景自動同步（每 10 秒）— 其他平台改咗數據，經理 10 秒內見到，唔使人手掣同步
 var _mgrBgSyncTimer = null;
+var mgrLastLoadError = ''; // v3.10.22: 記錄最近一次載入失敗嘅真正原因，方便診斷
 function startMgrBackgroundSync() {
   if (_mgrBgSyncTimer) clearInterval(_mgrBgSyncTimer); // 防重複
   if (!MGR_CLOUD_ENABLED || !MGR_SUPA_URL || !MGR_SUPA_KEY) return;
@@ -1107,7 +1120,8 @@ function mgrLoadFromCloud() {
         document.getElementById("dataView").style.display = "block";
         startMgrBackgroundSync(); // v3.10.13: 啟動 10 秒背景同步，其他平台改咗即時見到
       } else {
-        toast('⚠️ Supabase 載入失敗，請檢查網絡或 Supabase 設定', 'error');
+        var why = mgrLastLoadError ? (' — ' + mgrLastLoadError) : '（請檢查網絡或 Supabase 設定）';
+        toast('⚠️ Supabase 載入失敗' + why, 'error');
       }
     }).catch(function(e){
       done();
