@@ -9,7 +9,7 @@
 <!-- v3.10.11: 強制解除舊 Service Worker + 自動偵測版本變化重載（多平台同步保證） -->
 <script>
 (function(){
-  var AGENT_VER='v3.10.24',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.25',AGENT_VER_KEY='agent_app_version';
   var stored=localStorage.getItem(AGENT_VER_KEY)||'';
   if(stored && stored!==AGENT_VER && !/v=new/.test(location.search)){
     console.log('[CacheBuster] agent '+stored+'→'+AGENT_VER+'，強制重載');
@@ -2888,11 +2888,11 @@ function renderDashboard() {
   var monthExp = 0; DB.expenses.filter(function(e){ var d=new Date(e.date); return d.getMonth()===mth&&d.getFullYear()===yr; }).forEach(function(e){ monthExp += Number(e.amount)||0; });
   var monthPC = 0; DB.pcs.filter(function(pc){ var d=new Date(pc.date); return d.getMonth()===mth&&d.getFullYear()===yr; }).forEach(function(pc){ monthPC += Number(pc.amount)||0; });
   document.getElementById('dashCards').innerHTML =
-    '<div class="stat-card" style="border-left-color:var(--blue500)"><div class="label">本月佣金總額</div><div class="value">'+money(monthTotal)+'</div><div class="sub">'+monthComms.length+' 筆記錄</div></div>'+
     '<div class="stat-card" style="border-left-color:var(--green500)"><div class="label">本月新增客戶</div><div class="value">'+newClients+'</div><div class="sub">共 '+DB.clients.length+' 位客戶</div></div>'+
+    '<div class="stat-card" style="border-left-color:var(--red500)"><div class="label">本月 PC 收取</div><div class="value">'+pcMoney(monthPC)+'</div><div class="sub">共 '+DB.pcs.filter(function(pc){var d=new Date(pc.date);return d.getMonth()===mth&&d.getFullYear()===yr;}).length+' 筆</div></div>'+
+    '<div class="stat-card" style="border-left-color:var(--blue500)"><div class="label">本月佣金總額</div><div class="value">'+money(monthTotal)+'</div><div class="sub">'+monthComms.length+' 筆記錄</div></div>'+
     '<div class="stat-card" style="border-left-color:var(--yellow500)"><div class="label">本月新增保單</div><div class="value">'+newPolicies+'</div><div class="sub">共 '+DB.policies.length+' 份保單</div></div>'+
-    '<div class="stat-card" style="border-left-color:var(--purple500)"><div class="label">待跟進保單</div><div class="value">'+pending+'</div><div class="sub">需儘快處理</div></div>'+
-    '<div class="stat-card" style="border-left-color:var(--red500)"><div class="label">本月 PC 收取</div><div class="value">'+pcMoney(monthPC)+'</div><div class="sub">共 '+DB.pcs.filter(function(pc){var d=new Date(pc.date);return d.getMonth()===mth&&d.getFullYear()===yr;}).length+' 筆</div></div>';
+    '<div class="stat-card" style="border-left-color:var(--purple500)"><div class="label">待跟進保單</div><div class="value">'+pending+'</div><div class="sub">需儘快處理</div></div>';
   // Todo
   var todos = []; DB.policies.forEach(function(p){ if (p.status==='待生效'||p.status==='審核中') todos.push({txt:'保單待跟進',client:p.clientName,type:'保單',date:p.insureDate,status:p.status}); });
   // Add schedule follow-up items
