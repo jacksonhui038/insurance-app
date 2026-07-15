@@ -2,23 +2,40 @@
 <html lang="zh-HK">
 <head>
 <meta charset="UTF-8">
-<script>
-// 版本戳（只作調試用途）。自動更新交由 Service Worker 處理，
-// 唔再用 location.replace / 定時輪詢 redirect（避免無限 reload 循環）。
-var BUILD_ID='20260715-185648';
-</script>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<!-- v3.10.23: 唔再每次 load 都強制清除 SW/cache（會同 sw-register.js 衝突造成無限 reload 循環）。
-     舊版 cache 由 SW CACHE_NAME 每次部署自動更換來處理，呢度唔需要再清。 -->
-<title>SET理財規劃管家 - 代理人版</title>
+<!-- v3.10.11: 強制解除舊 Service Worker + 自動偵測版本變化重載（多平台同步保證） -->
+<script>
+(function(){
+  var AGENT_VER='v3.10.11',AGENT_VER_KEY='agent_app_version';
+  var stored=localStorage.getItem(AGENT_VER_KEY)||'';
+  if(stored && stored!==AGENT_VER && !/v=new/.test(location.search)){
+    console.log('[CacheBuster] agent '+stored+'→'+AGENT_VER+'，強制重載');
+    localStorage.setItem(AGENT_VER_KEY,AGENT_VER);
+    location.replace(location.href.split('?')[0]+'?v='+Date.now());
+    return;
+  }
+  localStorage.setItem(AGENT_VER_KEY,AGENT_VER);
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(function(regs) {
+      regs.forEach(function(r) { r.unregister(); console.log('[SW] 強制解除:', r.scope); });
+    });
+  }
+  if (window.caches) {
+    caches.keys().then(function(names) {
+      names.forEach(function(name) { caches.delete(name); console.log('[Cache] 強制清除:', name); });
+    });
+  }
+})();
+</script>
+<title>保經管家 - 代理人版</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#2563eb">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="SET理財規劃管家">
+<meta name="apple-mobile-web-app-title" content="保經管家">
 <link rel="apple-touch-icon" href="icon-192.png">
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
@@ -28,12 +45,13 @@ var BUILD_ID='20260715-185648';
   --green500:#22c55e;--red500:#ef4444;--yellow500:#eab308;--purple500:#a855f7;
   --radius:10px;--shadow:0 1px 3px rgba(0,0,0,0.08),0 4px 12px rgba(0,0,0,0.05)
 }
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft JhengHei',sans-serif;background:var(--bg);color:var(--gray800);display:flex;height:100dvh;overflow:hidden;font-size:14px}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft JhengHei',sans-serif;background:var(--bg);color:var(--gray800);display:flex;height:100vh;overflow:hidden;font-size:14px}
 /* SIDEBAR */
 .sidebar{width:230px;background:var(--white);border-right:1px solid var(--gray200);display:flex;flex-direction:column;flex-shrink:0}
 .sidebar-head{padding:16px 18px;border-bottom:1px solid var(--gray200);background:linear-gradient(135deg,var(--blue500),var(--blue700));color:#fff}
 .sidebar-head h1{font-size:16px;font-weight:700}
 .sidebar-head .agent-info{font-size:11px;opacity:0.85;margin-top:4px}
+.sidebar-head .agent-ver{font-size:10px;margin-top:6px;display:inline-block;background:rgba(255,255,255,0.2);padding:2px 10px;border-radius:8px;letter-spacing:0.5px;font-weight:600}
 .sidebar-nav{flex:1;padding:10px 8px;overflow-y:auto}
 .nav-btn{display:flex;align-items:center;gap:10px;width:100%;padding:11px 14px;border:none;background:none;cursor:pointer;font-size:14px;color:var(--gray600);border-radius:8px;text-align:left;transition:all .15s;margin-bottom:2px}
 .nav-btn:hover{background:var(--blue50);color:var(--blue700)}
@@ -41,7 +59,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft JhengHei
 .nav-icon{font-size:18px;width:24px;text-align:center}
 /* MAIN */
 .main{flex:1;display:flex;flex-direction:column;overflow:hidden}
-.topbar{padding:10px 24px;background:var(--white);border-bottom:1px solid var(--gray200);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.topbar{padding:10px 24px;background:var(--white);border-bottom:1px solid var(--gray200);display:flex;align-items:center;justify-content:space-between}
 .topbar h2{font-size:18px;font-weight:700}
 .topbar-right{display:flex;gap:8px;align-items:center}
 .agent-badge{display:flex;align-items:center;gap:6px;padding:4px 12px;background:var(--blue50);border-radius:20px;font-size:12px;color:var(--blue700)}
@@ -61,18 +79,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft JhengHei
 .charts-grid{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:24px}
 .charts-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px}
 .chart-card{background:var(--white);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow)}
-.goal-overview-card{background:var(--white);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);margin-bottom:16px}
-.goal-overview-card h3{font-size:16px;margin-bottom:14px}
-.goal-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
-.goal-row .goal-label{font-size:14px;font-weight:600;color:var(--gray700)}
-.goal-row .goal-vals{font-size:13px;color:var(--gray500);font-variant-numeric:tabular-nums}
-.goal-bar{height:10px;background:#eef2f7;border-radius:6px;overflow:hidden;margin-bottom:4px}
-.goal-bar>i{display:block;height:100%;border-radius:6px;transition:width .4s ease}
-.goal-diff{font-size:12px;margin-bottom:14px}
-.goal-period-tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
-.goal-tab{padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--gray200);background:var(--white);color:var(--gray500);transition:all .2s}
-.goal-tab.active{background:var(--blue500);color:#fff;border-color:var(--blue500)}
-.goal-tab:hover:not(.active){border-color:var(--blue300);color:var(--blue600)}
 .chart-card h3{font-size:14px;color:var(--gray600);margin-bottom:14px;font-weight:600}
 .chart-card canvas{max-height:260px}
 /* TABLES */
@@ -159,7 +165,7 @@ tr:hover td{background:var(--blue50)}
 .name-modal input{width:200px;padding:10px 14px;border-radius:8px;border:2px solid var(--blue500);font-size:16px;text-align:center;outline:none;margin:12px 0}
 .name-modal .btn{padding:10px 24px;font-size:15px}
 /* SYNC BAR */
-.sync-bar{padding:6px 24px;background:var(--blue50);border-bottom:1px solid var(--blue100);display:flex;align-items:center;justify-content:space-between;font-size:12px;flex-shrink:0}
+.sync-bar{padding:6px 24px;background:var(--blue50);border-bottom:1px solid var(--blue100);display:flex;align-items:center;justify-content:space-between;font-size:12px}
 .sync-bar .last-sync{color:var(--gray500)}
 .sync-btn{cursor:pointer;background:var(--green500);color:#fff;border:none;padding:4px 14px;border-radius:12px;font-size:12px;font-weight:500;transition:all .15s}
 .sync-btn:hover{background:#16a34a}
@@ -198,19 +204,6 @@ tr:hover td{background:var(--blue50)}
   .table-wrap{overflow-x:auto}
   table{min-width:640px}
 }
-/* v3.9.12: iPad / 平板 (769–1100px) — sidebar 仍顯示，但 topbar 按鈕要可滾動 */
-@media(min-width:769px) and (max-width:1100px){
-  .topbar{flex-direction:column;align-items:stretch;gap:4px;padding:8px 16px;flex-shrink:0}
-  .topbar h2{font-size:16px;margin:0}
-  .topbar-right{flex-wrap:wrap;gap:4px;width:100%;justify-content:flex-start}
-  .topbar-right .btn{padding:5px 8px;font-size:11px;flex-shrink:0;white-space:nowrap}
-  .sync-bar{padding:6px 16px;font-size:11px;flex-shrink:0}
-  .content{overflow-y:auto;padding:16px}
-  .cards-grid{grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
-  .charts-grid,.charts-grid-2{grid-template-columns:1fr}
-  .stat-card{padding:14px}
-  .stat-card .value{font-size:22px}
-}
 </style>
 </head>
 <body>
@@ -224,7 +217,7 @@ tr:hover td{background:var(--blue50)}
         <button onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="padding:6px 14px;border:1px solid var(--gray300);border-radius:8px;background:var(--gray100);color:var(--gray600);cursor:pointer;font-size:13px;display:flex;align-items:center;gap:4px">◀ 返回</button>
         <span style="font-size:11px;color:var(--gray400)">代理人版</span>
       </div>
-      <h3 style="margin-top:0">👋 歡迎使用 SET理財規劃管家</h3>
+      <h3 style="margin-top:0">👋 歡迎使用保經管家</h3>
       <p style="color:var(--gray500);margin-bottom:16px">請選擇</p>
       <div style="display:flex;flex-direction:column;gap:10px">
         <button class="btn btn-primary" onclick="showLoginMode()" style="padding:14px;font-size:15px">🔐 登入已有帳戶</button>
@@ -232,7 +225,7 @@ tr:hover td{background:var(--blue50)}
       </div>
       <hr style="border:none;border-top:1px solid var(--gray200);margin:14px 0">
       <button class="btn btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="padding:10px;font-size:13px;width:100%">🔄 切換到經理版</button>
-      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.10.10</p>
+      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.10.11</p>
     </div>
     <!-- LOGIN MODE -->
     <div id="loginMode" style="display:none">
@@ -267,7 +260,7 @@ tr:hover td{background:var(--blue50)}
           <option value="Agent">Agent — 同事</option>
         </select>
       </div>
-      <div class="form-group"><label>👤 所屬經理 <span id="supervisorStar" style="color:var(--red500)">*</span> <span style="font-size:11px;color:var(--gray400)">可輸入，或揀團隊自動填 / 由下拉揀選</span></label><input type="text" id="supervisorInput" list="supervisorList" autocomplete="off" placeholder="例如：PAU CHI FUNG" style="text-transform:uppercase" oninput="this.value=this.value.replace(/[^a-zA-Z\s]/g,'').toUpperCase()"><div style="font-size:11px;color:var(--red500);font-weight:600;margin-top:4px">⚠️ 必須為英文全名大寫</div><datalist id="supervisorList"><option value="PAU CHI FUNG"><option value="NG MAN LOK"><option value="CHAN CHI HANG"><option value="TSANG OI TING"><option value="WONG WAI KIT"><option value="HUI YUEN SHU"></datalist></div>
+      <div class="form-group"><label>👤 所屬經理 <span id="supervisorStar" style="color:var(--red500)">*</span> <span style="font-size:11px;color:var(--gray400)">由團隊自動填寫（亦可手動輸入）</span></label><input type="text" id="supervisorInput" list="supervisorList" autocomplete="off" style="background:var(--white)"><datalist id="supervisorList"><option value="PAU CHI FUNG"><option value="NG MAN LOK"><option value="CHAN CHI HANG"><option value="WONG WAI KIT"><option value="TSANG OI TING"><option value="HUI YUEN SHU"><option value="LUNG CHI SUM"><option value="CHAN CHI WANG"><option value="CHAN KA KIT"><option value="CHENG CHEUK MAN"><option value="LEUNG CHI PANG"></datalist></div>
       <div class="form-group"><label>團隊 / 所屬區域 <span style="color:var(--red500)">*</span> <span style="font-size:11px;color:var(--gray400)">揀完會自動填所屬經理（DD）</span></label>
         <select id="teamInput" onchange="onTeamChange()" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px;font-family:inherit;background:var(--white)">
           <option value="">-- 請選擇團隊 --</option>
@@ -399,12 +392,14 @@ tr:hover td{background:var(--blue50)}
 <!-- SIDEBAR -->
 <aside class="sidebar">
   <div class="sidebar-head">
-    <h1>📊 SET理財規劃管家</h1>
+    <h1>📊 保經管家</h1>
     <div class="agent-info" id="sidebarAgentInfo">代理人版</div>
+    <div class="agent-ver" id="sidebarVer">v3.10.11</div>
   </div>
   <nav class="sidebar-nav" id="sidebarNav">
     <button class="nav-btn" onclick="switchTab('dashboard',this)"><span class="nav-icon">📋</span> 總覽</button>
     <button class="nav-btn" onclick="switchTab('schedules',this)"><span class="nav-icon">📅</span> 行程表</button>
+    <button class="nav-btn" onclick="switchTab('goals',this)"><span class="nav-icon">🎯</span> 目標管理</button>
     <button class="nav-btn" onclick="switchTab('clients',this)"><span class="nav-icon">👥📄</span> 資料庫</button>
     <button class="nav-btn" onclick="switchTab('income',this)"><span class="nav-icon">💰</span> 收入記錄</button>
     <button class="nav-btn" onclick="switchTab('expenses',this)"><span class="nav-icon">💳</span> 支出記錄</button>
@@ -423,6 +418,7 @@ tr:hover td{background:var(--blue50)}
 <nav class="bottom-nav" id="bottomNav">
   <button class="bottom-nav-btn active" onclick="switchTab('dashboard',this)"><span class="bottom-nav-icon">📋</span><span class="bottom-nav-label">總覽</span></button>
   <button class="bottom-nav-btn" onclick="switchTab('schedules',this)"><span class="bottom-nav-icon">📅</span><span class="bottom-nav-label">行程</span></button>
+  <button class="bottom-nav-btn" onclick="switchTab('goals',this)"><span class="bottom-nav-icon">🎯</span><span class="bottom-nav-label">目標</span></button>
   <button class="bottom-nav-btn" onclick="switchTab('clients',this)"><span class="bottom-nav-icon">👥</span><span class="bottom-nav-label">資料</span></button>
   <button class="bottom-nav-btn" onclick="switchTab('income',this)"><span class="bottom-nav-icon">💰</span><span class="bottom-nav-label">收入</span></button>
   <button class="bottom-nav-btn" onclick="switchTab('expenses',this)"><span class="bottom-nav-icon">💳</span><span class="bottom-nav-label">支出</span></button>
@@ -453,13 +449,11 @@ tr:hover td{background:var(--blue50)}
   <!-- v3.10.8: 手機版雲端狀態同同步掣獨立一行，避免被狀態欄遮住 -->
   <div id="cloudStatus" style="display:none;align-items:center;gap:8px;font-size:12px;color:var(--gray500);padding:8px 24px;background:var(--gray50);border-bottom:1px solid var(--gray200);justify-content:space-between">
     <div style="display:flex;align-items:center;gap:6px">
-      <span id="syncStatusDot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green500);flex-shrink:0" title="已同步"></span>
       <span style="color:var(--green500);font-size:14px">☁️</span>
       <span id="lastSyncTime" style="color:var(--gray400)">尚未同步</span>
-      <span id="syncStatusText" style="display:none;font-size:11px;padding:2px 6px;border-radius:4px"></span>
     </div>
     <div style="display:flex;gap:8px;align-items:center">
-      <button id="manualSyncBtn" onclick="manualSync()" style="padding:5px 12px;border:none;background:var(--blue500);color:#fff;border-radius:10px;font-size:12px;cursor:pointer">🔄 同步</button>
+      <button onclick="manualSync()" style="padding:5px 12px;border:none;background:var(--blue500);color:#fff;border-radius:10px;font-size:12px;cursor:pointer">同步</button>
       <button onclick="forceUploadToSupabase()" style="padding:5px 12px;border:none;background:var(--orange500);color:#fff;border-radius:10px;font-size:12px;cursor:pointer" title="強制將本地數據上傳到 Supabase（修復遺漏）">⬆️ 強制上傳</button>
     </div>
   </div>
@@ -495,10 +489,9 @@ tr:hover td{background:var(--blue50)}
     <!-- DASHBOARD -->
     <div class="tab-panel active" id="panel-dashboard">
       <div class="cards-grid" id="dashCards"></div>
-      <div class="goal-overview-card" id="goalOverview"></div>
       <div class="charts-grid">
         <div class="chart-card"><h3>📊 佣金收入趨勢</h3><canvas id="chartCommission"></canvas></div>
-        <div class="chart-card"><h3>🎯 目標達成率</h3><div class="goal-period-tabs"><button class="goal-tab active" data-gp="monthly" onclick="switchGoalPeriod('monthly')">📅 月度</button><button class="goal-tab" data-gp="quarterly" onclick="switchGoalPeriod('quarterly')">🔶 季度</button><button class="goal-tab" data-gp="yearly" onclick="switchGoalPeriod('yearly')">📆 年度</button><button class="goal-tab" data-gp="custom" onclick="switchGoalPeriod('custom')">📌 自訂</button></div><canvas id="chartGoal"></canvas></div>
+        <div class="chart-card"><h3>🎯 月度目標達成率</h3><canvas id="chartGoal"></canvas></div>
       </div>
       <div class="charts-grid-2">
         <div class="chart-card"><h3>📋 保單類型分佈</h3><canvas id="chartPolicyType"></canvas></div>
@@ -570,23 +563,6 @@ tr:hover td{background:var(--blue50)}
 </div>
 <div id="toastBox" style="position:fixed;bottom:24px;right:24px;z-index:2000"></div>
 <input type="file" id="importInput" accept=".json" style="display:none" onchange="doImport(event)">
-
-<!-- SYNC LOADING OVERLAY (v3.10.12: 開頁時強制等雲端下載完成先顯示) -->
-<div id="syncOverlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,0.92);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px">
-  <div style="width:44px;height:44px;border:4px solid var(--blue100);border-top-color:var(--blue500);border-radius:50%;animation:syncSpin 0.8s linear infinite"></div>
-  <div style="font-size:15px;font-weight:600;color:var(--gray700)">正在從雲端載入最新數據...</div>
-  <div id="syncOverlayHint" style="font-size:12px;color:var(--gray400);display:none">首次同步可能需要幾秒鐘</div>
-  <button id="syncOverlayRetry" style="display:none;padding:8px 20px;border:1px solid var(--blue500);border-radius:8px;background:var(--white);color:var(--blue500);font-size:13px;font-weight:600;cursor:pointer" onclick="retryAfterLoginSync()">🔄 重新同步</button>
-  <button id="syncOverlaySkip" style="padding:6px 16px;border:1px solid var(--gray300);border-radius:8px;background:var(--gray50);color:var(--gray500);font-size:12px;cursor:pointer" onclick="forceSkipSyncSpinner()">⏭️ 跳過等待，先用本地數據</button>
-</div>
-<style>
-@keyframes syncSpin{to{transform:rotate(360deg)}}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
-#syncOverlay[style*='display:none']{display:flex!important;visibility:hidden;pointer-events:none}
-#syncOverlay.sync-active{display:flex!important;visibility:visible;pointer-events:auto}
-#syncOverlay.sync-error{background:rgba(254,242,242,0.95)}
-#syncOverlay.sync-error [style*='animation']{border-color:var(--red500);border-top-color:transparent}
-</style>
 
 <!-- DELETE ACCOUNT MODAL -->
 <div class="modal-bg" id="deleteAccountModalBg" onclick="if(event.target===this)hideDeleteAccountModal()">
@@ -906,7 +882,7 @@ function buildUploadData() {
     base[k] = (DB[k] && Array.isArray(DB[k])) ? DB[k].slice() : []; // 本地優先，刪除即生效
   });
   // 補充雲端快照嘅 metadata 欄位（非陣列），本地有就用本地，冇就用雲端，避免清走 role/manager/team
-  var META_KEYS = ['role','manager','team','_pinHash','createdAt','registeredAt','email','phone'];
+  var META_KEYS = ['role','manager','team','_pinHash','createdAt','registeredAt'];
   if (_cloudDataSnapshot && typeof _cloudDataSnapshot === 'object') {
     META_KEYS.forEach(function(mk){
       if (base[mk] === undefined || base[mk] === null || base[mk] === '') {
@@ -916,9 +892,6 @@ function buildUploadData() {
   }
   // _pinHash：本地 PIN 優先，否則保留雲端
   base._pinHash = (agentPIN ? hashPin(agentPIN) : ((_cloudDataSnapshot && _cloudDataSnapshot._pinHash) || ''));
-  // v3.10.13: 雙重驗證聯絡方式（email/phone）一併序列化到雲端 data
-  base.email = (DB && DB.email) ? DB.email : ((_cloudDataSnapshot && _cloudDataSnapshot.email) || '');
-  base.phone = (DB && DB.phone) ? DB.phone : ((_cloudDataSnapshot && _cloudDataSnapshot.phone) || '');
   return base;
 }
 function saveToCloud(callback, retry) {
@@ -1000,7 +973,7 @@ function loadFromCloud(callback, retry) {
   // 優先 Supabase
   if (SUPA_URL && SUPA_KEY) {
     loadFromSupabase(function(ok){
-      if (ok) { if (callback) callback(true); return; } // v3.10.14: Supabase 成功要 call 返外層 callback（否則登入後 status 永遠卡喺「同步中」）
+      if (ok) return; // Supabase 成功，唔使 fallback
       // Supabase 失敗，fallback Google Sheets
       if (API_URL) { loadFromGoogleSheets(callback, retry); }
       else { if (callback) callback(false); }
@@ -1026,27 +999,17 @@ function loadFromGoogleSheets(callback, retry) {
     .then(function(r){
       if (r.success && r.data) {
         // v3.6.0: 徹底簡化登入流程 + 修復 race condition
-        // v3.10.12: 時間戳智能合併（同 Supabase 路徑一致）
         var hasData = false;
-        var now = new Date().toISOString();
-        function ts(r) { return r && r.updatedAt ? r.updatedAt : ''; }
         ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k){
           if (r.data[k] && Array.isArray(r.data[k]) && r.data[k].length > 0) {
             hasData = true;
+            // 按 ID 合併
             var localMap = {};
             if (DB[k] && Array.isArray(DB[k])) {
-              DB[k].forEach(function(item) {
-                if (!item.updatedAt) item.updatedAt = now;
-                localMap[item.id] = item;
-              });
+              DB[k].forEach(function(item) { localMap[item.id] = item; });
             }
             r.data[k].forEach(function(item) {
-              var existing = localMap[item.id];
-              if (existing) {
-                if (ts(item) >= ts(existing)) localMap[item.id] = item;
-              } else {
-                localMap[item.id] = item;
-              }
+              localMap[item.id] = item; // 雲端數據優先
             });
             DB[k] = Object.values(localMap);
           }
@@ -1231,7 +1194,7 @@ function doForceUpload(payload, mgr, team) {
 function loadFromSupabase(callback, retry) {
   if (!SUPA_URL || !SUPA_KEY || !agentName) { if (callback) callback(false); return; }
   var controller = new AbortController();
-  var timeoutId = setTimeout(function(){ controller.abort(); }, 20000);
+  var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
   fetch(SUPA_URL + '/rest/v1/agents?name=eq.'+encodeURIComponent(agentName)+'&select=data', {
     headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Cache-Control':'no-cache','Pragma':'no-cache'},
     signal:controller.signal
@@ -1241,57 +1204,33 @@ function loadFromSupabase(callback, retry) {
     if (rows && rows.length>0 && rows[0].data) {
       // v3.9.5: 保存雲端快照（保護 metadata 同雲端既有記錄，供 saveToSupabase 合併用）
       _cloudDataSnapshot = JSON.parse(JSON.stringify(rows[0].data));
-      var cloudData = rows[0].data;
-      // v3.10.16: 雲端係 source of truth —— 解決「刪除/減少永遠傳唔到」嘅死亡螺旋 bug
-      // 舊版用 additive merge：雲端有幾多就加幾多，但本地多餘項（已刪客戶、舊佣金）永遠唔會被刪走，
-      // 仲會喺 auto-upload 時將舊數據寫返上雲端 → 污染晒所有平台（iPad/手機全部變 6 客 / 8 萬）。
-      // 新邏輯：雲端有提供嘅 key（就算係空 array，例如佣金清零）直接取代本地；
-      // 只有「本地剛改、雲端未收到」嘅項（60 秒內 updatedAt）先暫留，等下次 push 後自然收斂。
-      var KEEP_WINDOW = 60000;
-      var nowTs = Date.now();
-      var localOnlyCount = 0; // v3.10.17: 計本地有、雲端冇嘅新項數量，用嚟 download 後立即補 upload
+      // v3.6.0: 徹底簡化登入流程 + 修復 race condition
+      var hasData = false;
       ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k){
-        if (cloudData[k] === undefined) return; // 雲端冇呢個 key，唔動本地（最安全）
-        var cloudArr = Array.isArray(cloudData[k]) ? cloudData[k] : [];
-        var cloudMap = {};
-        cloudArr.forEach(function(it){ if (it && it.id !== undefined && it.id !== null) cloudMap[it.id] = true; });
-        var kept = [];
-        if (DB[k] && Array.isArray(DB[k])) {
-          DB[k].forEach(function(it){
-            if (!it || it.id === undefined || it.id === null) return;
-            if (!cloudMap[it.id]) {
-              // 本地有、雲端冇 → 如果係近期新改就暫留，否則當已刪除（雲端權威）丟棄
-              var t = it.updatedAt ? new Date(it.updatedAt).getTime() : 0;
-              if (t && (nowTs - t) < KEEP_WINDOW) { kept.push(it); localOnlyCount++; }
-            }
+        if (rows[0].data[k] && Array.isArray(rows[0].data[k]) && rows[0].data[k].length > 0) {
+          hasData = true;
+          // 按 ID 合併
+          var localMap = {};
+          if (DB[k] && Array.isArray(DB[k])) {
+            DB[k].forEach(function(item) { localMap[item.id] = item; });
+          }
+          rows[0].data[k].forEach(function(item) {
+            localMap[item.id] = item; // 雲端數據優先
           });
-        }
-        DB[k] = cloudArr.concat(kept);
-      });
-      // 頂層 meta 欄位：本地冇就用雲端（email/phone/role 等，供 2FA 同跨平台一致）
-      var META_KEYS = ['role','manager','team','_pinHash','createdAt','registeredAt','email','phone'];
-      META_KEYS.forEach(function(mk){
-        if ((DB[mk] === undefined || DB[mk] === null || DB[mk] === '') && cloudData[mk] !== undefined) {
-          DB[mk] = cloudData[mk];
+          DB[k] = Object.values(localMap);
         }
       });
       // v3.10.5: content-based 去重 — 解決「id 重生成後本地舊 id + 雲端新 id 導致重複」
-      DB.schedules = deduplicateArray(DB.schedules || [], function(s){
+      // schedules 用 date|clientName|startTime 做 composite key，其餘表用 id（已有去重）
+      DB.schedules = deduplicateArray(DB.schedules, function(s){
         return (s.date||'')+'|'+(s.clientName||'')+'|'+(s.startTime||'');
       });
       // v3.6.0: 修復雲端帶入嘅壞時間格式（Excel/ISO 日期）
       fixAllScheduleTimes(true);
       saveDB(); setLastSyncTime();
       _cloudLoadedThisSession = true; // v3.9.4: 標記已成功下載雲端
-      // v3.10.17: 發現「本地有、雲端冇」嘅新數據（例如 save 嗰陣 upload 因蜂窩網絡失敗/未及 push），
-      // 立即再 upload 一次，確保佢落咗雲端，避免下一輪雲端權威 merge 當佢已刪除而 drop（「入咗數據自動冇咗」）
-      // 注意：kept 只含 <60s 新項，唔會 re-upload 舊嘅已刪項，所以唔會引發死亡螺旋
-      if (localOnlyCount > 0) {
-        console.log('[loadFromSupabase] 發現 ' + localOnlyCount + ' 項本地新數據雲端未同步，立即補 upload 以防被 drop');
-        setTimeout(function(){ saveToCloud(); }, 600);
-      }
       if (callback) callback(true);
-      else { toast('☁️ 已從 Supabase 下載最新數據'); renderDashboard(); renderCurrentTab(); }
+      else { toast('☁️ 已從 Supabase 合併數據'); renderDashboard(); renderCurrentTab(); }
     } else {
       // v3.9.4: 第一次失敗自動重試一次（應對瞬間網絡抖動）
       if (!retry) { setTimeout(function(){ loadFromSupabase(callback, true); }, 2000); }
@@ -1360,40 +1299,25 @@ function loadDB() {
 }
 
 function saveDB() {
-  // v3.10.12: 確保所有記錄都有 updatedAt 時間戳（供跨平台智能合併用）
-  var now = new Date().toISOString();
-  ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k){
-    if (DB[k] && Array.isArray(DB[k])) {
-      DB[k].forEach(function(item){ if (!item.updatedAt) item.updatedAt = now; });
-    }
-  });
   var storeKey = getStoreKey();
   try {
     localStorage.setItem(storeKey, JSON.stringify(DB));
     // 同時備份到 sessionStorage
     try { sessionStorage.setItem(storeKey, JSON.stringify(DB)); } catch(se) {}
   } catch(e) { toast('儲存失敗，請檢查瀏覽器空間','error'); }
-  // v3.10.17: 每次本地儲存都排程 upload 到雲端（取代「要手動 call saveDBAutoSync」），
-  // 確保新增/刪除即時同步，唔會因為「只存本地冇 upload」而過 60 秒被雲端權威 merge 當已刪除而 drop
-  // （呢個就係「iPad 入咗新數據過陣自動冇咗」嘅元兇）
-  scheduleCloudUpload();
 }
 
-// v3.10.17: 抽出上傳排程（saveDB() 內部都會 call，確保任何 save 都會 upload）
-// 3 秒 debounce 防止連續 save 時瘋狂 push；蜂窩網絡慢亦唔會卡住（失敗有 saveToCloud 內部重試）
-function scheduleCloudUpload() {
-  if (!CLOUD_ENABLED || !agentName || !SUPA_URL) return;
-  var now = Date.now();
-  if (now - _lastSyncPush < 3000) {
-    if (!_pendingSync) { _pendingSync = true; setTimeout(function(){ _pendingSync=false; saveToCloud(); }, 3000); }
-    return;
-  }
-  _lastSyncPush = now;
-  saveToCloud();
-}
 function saveDBAutoSync() {
-  // v3.10.17: saveDB() 已經內置 scheduleCloudUpload，呢度 call 一次就夠（保留舊 call site 兼容）
   saveDB();
+  if (CLOUD_ENABLED && agentName) {
+    var now = Date.now();
+    if (now - _lastSyncPush < 3000) {
+      if (!_pendingSync) { _pendingSync = true; setTimeout(function(){ _pendingSync=false; saveToCloud(); }, 3000); }
+      return;
+    }
+    _lastSyncPush = now;
+    saveToCloud();
+  }
 }
 
 var AGENT_PIN_KEY = 'insurance_agent_pin';
@@ -1437,32 +1361,33 @@ function onRoleChange() {
   var role = document.getElementById('roleSelect').value;
   var star = document.getElementById('supervisorStar');
   var supInput = document.getElementById('supervisorInput');
-  // v3.9.12: 所屬經理欄永遠可編輯（手機/iPad 上 readonly 會令 input 完全 click 唔到）
-  supInput.readOnly = false;
-  supInput.style.background = 'var(--white)';
   if (role === 'SDD') {
     star.style.color = 'var(--gray400)';
     star.textContent = '(選填)';
-    supInput.placeholder = '可留空，或輸入經理英文全名（例如：PAU CHI FUNG）';
+    supInput.placeholder = 'SDD 為最高層級，可留空';
+    supInput.readOnly = false;
+    supInput.style.background = 'var(--white)';
   } else {
     star.style.color = 'var(--red500)';
     star.textContent = '*';
-    supInput.placeholder = '輸入經理英文全名（例如：PAU CHI FUNG）';
+    supInput.placeholder = '由團隊自動填寫';
   }
 }
 
-// v3.9.2: 揀團隊 → 自動填對應 DD 全名（仍可手動修改，唔鎖死）
+// v3.9.2: 揀團隊 → 自動填對應 DD 全名
 function onTeamChange() {
   var teamSel = document.getElementById('teamInput');
   var supInput = document.getElementById('supervisorInput');
   var selected = teamSel.options[teamSel.selectedIndex];
   var mgrName = selected.getAttribute('data-mgr') || '';
-  // v3.9.12: 只自動填寫，唔再鎖 readonly，同事可手動改經理名
+  supInput.value = mgrName;
   if (mgrName) {
-    supInput.value = mgrName;
+    supInput.readOnly = true;
+    supInput.style.background = 'var(--gray50)';
+  } else {
+    supInput.readOnly = false;
+    supInput.style.background = 'var(--white)';
   }
-  supInput.readOnly = false;
-  supInput.style.background = 'var(--white)';
 }
 
 var loginInProgress = false;
@@ -2537,11 +2462,10 @@ function deduplicateArray(arr, keyFn) {
 // ===== 雲端同步 UI =====
 function manualSync() {
   if (!CLOUD_ENABLED) { toast('請先設定 API 網址','error'); showCloudSetup(); return; }
-  setSyncStatus('syncing', '同步中...');
   toast('☁️ 同步中...');
   saveToCloud(function(success){
-    if (success) { setSyncStatus('ok', ''); toast('☁️ 同步成功！'); }
-    else { setSyncStatus('error', '同步失敗'); toast('同步失敗，請重試','error'); }
+    if (success) toast('☁️ 同步成功！');
+    else toast('同步失敗，請重試','error');
   });
 }
 
@@ -2691,192 +2615,35 @@ function isDBEmpty() {
   return ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].every(function(k){ return !DB[k] || DB[k].length === 0; });
 }
 
-// v3.10.12: Sync spinner 控制函數
-function showSyncSpinner(hint, isError) {
-  var ov = document.getElementById('syncOverlay');
-  if (!ov) return;
-  ov.classList.remove('sync-error');
-  if (isError) ov.classList.add('sync-error');
-  ov.classList.add('sync-active');
-  var hintEl = document.getElementById('syncOverlayHint');
-  var retryBtn = document.getElementById('syncOverlayRetry');
-  if (hint && hintEl) { hintEl.textContent = hint; hintEl.style.display = ''; }
-  else if (hintEl) hintEl.style.display = 'none';
-  if (retryBtn) retryBtn.style.display = isError ? '' : 'none';
-}
-function hideSyncSpinner() {
-  var ov = document.getElementById('syncOverlay');
-  if (!ov) return;
-  ov.classList.remove('sync-active', 'sync-error');
-}
-
-// v3.10.12: 雲端狀態指示器（綠點=已同步 / 黃點=同步中 / 紅點=失敗）
-function setSyncStatus(status, text) {
-  // status: 'ok' | 'syncing' | 'error'
-  var dot = document.getElementById('syncStatusDot');
-  var txt = document.getElementById('syncStatusText');
-  var btn = document.getElementById('manualSyncBtn');
-  if (!dot) return;
-  if (status === 'ok') { dot.style.background = 'var(--green500)'; dot.title = '已同步到雲端'; }
-  else if (status === 'syncing') { dot.style.background = 'var(--yellow500)'; dot.title = '正在同步...'; }
-  else if (status === 'error') { dot.style.background = 'var(--red500)'; dot.title = '同步失敗，請重試'; }
-  if (txt) {
-    if (text) { txt.textContent = text; txt.style.display = ''; }
-    else txt.style.display = 'none';
-    if (status === 'error') { txt.style.background = '#fee2e2'; txt.style.color = 'var(--red500)'; }
-    else if (status === 'syncing') { txt.style.background = '#fef9c3'; txt.style.color = '#b45309'; }
-    else { txt.style.background = '#dcfce7'; txt.style.color = '#16a34a'; }
-  }
-  // 失敗時令「同步」掣更顯眼
-  if (btn) {
-    if (status === 'error') { btn.style.background = 'var(--red500)'; btn.style.animation = 'pulse 1s infinite'; }
-    else { btn.style.background = 'var(--blue500)'; btn.style.animation = ''; }
-  }
-}
-var _pendingAfterLoginSync = null; // 保存 afterLoginSync callback，供重試用
-var _syncTimeout = null; // spinner 硬性 timeout，防止 loadFromCloud hang 導致卡死
-
-function forceSkipSyncSpinner() {
-  // 用家手動跳過：強制隱藏 spinner + 渲染本地數據
-  if (_syncTimeout) { clearTimeout(_syncTimeout); _syncTimeout = null; }
-  hideSyncSpinner();
-  renderDashboard(); renderCurrentTab();
-  toast('⏭️ 已跳過等待，目前顯示本地數據。雲端數據會喺背景繼續同步。', 'info', 5000);
-  // 唔設 has_synced_once — 下次登入仍然會試雲端（只係呢次跳過）
-}
-
-function retryAfterLoginSync() {
-  if (_pendingAfterLoginSync) _pendingAfterLoginSync();
-}
-
 function afterLoginSync() {
   loadApiUrl();
-  _cloudLoadedThisSession = false;
-  _cloudDataSnapshot = null;
-
-  // v3.10.14: 非阻塞同步 — 唔再用 spinner 鎖住畫面
-  // doLogin() 已經 call 咗 renderDashboard()，本地數據已經顯示緊
-  // 呢度只係背景靜默載入雲端數據，載完自動更新畫面
+  _cloudLoadedThisSession = false; // v3.9.4: 每次登入先當未下載，強制先 download 再 upload
+  _cloudDataSnapshot = null; // v3.9.5: 每次登入清空舊快照，避免上一個 user 嘅 metadata 漏落呢個 user
   if (CLOUD_ENABLED && agentName) {
     document.getElementById('cloudStatus').style.display = 'flex';
     document.getElementById('lastSyncTime').textContent = getLastSyncTime();
-
-    // v3.10.14: 即刻標記綠色「已載入本地數據」——本地數據已經顯示緊，
-    // 唔使卡喺黃色「同步中」。雲端載完會轉「已同步」，失敗都係綠色（本地數據在）
-    setSyncStatus('ok', '已載入本地數據');
-
-    // 背景載入雲端數據（完全唔阻塞 UI，同事即刻可以用）
+    // 1. 先從雲端下載（合併最新數據）
     loadFromCloud(function(ok){
-      if (_syncTimeout) { clearTimeout(_syncTimeout); _syncTimeout = null; }
-      localStorage.setItem('insurance_has_synced_once_' + encodeURIComponent(agentName), '1');
-
-      if (ok) {
-        _cloudLoadedThisSession = true;
-        // 雲端數據合併完成 → 靜默更新畫面（用家可能正在睇/改嘢，所以唔彈 toast）
-        renderDashboard(); renderCurrentTab();
-        setSyncStatus('ok', '已同步');
-        console.log('[afterLoginSync] ✅ 雲端同步完成');
-
-        // 本地有數據就自動上傳到 Supabase（雙向同步）
-        if (SUPA_URL && SUPA_KEY && !isDBEmpty()) {
-          setTimeout(function(){
-            saveToSupabase(function(ok2){
-              if (ok2) { setLastSyncTime(); document.getElementById('lastSyncTime').textContent = getLastSyncTime(); }
-              else { console.warn('[afterLoginSync] 上傳 Supabase 失敗，下次會自動重試'); }
-            });
-          }, 1500);
-        }
-      } else {
-        // 雲端失敗 → 保持綠色「已載入本地數據」（唔用紅色 error 嚇人，本地數據一直顯示緊）
-        setSyncStatus('ok', '已載入本地數據');
-        console.warn('[afterLoginSync] ⚠️ 雲端載入失敗，繼續用本地數據');
+      // v3.9.4: 下載完無論成功與否都重新渲染，確保 UI 反映雲端最新數據（解決「落咗但畫面空白」）
+      renderDashboard(); renderCurrentTab();
+      // 2. 下載完畢後，只有「本地有數據」先自動上傳到 Supabase
+      //    ⚠️ v3.9.3 起修復：雲端下載失敗 / 本地為空 時唔上傳，避免用空 DB 覆蓋雲端清走晒資料
+      if (SUPA_URL && SUPA_KEY && !isDBEmpty()) {
+        setTimeout(function(){ saveToSupabase(function(ok2){
+          if (ok2) { setLastSyncTime(); document.getElementById('lastSyncTime').textContent = getLastSyncTime(); }
+          else { console.warn('[afterLoginSync] 上傳 Supabase 失敗，下次登入會自動重試'); }
+        }); }, 1500);
+      } else if (isDBEmpty()) {
+        console.warn('[afterLoginSync] 本地無數據，跳過自動上傳，避免清空白雲端');
+        if (!ok) toast('⚠️ 無法從雲端下載資料，已保留雲端資料避免被清走。請檢查網絡或稍後重試（你部機暫時顯示空白）', 'error');
       }
     });
-
-    // 硬性 timeout：如果雲端 20 秒都未回應，確保唔會卡喺黃色（本地數據已經顯示）
-    // 注意：只喺仲係「同步中」狀態先 override（避免覆蓋背景 sync 嘅正常狀態）
-    _syncTimeout = setTimeout(function(){
-      _syncTimeout = null;
-      var dot = document.getElementById('syncStatusDot');
-      // 只有仲係黃色（同步中）先轉返綠色，唔會干擾正常運作
-      if (dot && dot.style.background === 'var(--yellow500)') {
-        setSyncStatus('ok', '已載入本地數據');
-        console.warn('[afterLoginSync] ⚠️ 雲端載入超過 20 秒，保持本地數據顯示');
-      }
-    }, 20000);
-
-    // 啟動背景定期同步（每 10 秒）
-    startBackgroundSync();
   }
 }
 
-// v3.10.12: 背景定期重新同步（每 5 分鐘靜静雞從 Supabase 拉最新數據）
-// 確保已開住嘅平台會自動收到其他平台嘅改動，用家完全唔使理
-var _bgSyncTimer = null;
-var _bgSyncing = false; // v3.10.14: 防並發 — 避免上一輪 fetch 未完就開新一輪，令黃點 keep 住
-function startBackgroundSync() {
-  if (_bgSyncTimer) clearInterval(_bgSyncTimer); // 防重複
-  if (!CLOUD_ENABLED || !SUPA_URL || !SUPA_KEY || !agentName) return;
-  // 每 10 秒 (10000ms) 執行一次 — 其他平台改咗嘅數據 10 秒內同步到（唔使人手掣同步）
-  _bgSyncTimer = setInterval(function(){
-    if (!CLOUD_ENABLED || !SUPA_URL || !agentName) return;
-    // 跳過：用家正在打字/編輯輸入框，避免打斷 + caret 跳位
-    var ae = document.activeElement;
-    var editing = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT' || ae.isContentEditable);
-    if (editing) return; // 下次 tick 再試
-    // v3.10.14: 上一輪仲未完（fetch 緊），唔開新一輪 → 唔會疊加令黃點卡死
-    if (_bgSyncing) { console.log('[bgSync] 上一輪仲未完，跳過呢輪'); return; }
-    console.log('[bgSync] 定期同步檢查...', new Date().toLocaleTimeString());
-    setSyncStatus('syncing', '同步中…');
-    _bgSyncing = true;
-    // v3.10.23: 安全網 — 即使 callback 冇被 call（內部異常/retry hang），25 秒後強制轉返綠色
-    var _bgSafetyTimer = setTimeout(function(){
-      _bgSyncing = false; // 解鎖，下次 tick 可以再試
-      setSyncStatus('ok', '已載入本地數據');
-      console.warn('[bgSync] ⚠️ 背景同步超過 25 秒無回應，強制恢復綠色');
-    }, 25000);
-    var snapshot = JSON.stringify(db || {});
-    loadFromSupabase(function(ok){
-      clearTimeout(_bgSafetyTimer);
-      _bgSyncing = false; // 無論成功失敗都解鎖
-      if (ok) {
-        var after = JSON.stringify(db || {});
-        if (after !== snapshot) {
-          renderDashboard(); renderCurrentTab();
-          console.log('[bgSync] ✅ 背景同步完成，已更新畫面');
-        } else {
-          console.log('[bgSync] 雲端無新數據，跳過重畫');
-        }
-        setLastSyncTime();
-        setSyncStatus('ok', '已同步');
-        var el = document.getElementById('lastSyncTime');
-        if (el) el.textContent = getLastSyncTime();
-      } else {
-        console.warn('[bgSync] ⚠️ 背景同步失敗，下次再試');
-        // v3.10.14: 失敗都轉返綠色「已載入本地數據」（唔用紅色 error 嚇人，本地數據在）
-        setSyncStatus('ok', '已載入本地數據');
-      }
-    });
-  }, 10000); // 10 秒
-  console.log('[bgSync] 已啟動定期同步（每 10 秒）');
-}
-// 在 afterLoginSync 成功後啟動背景同步 — 我喺 loadFromCloud callback 入面加
-
 document.addEventListener('DOMContentLoaded',function(){
-  // v3.10.11: iPad Safari 100vh bug 修正 — 確保 topbar 可見、scroll 歸零
-  var mainContent = document.getElementById('mainContent');
-  if (mainContent) { mainContent.scrollTop = 0; }
-  var topbar = document.querySelector('.topbar');
-  if (topbar) { topbar.scrollIntoViewIfNeeded ? topbar.scrollIntoViewIfNeeded() : null; }
-  // 延遲再確保一次（Safari render timing）
-  setTimeout(function(){
-    if (mainContent) mainContent.scrollTop = 0;
-    var tb = document.querySelector('.topbar');
-    if (tb) { tb.style.display='none'; tb.style.display=''; } // force reflow
-  }, 100);
-
   // v3.8.5: 手機介面改底部導航
-  var CURRENT_VER = 'v3.10.24'; // 修復無限 reload：移除每次 load 都清 SW/cache 的代碼
+  var CURRENT_VER = 'v3.10.11';
   var cachedVer = localStorage.getItem('app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, clearing cache and reloading...');
@@ -2891,6 +2658,8 @@ document.addEventListener('DOMContentLoaded',function(){
     return;
   }
   localStorage.setItem('app_version', CURRENT_VER);
+  // v3.10.11: 動態更新 sidebar 版本 badge
+  var sv = document.getElementById('sidebarVer'); if (sv) sv.textContent = CURRENT_VER;
 
   var mgrSel = document.getElementById('managerSelect');
   if (mgrSel) {
@@ -3000,8 +2769,8 @@ function renderDashboard() {
   var monthExp = 0; DB.expenses.filter(function(e){ var d=new Date(e.date); return d.getMonth()===mth&&d.getFullYear()===yr; }).forEach(function(e){ monthExp += Number(e.amount)||0; });
   var monthPC = 0; DB.pcs.filter(function(pc){ var d=new Date(pc.date); return d.getMonth()===mth&&d.getFullYear()===yr; }).forEach(function(pc){ monthPC += Number(pc.amount)||0; });
   document.getElementById('dashCards').innerHTML =
-    '<div class="stat-card" style="border-left-color:var(--green500)"><div class="label">本月新增客戶</div><div class="value">'+newClients+'</div><div class="sub">共 '+DB.clients.length+' 位客戶</div></div>'+
     '<div class="stat-card" style="border-left-color:var(--blue500)"><div class="label">本月佣金總額</div><div class="value">'+money(monthTotal)+'</div><div class="sub">'+monthComms.length+' 筆記錄</div></div>'+
+    '<div class="stat-card" style="border-left-color:var(--green500)"><div class="label">本月新增客戶</div><div class="value">'+newClients+'</div><div class="sub">共 '+DB.clients.length+' 位客戶</div></div>'+
     '<div class="stat-card" style="border-left-color:var(--yellow500)"><div class="label">本月新增保單</div><div class="value">'+newPolicies+'</div><div class="sub">共 '+DB.policies.length+' 份保單</div></div>'+
     '<div class="stat-card" style="border-left-color:var(--purple500)"><div class="label">待跟進保單</div><div class="value">'+pending+'</div><div class="sub">需儘快處理</div></div>'+
     '<div class="stat-card" style="border-left-color:var(--red500)"><div class="label">本月 PC 收取</div><div class="value">'+pcMoney(monthPC)+'</div><div class="sub">共 '+DB.pcs.filter(function(pc){var d=new Date(pc.date);return d.getMonth()===mth&&d.getFullYear()===yr;}).length+' 筆</div></div>';
@@ -3018,213 +2787,6 @@ function renderDashboard() {
   else todos.forEach(function(t){ th+='<tr><td>'+t.txt+'</td><td>'+esc(t.client)+'</td><td><span class="badge '+(t.type==='行程'?'badge-blue':'badge-blue')+'">'+esc(t.type)+'</span></td><td>'+esc(dFmt(t.date))+'</td><td><span class="badge '+(t.status==='審核中'?'badge-yellow':t.status==='待跟進'?'badge-red':'badge-blue')+'">'+esc(t.status)+'</span></td></tr>'; });
   document.getElementById('todoTable').innerHTML = th;
   renderDashboardCharts();
-  renderGoalOverview();
-}
-
-// v3.10.18: 總覽目標概覽 — 顯示目標金額 + 達成率 + 進度條，等大家一眼睇清目標幾多
-function renderGoalOverview() {
-  var el = document.getElementById('goalOverview');
-  if (!el) return;
-  var now = new Date(), m = now.getMonth(), y = now.getFullYear();
-  var sum = function(arr, field){ return arr.reduce(function(s,it){return s+(Number(it[field])||0);},0); };
-  var monthTotal = sum(DB.commissions.filter(function(c){var d=new Date(c.date);return d.getMonth()===m&&d.getFullYear()===y;}), 'amount');
-  var monthPC = sum(DB.pcs.filter(function(pc){var d=new Date(pc.date);return d.getMonth()===m&&d.getFullYear()===y;}), 'amount');
-  var yearTotal = sum(DB.commissions.filter(function(c){var d=new Date(c.date);return d.getFullYear()===y;}), 'amount');
-  var yearPC = sum(DB.pcs.filter(function(pc){var d=new Date(pc.date);return d.getFullYear()===y;}), 'amount');
-  var qs = new Date(y, Math.floor(m/3)*3, 1), qe = new Date(y, Math.floor(m/3)*3+3, 1);
-  var qTotal = sum(DB.commissions.filter(function(c){var d=new Date(c.date);return d>=qs&&d<qe;}), 'amount');
-  var qPC = sum(DB.pcs.filter(function(pc){var d=new Date(pc.date);return d>=qs&&d<qe;}), 'amount');
-  // 找指定週期 + 類型嘅活躍目標（含 custom 自訂日期）
-  function getGoal(period, type){
-    for (var i=0;i<DB.goals.length;i++){
-      var g = DB.goals[i];
-      if ((period==='custom') ? true : (g.period===period) && g.type===type){
-        if (period==='monthly'){ if (g.year===y && g.month===m+1) return g; }
-        else if (period==='yearly'){ if (g.year===y) return g; }
-        else if (period==='quarterly'){ if (g.year===y && g.quarter===Math.floor(m/3)+1) return g; }
-        else if (period==='custom'){
-          // 自訂日期：當前日期喺 start/end 範圍內就顯示
-          var sd = new Date(g.startDate||'2099'), ed = new Date(g.endDate||'2000');
-          if (now>=sd && now<=ed && g.type===type) return g;
-        }
-      }
-    }
-    return null;
-  }
-  var rows = [
-    {label:'📅 本月佣金目標', g:getGoal('monthly','佣金'), actual:monthTotal, fmt:money},
-    {label:'📅 本月 PC 目標', g:getGoal('monthly','PC'), actual:monthPC, fmt:pcMoney},
-    {label:'🔶 本季佣金目標', g:getGoal('quarterly','佣金'), actual:qTotal, fmt:money},
-    {label:'🔶 本季 PC 目標', g:getGoal('quarterly','PC'), actual:qPC, fmt:pcMoney},
-    {label:'📆 本年佣金目標', g:getGoal('yearly','佣金'), actual:yearTotal, fmt:money},
-    {label:'📆 本年 PC 目標', g:getGoal('yearly','PC'), actual:yearPC, fmt:pcMoney}
-  ];
-  // 加自訂日期目標（當前活躍嘅 + 提前 PREVIEW_DAYS 日即將開始嘅）
-  var PREVIEW_DAYS = 30;
-  DB.goals.forEach(function(g){
-    if (g.period!=='custom') return;
-    var sd = new Date(g.startDate||'2099'), ed = new Date(g.endDate||'2000');
-    var isPC = g.type==='PC';
-    if (now>=sd && now<=ed) {
-      // 活躍中
-      var rangeComm = sum(DB.commissions.filter(function(c){var d=new Date(c.date);return d>=sd&&d<=ed;}), 'amount');
-      var rangePC = sum(DB.pcs.filter(function(pc){var d=new Date(pc.date);return d>=sd&&d<=ed;}), 'amount');
-      rows.push({
-        label:'📌 '+esc(g.type||'')+'目標 ('+(g.startDate||'?')+' ~ '+(g.endDate||'?')+')',
-        g:g, actual:isPC?rangePC:rangeComm, fmt:isPC?pcMoney:money
-      });
-    } else if (now < sd) {
-      // 未開始 — 若 PREVIEW_DAYS 日內開波，提前顯示為「即將開始」
-      var daysLeft = Math.ceil((sd - now) / 86400000);
-      if (daysLeft <= PREVIEW_DAYS) {
-        rows.push({
-          label:'📌 '+esc(g.type||'')+'目標 ('+(g.startDate||'?')+' ~ '+(g.endDate||'?')+')',
-          g:g, actual:0, fmt:isPC?pcMoney:money, upcoming:true, daysLeft:daysLeft
-        });
-      }
-    }
-  });
-  var html = '<h3>🎯 目標概覽</h3>';
-  var any = false;
-  rows.forEach(function(r){
-    if (!r.g) return;
-    any = true;
-    var target = Number(r.g.target)||0;
-    var pct = target>0 ? Math.min(100, Math.round(r.actual/target*100)) : 0;
-    var diff = r.actual - target;
-    var color = diff>=0 ? '#22c55e' : '#3b82f6';
-    var diffTxt;
-    if (r.upcoming) {
-      // 即將開始：達成率 0%，標註仲有幾多日開波
-      color = '#f59e0b';
-      diffTxt = '⏳ 即將開始 · 仲有 '+r.daysLeft+' 日（'+r.fmt(target)+'）';
-    } else {
-      diffTxt = diff>=0 ? ('✅ 已達標（超額 '+r.fmt(diff)+'）') : ('還差 '+r.fmt(-diff));
-    }
-    html += '<div class="goal-row"><div class="goal-label">'+r.label+'</div>'+
-            '<div class="goal-vals">'+r.fmt(r.actual)+' / '+r.fmt(target)+'（'+pct+'%）</div></div>'+
-            '<div class="goal-bar"><i style="width:'+pct+'%;background:'+color+'"></i></div>'+
-            '<div class="goal-diff" style="color:'+(r.upcoming?'#f59e0b':(diff>=0?'var(--green500)':'var(--red500)'))+'">'+diffTxt+'</div>';
-  });
-  if (!any) html += '<div class="empty">尚未設定目標，前往「🎯 目標管理」設定本月 / 本季 / 本年 / 自訂日期目標，方便追蹤進度</div>';
-  el.innerHTML = html;
-}
-
-// v3.10.20: 目標達成率圓環圖 — 支持月度/季度/年度/自訂日期切換
-var _goalPeriod = 'monthly'; // default
-function switchGoalPeriod(period) {
-  _goalPeriod = period;
-  // update tab UI
-  document.querySelectorAll('.goal-tab').forEach(function(btn){
-    btn.classList.toggle('active', btn.dataset.gp === period);
-  });
-  renderGoalChart();
-}
-function renderGoalChart() {
-  if (!chartLib || !document.getElementById('chartGoal')) return;
-  var now = new Date(), m = now.getMonth(), y = now.getFullYear();
-  var sum = function(arr, field){ return arr.reduce(function(s,it){return s+(Number(it[field])||0);},0); };
-  var monthTotal = sum(DB.commissions.filter(function(c){var d=new Date(c.date);return d.getMonth()===m&&d.getFullYear()===y;}), 'amount');
-  var qTotal, yTotal, cTotal, cLabel;
-  var qs = new Date(y, Math.floor(m/3)*3, 1), qe = new Date(y, Math.floor(m/3)*3+3, 1);
-  qTotal = sum(DB.commissions.filter(function(c){var d=new Date(c.date);return d>=qs&&d<qe;}), 'amount');
-  yTotal = sum(DB.commissions.filter(function(c){var d=new Date(c.date);return d.getFullYear()===y;}), 'amount');
-
-  // 根據選中週期搵目標 + 實際值
-  var goal = null, actual = 0, periodTitle = '';
-  var customUpcoming = false, customDaysLeft = 0; // 自訂目標「即將開始」標記（30 日內）
-  if (_goalPeriod === 'monthly') {
-    for (var i=0;i<DB.goals.length;i++){var g=DB.goals[i];if(g.period==='monthly'&&g.type==='佣金'&&g.year===y&&g.month===m+1){goal=g;break;}}
-    actual = monthTotal;
-    periodTitle = '📅 月度';
-  } else if (_goalPeriod === 'quarterly') {
-    for (var i=0;i<DB.goals.length;i++){var g=DB.goals[i];if(g.period==='quarterly'&&g.type==='佣金'&&g.year===y&&g.quarter===Math.floor(m/3)+1){goal=g;break;}}
-    actual = qTotal;
-    periodTitle = '🔶 季度';
-  } else if (_goalPeriod === 'yearly') {
-    for (var i=0;i<DB.goals.length;i++){var g=DB.goals[i];if(g.period==='yearly'&&g.type==='佣金'&&g.year===y){goal=g;break;}}
-    actual = yTotal;
-    periodTitle = '📆 年度';
-  } else if (_goalPeriod === 'custom') {
-    // 搵第一個活躍（或 30 日內即將開始）嘅自訂目標
-    customUpcoming = false; customDaysLeft = 0;
-    for (var i=0;i<DB.goals.length;i++){
-      var g=DB.goals[i];
-      if(g.period!=='custom'||g.type!=='佣金') continue;
-      var sd=new Date(g.startDate||'2099'), ed=new Date(g.endDate||'2000');
-      if(now>=sd && now<=ed){ goal=g; break; }
-      if(now < sd){
-        var dl = Math.ceil((sd - now)/86400000);
-        if(dl <= 30 && (!goal || dl < customDaysLeft)){ goal=g; customUpcoming=true; customDaysLeft=dl; }
-      }
-    }
-    if (goal) {
-      var sd=new Date(goal.startDate||'2099'), ed=new Date(goal.endDate||'2000');
-      actual = customUpcoming ? 0 : sum(DB.commissions.filter(function(c){var d=new Date(c.date);return d>=sd&&d<=ed;}), 'amount');
-      periodTitle = '📌 '+(goal.startDate||'?')+' ~ '+(goal.endDate||'?');
-    } else {
-      actual = 0; periodTitle = '📌 自訂（未設定）';
-    }
-  }
-
-  var target = goal ? (Number(goal.target)||0) : 0;
-  var r = target > 0 ? Math.min(100, Math.round(actual / target * 100)) : 0;
-
-  // 圓環中心文字（用 chart.js plugin 或 afterDraw）
-  var ringColor = customUpcoming ? '#f59e0b' : (r >= 100 ? '#22c55e' : '#3b82f6');
-  var centerTxt = customUpcoming ? '0%' : (target > 0 ? r + '%' : (goal ? '—' : 'N/A'));
-
-  destroyChart('chartGoal');
-  chartInstances['chartGoal'] = new chartLib(document.getElementById('chartGoal'), {
-    type: 'doughnut',
-    data: {
-      labels: [periodTitle + ' 已完成', '剩餘'],
-      datasets: [{
-        data: [r >= 100 ? 100 : r, r >= 100 ? 0 : 100 - r],
-        backgroundColor: r >= 100 ? ['#22c55e', '#e5e7eb'] : [ringColor, '#e5e7eb'],
-        borderWidth: 0,
-        circumference: r >= 100 ? 360 : undefined,
-        rotation: 0
-      }]
-    },
-    options: {
-      responsive: true,
-      cutout: '75%',
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: function(ctx) {
-              return periodTitle + ': ' + money(actual) + ' / ' + money(target) + ' (' + r + '%)';
-            }
-          }
-        }
-      }
-    },
-    plugins: [{
-      id: 'goalCenterText',
-      beforeDraw: function(chart) {
-        var ctx = chart.ctx;
-        var cx = (chart.chartArea.left + chart.chartArea.right) / 2;
-        var cy = (chart.chartArea.top + chart.chartArea.bottom) / 2;
-        ctx.save();
-        ctx.font = "bold 28px -apple-system, sans-serif";
-        ctx.fillStyle = ringColor;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(centerTxt, cx, cy);
-        // 副標
-        ctx.font = "12px -apple-system, sans-serif";
-        ctx.fillStyle = '#94a3b8';
-        var sub;
-        if (customUpcoming) sub = '⏳ 仲有 '+customDaysLeft+' 日開波';
-        else if (target > 0) sub = money(actual)+'/'+money(target);
-        else sub = goal ? '有目標無金額' : '未設目標';
-        ctx.fillText(sub, cx, cy + 20);
-        ctx.restore();
-      }
-    }]
-  });
 }
 
 function renderDashboardCharts() {
@@ -3234,7 +2796,10 @@ function renderDashboardCharts() {
   var labels=[], d12=[];
   for (var i=11; i>=0; i--) { var dm=new Date(y,m-i,1); labels.push(dm.getFullYear()+'/'+(dm.getMonth()+1)); var s=0; DB.commissions.filter(function(c){var d=new Date(c.date);return d.getMonth()===dm.getMonth()&&d.getFullYear()===dm.getFullYear();}).forEach(function(c){s+=Number(c.amount)||0;}); d12.push(s); }
   chartInstances['chartCommission'] = new chartLib(document.getElementById('chartCommission'),{type:'line',data:{labels:labels,datasets:[{data:d12,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.1)',fill:true,tension:0.4,pointRadius:2}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:function(v){return'HK$'+v.toLocaleString();}}}}}});
-  renderGoalChart();
+  destroyChart('chartGoal');
+  var ag=null; for (var i=0;i<DB.goals.length;i++){if(DB.goals[i].period==='monthly'&&DB.goals[i].year===y&&DB.goals[i].month===m+1){ag=DB.goals[i];break;}}
+  var r=ag?Math.min(100,Math.round(DB.commissions.filter(function(c){var d=new Date(c.date);return d.getMonth()===m&&d.getFullYear()===y;}).reduce(function(s,c){return s+(Number(c.amount)||0);},0)/ag.target*100)):0;
+  chartInstances['chartGoal'] = new chartLib(document.getElementById('chartGoal'),{type:'doughnut',data:{labels:['已完成','剩餘'],datasets:[{data:[r,100-r],backgroundColor:r>=100?['#22c55e','#e5e7eb']:['#3b82f6','#e5e7eb'],borderWidth:0}]},options:{responsive:true,cutout:'75%',plugins:{legend:{display:false},tooltip:{enabled:false}}}});
   destroyChart('chartPolicyType'); var tc={}; DB.policies.forEach(function(p){tc[p.type]=(tc[p.type]||0)+1;}); var pt=Object.keys(tc), pn=pt.map(function(k){return tc[k];});
   chartInstances['chartPolicyType'] = new chartLib(document.getElementById('chartPolicyType'),{type:'doughnut',data:{labels:pt,datasets:[{data:pn,backgroundColor:['#3b82f6','#22c55e','#eab308','#ef4444','#a855f7','#06b6d4','#f97316','#64748b'],borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,plugins:{legend:{position:'bottom'}}}});
   // 收支分類圖表 (使用 incomes 數據)
@@ -4158,6 +3723,9 @@ setInterval(function(){
   }
 }, 30000);
 </script>
-<script src="./sw-register.js?b=20260715-191500"></script>
+<script>
+// v3.10.8: 暫停註冊 Service Worker，避免舊 cache 導致手機版載入舊數據
+// if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(function(r){console.log('[PWA] Service Worker 已註冊:',r.scope);}).catch(function(e){console.warn('[PWA] SW 註冊失敗:',e);});}
+</script>
 </body>
 </html>
