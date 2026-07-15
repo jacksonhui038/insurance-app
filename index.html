@@ -51,71 +51,7 @@ h1{font-size:26px;color:#0f172a;margin-bottom:6px;font-weight:700}
 <body>
 <div class="container">
   <div class="card">
-    <svg class="logo" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="flameGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#ffb800"/>
-          <stop offset="40%" stop-color="#ff6b00"/>
-          <stop offset="80%" stop-color="#ff2200"/>
-          <stop offset="100%" stop-color="#b80000"/>
-        </linearGradient>
-        <linearGradient id="flameGrad2" x1="0%" y1="100%" x2="100%" y2="0%">
-          <stop offset="0%" stop-color="#ff8c00"/>
-          <stop offset="50%" stop-color="#ff3300"/>
-          <stop offset="100%" stop-color="#dc2626"/>
-        </linearGradient>
-        <radialGradient id="centerGlow" cx="50%" cy="50%" r="55%">
-          <stop offset="0%" stop-color="#fff"/>
-          <stop offset="100%" stop-color="#fef3c7"/>
-        </radialGradient>
-        <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="3" result="blur"/>
-          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-        </filter>
-      </defs>
-      <!-- 外層火焰光暈 -->
-      <circle cx="100" cy="100" r="92" fill="url(#flameGrad)" opacity="0.18"/>
-      <circle cx="100" cy="100" r="82" fill="url(#flameGrad)" opacity="0.32"/>
-      <!-- 火焰環（24個火焰尖） -->
-      <g filter="url(#glow)">
-        <path d="M100,18
-                 C108,32 116,38 120,52
-                 C124,38 132,32 140,18
-                 C132,30 138,40 134,52
-                 C142,42 152,40 162,30
-                 C156,42 158,54 150,60
-                 C160,56 172,58 182,52
-                 C176,62 172,72 162,74
-                 C172,80 178,90 182,100
-                 C172,98 162,98 154,102
-                 C164,108 170,118 168,130
-                 C160,124 152,122 144,124
-                 C150,134 152,144 144,156
-                 C138,148 130,144 122,146
-                 C124,156 120,166 110,176
-                 C108,164 102,158 94,158
-                 C92,168 84,176 72,182
-                 C72,170 68,162 60,158
-                 C54,166 44,168 32,164
-                 C40,156 42,146 38,138
-                 C28,142 18,138 8,128
-                 C18,124 26,118 28,108
-                 C18,108 10,100 8,86
-                 C18,90 28,88 36,82
-                 C28,74 24,62 28,48
-                 C36,56 46,58 54,54
-                 C48,44 50,32 60,22
-                 C64,32 72,38 80,38
-                 C76,28 80,18 92,10
-                 C92,22 98,28 100,40
-                 C100,28 100,22 100,18 Z"
-                 fill="url(#flameGrad2)" opacity="0.92"/>
-      </g>
-      <!-- 內圈白色底 -->
-      <circle cx="100" cy="100" r="62" fill="url(#centerGlow)" stroke="url(#flameGrad)" stroke-width="2"/>
-      <!-- SET 字 -->
-      <text x="100" y="118" text-anchor="middle" font-family="'Arial Black','Helvetica Neue',sans-serif" font-size="44" font-weight="900" fill="url(#flameGrad2)" letter-spacing="-1">SET</text>
-    </svg>
+    <img class="logo" src="set-logo.png" alt="SET Logo" draggable="false">
     <h1>SET理財規劃管家</h1>
     <p class="subtitle">保險代理人團隊協作系統<br><small style="color:#94a3b8">手機 / 平板 / 電腦皆可使用 · 數據雲端同步</small></p>
 
