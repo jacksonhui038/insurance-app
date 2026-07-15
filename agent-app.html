@@ -5,11 +5,11 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <!-- v3.10.11: 強制解除舊 Service Worker + 自動偵測版本變化重載（多平台同步保證） -->
 <script>
 (function(){
-  var AGENT_VER='v3.10.19',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.20',AGENT_VER_KEY='agent_app_version';
   var stored=localStorage.getItem(AGENT_VER_KEY)||'';
   if(stored && stored!==AGENT_VER && !/v=new/.test(location.search)){
     console.log('[CacheBuster] agent '+stored+'→'+AGENT_VER+'，強制重載');
@@ -29,7 +29,7 @@
     });
   }
 })();
-/* v3.10.17: 動態偵測 iOS 瀏海/動態島，僅真正有 notch 的設備加 .has-notch */
+/* v3.10.20: 動態偵測 iOS 瀏海/動態島，僅真正有 notch 的設備才啟用 viewport-fit=cover + .has-notch */
 (function(){
   try {
     var el=document.createElement('div');
@@ -37,8 +37,15 @@
     document.documentElement.appendChild(el);
     var sat=parseFloat(getComputedStyle(el).paddingTop)||0;
     document.documentElement.removeChild(el);
-    if(sat>=40){ document.documentElement.classList.add('has-notch'); console.log('[Notch] safe-area-inset-top='+sat+'px → 已啟用避讓'); }
-    else{ console.log('[Notch] safe-area-inset-top='+sat+'px → 無需避讓（非 iPhone 瀏海/Island 設備）'); }
+    if(sat>=40){
+      /* 有瀏海/Island：動態設 viewport-fit=cover + 加避讓 padding */
+      var vp=document.querySelector('meta[name="viewport"]');
+      if(vp) vp.setAttribute('content','width=device-width, initial-scale=1.0, viewport-fit=cover');
+      document.documentElement.classList.add('has-notch');
+      console.log('[Notch] safe-area-inset-top='+sat+'px → 已啟用 viewport-fit=cover + 避讓');
+    } else {
+      console.log('[Notch] safe-area-inset-top='+sat+'px → 標準 viewport（iPad/桌面/無瀏海 iPhone）');
+    }
   }catch(e){ console.warn('[Notch] 偵測失敗:', e); }
 })();
 </script>
@@ -71,7 +78,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft JhengHei
 .nav-icon{font-size:18px;width:24px;text-align:center}
 /* MAIN */
 .main{flex:1;display:flex;flex-direction:column;overflow:hidden}
-.topbar{padding:max(12px,env(safe-area-inset-top)) 24px 10px;background:var(--white);border-bottom:1px solid var(--gray200);display:flex;align-items:center;justify-content:space-between}
+.topbar{padding:12px 24px 10px;background:var(--white);border-bottom:1px solid var(--gray200);display:flex;align-items:center;justify-content:space-between}
 .topbar h2{font-size:18px;font-weight:700}
 .topbar-right{display:flex;gap:8px;align-items:center}
 .agent-badge{display:flex;align-items:center;gap:6px;padding:4px 12px;background:var(--blue50);border-radius:20px;font-size:12px;color:var(--blue700)}
@@ -191,7 +198,7 @@ tr:hover td{background:var(--blue50)}
   .bottom-nav-icon{font-size:20px;line-height:1}
   .bottom-nav-label{white-space:nowrap;overflow:hidden;text-overflow:clip;font-size:10px}
   .main{padding-bottom:calc(72px + env(safe-area-inset-bottom))}
-  .topbar{padding:max(12px, env(safe-area-inset-top)) 14px 10px;gap:6px;overflow-x:hidden;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;box-sizing:border-box}
+  .topbar{padding:12px 14px 10px;gap:6px;overflow-x:hidden;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;box-sizing:border-box}
   .topbar h2{font-size:16px;margin:0 0 4px 0}
   .topbar-right{flex-shrink:0;gap:6px;display:flex;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:6px 0;width:100%;box-sizing:border-box}
   .topbar-right::-webkit-scrollbar{display:none}
@@ -444,7 +451,7 @@ tr:hover td{background:var(--blue50)}
   <div class="sidebar-head">
     <h1>📊 SET理財規劃管家</h1>
     <div class="agent-info" id="sidebarAgentInfo">代理人版</div>
-    <div class="agent-ver" id="sidebarVer">v3.10.19</div>
+    <div class="agent-ver" id="sidebarVer">v3.10.20</div>
   </div>
   <nav class="sidebar-nav" id="sidebarNav">
     <button class="nav-btn" onclick="switchTab('dashboard',this)"><span class="nav-icon">📋</span> 總覽</button>
