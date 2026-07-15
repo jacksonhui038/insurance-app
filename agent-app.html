@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <script>
 // 自動版本戳：每次部署 BUILD_ID 唔同 → URL 加 ?b=BUILD_ID → 瀏覽器/CDN 當新網址 → 一定去 server 攞最新（同事唔使清 cache）
-var BUILD_ID='20260715-125524';
+var BUILD_ID='20260715-132005';
 (function(){
   if (/[?&]nosw=1/.test(location.search)) return; // 安全模式唔重定向
   var bm = location.search.match(/[?&]b=([^&]+)/);
@@ -467,11 +467,13 @@ tr:hover td{background:var(--blue50)}
   <!-- v3.10.8: 手機版雲端狀態同同步掣獨立一行，避免被狀態欄遮住 -->
   <div id="cloudStatus" style="display:none;align-items:center;gap:8px;font-size:12px;color:var(--gray500);padding:8px 24px;background:var(--gray50);border-bottom:1px solid var(--gray200);justify-content:space-between">
     <div style="display:flex;align-items:center;gap:6px">
+      <span id="syncStatusDot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green500);flex-shrink:0" title="已同步"></span>
       <span style="color:var(--green500);font-size:14px">☁️</span>
       <span id="lastSyncTime" style="color:var(--gray400)">尚未同步</span>
+      <span id="syncStatusText" style="display:none;font-size:11px;padding:2px 6px;border-radius:4px"></span>
     </div>
     <div style="display:flex;gap:8px;align-items:center">
-      <button onclick="manualSync()" style="padding:5px 12px;border:none;background:var(--blue500);color:#fff;border-radius:10px;font-size:12px;cursor:pointer">同步</button>
+      <button id="manualSyncBtn" onclick="manualSync()" style="padding:5px 12px;border:none;background:var(--blue500);color:#fff;border-radius:10px;font-size:12px;cursor:pointer">🔄 同步</button>
       <button onclick="forceUploadToSupabase()" style="padding:5px 12px;border:none;background:var(--orange500);color:#fff;border-radius:10px;font-size:12px;cursor:pointer" title="強制將本地數據上傳到 Supabase（修復遺漏）">⬆️ 強制上傳</button>
     </div>
   </div>
@@ -581,6 +583,22 @@ tr:hover td{background:var(--blue50)}
 </div>
 <div id="toastBox" style="position:fixed;bottom:24px;right:24px;z-index:2000"></div>
 <input type="file" id="importInput" accept=".json" style="display:none" onchange="doImport(event)">
+
+<!-- SYNC LOADING OVERLAY (v3.10.12: 開頁時強制等雲端下載完成先顯示) -->
+<div id="syncOverlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,0.92);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px">
+  <div style="width:44px;height:44px;border:4px solid var(--blue100);border-top-color:var(--blue500);border-radius:50%;animation:syncSpin 0.8s linear infinite"></div>
+  <div style="font-size:15px;font-weight:600;color:var(--gray700)">正在從雲端載入最新數據...</div>
+  <div id="syncOverlayHint" style="font-size:12px;color:var(--gray400);display:none">首次同步可能需要幾秒鐘</div>
+  <button id="syncOverlayRetry" style="display:none;padding:8px 20px;border:1px solid var(--blue500);border-radius:8px;background:var(--white);color:var(--blue500);font-size:13px;font-weight:600;cursor:pointer" onclick="retryAfterLoginSync()">🔄 重新同步</button>
+</div>
+<style>
+@keyframes syncSpin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+#syncOverlay[style*='display:none']{display:flex!important;visibility:hidden;pointer-events:none}
+#syncOverlay.sync-active{display:flex!important;visibility:visible;pointer-events:auto}
+#syncOverlay.sync-error{background:rgba(254,242,242,0.95)}
+#syncOverlay.sync-error [style*='animation']{border-color:var(--red500);border-top-color:transparent}
+</style>
 
 <!-- DELETE ACCOUNT MODAL -->
 <div class="modal-bg" id="deleteAccountModalBg" onclick="if(event.target===this)hideDeleteAccountModal()">
@@ -1017,17 +1035,27 @@ function loadFromGoogleSheets(callback, retry) {
     .then(function(r){
       if (r.success && r.data) {
         // v3.6.0: 徹底簡化登入流程 + 修復 race condition
+        // v3.10.12: 時間戳智能合併（同 Supabase 路徑一致）
         var hasData = false;
+        var now = new Date().toISOString();
+        function ts(r) { return r && r.updatedAt ? r.updatedAt : ''; }
         ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k){
           if (r.data[k] && Array.isArray(r.data[k]) && r.data[k].length > 0) {
             hasData = true;
-            // 按 ID 合併
             var localMap = {};
             if (DB[k] && Array.isArray(DB[k])) {
-              DB[k].forEach(function(item) { localMap[item.id] = item; });
+              DB[k].forEach(function(item) {
+                if (!item.updatedAt) item.updatedAt = now;
+                localMap[item.id] = item;
+              });
             }
             r.data[k].forEach(function(item) {
-              localMap[item.id] = item; // 雲端數據優先
+              var existing = localMap[item.id];
+              if (existing) {
+                if (ts(item) >= ts(existing)) localMap[item.id] = item;
+              } else {
+                localMap[item.id] = item;
+              }
             });
             DB[k] = Object.values(localMap);
           }
@@ -1223,17 +1251,32 @@ function loadFromSupabase(callback, retry) {
       // v3.9.5: 保存雲端快照（保護 metadata 同雲端既有記錄，供 saveToSupabase 合併用）
       _cloudDataSnapshot = JSON.parse(JSON.stringify(rows[0].data));
       // v3.6.0: 徹底簡化登入流程 + 修復 race condition
+      // v3.10.12: 時間戳智能合併 — 同 ID 記錄比較 updatedAt，留新嘅嗰個
       var hasData = false;
+      var now = new Date().toISOString();
+      function ts(r) { return r && r.updatedAt ? r.updatedAt : ''; }
       ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k){
         if (rows[0].data[k] && Array.isArray(rows[0].data[k]) && rows[0].data[k].length > 0) {
           hasData = true;
-          // 按 ID 合併
           var localMap = {};
           if (DB[k] && Array.isArray(DB[k])) {
-            DB[k].forEach(function(item) { localMap[item.id] = item; });
+            DB[k].forEach(function(item) {
+              // 確保本地記錄有時間戳（冇嘅就補上當前時間，代表「本地剛改過」）
+              if (!item.updatedAt) item.updatedAt = now;
+              localMap[item.id] = item;
+            });
           }
           rows[0].data[k].forEach(function(item) {
-            localMap[item.id] = item; // 雲端數據優先
+            var existing = localMap[item.id];
+            if (existing) {
+              // 同 ID → 比較 updatedAt，留新嘅
+              if (ts(item) >= ts(existing)) {
+                localMap[item.id] = item; // 雲端更新或一樣新 → 用雲端版
+              }
+              // else: 本地更新 → 保留本地版（唔覆蓋）
+            } else {
+              localMap[item.id] = item; // 雲端有、本地冇 → 加入
+            }
           });
           DB[k] = Object.values(localMap);
         }
@@ -1317,6 +1360,13 @@ function loadDB() {
 }
 
 function saveDB() {
+  // v3.10.12: 確保所有記錄都有 updatedAt 時間戳（供跨平台智能合併用）
+  var now = new Date().toISOString();
+  ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k){
+    if (DB[k] && Array.isArray(DB[k])) {
+      DB[k].forEach(function(item){ if (!item.updatedAt) item.updatedAt = now; });
+    }
+  });
   var storeKey = getStoreKey();
   try {
     localStorage.setItem(storeKey, JSON.stringify(DB));
@@ -2479,10 +2529,11 @@ function deduplicateArray(arr, keyFn) {
 // ===== 雲端同步 UI =====
 function manualSync() {
   if (!CLOUD_ENABLED) { toast('請先設定 API 網址','error'); showCloudSetup(); return; }
+  setSyncStatus('syncing', '同步中...');
   toast('☁️ 同步中...');
   saveToCloud(function(success){
-    if (success) toast('☁️ 同步成功！');
-    else toast('同步失敗，請重試','error');
+    if (success) { setSyncStatus('ok', ''); toast('☁️ 同步成功！'); }
+    else { setSyncStatus('error', '同步失敗'); toast('同步失敗，請重試','error'); }
   });
 }
 
@@ -2632,31 +2683,129 @@ function isDBEmpty() {
   return ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].every(function(k){ return !DB[k] || DB[k].length === 0; });
 }
 
+// v3.10.12: Sync spinner 控制函數
+function showSyncSpinner(hint, isError) {
+  var ov = document.getElementById('syncOverlay');
+  if (!ov) return;
+  ov.classList.remove('sync-error');
+  if (isError) ov.classList.add('sync-error');
+  ov.classList.add('sync-active');
+  var hintEl = document.getElementById('syncOverlayHint');
+  var retryBtn = document.getElementById('syncOverlayRetry');
+  if (hint && hintEl) { hintEl.textContent = hint; hintEl.style.display = ''; }
+  else if (hintEl) hintEl.style.display = 'none';
+  if (retryBtn) retryBtn.style.display = isError ? '' : 'none';
+}
+function hideSyncSpinner() {
+  var ov = document.getElementById('syncOverlay');
+  if (!ov) return;
+  ov.classList.remove('sync-active', 'sync-error');
+}
+
+// v3.10.12: 雲端狀態指示器（綠點=已同步 / 黃點=同步中 / 紅點=失敗）
+function setSyncStatus(status, text) {
+  // status: 'ok' | 'syncing' | 'error'
+  var dot = document.getElementById('syncStatusDot');
+  var txt = document.getElementById('syncStatusText');
+  var btn = document.getElementById('manualSyncBtn');
+  if (!dot) return;
+  if (status === 'ok') { dot.style.background = 'var(--green500)'; dot.title = '已同步到雲端'; }
+  else if (status === 'syncing') { dot.style.background = 'var(--yellow500)'; dot.title = '正在同步...'; }
+  else if (status === 'error') { dot.style.background = 'var(--red500)'; dot.title = '同步失敗，請重試'; }
+  if (txt) {
+    if (text) { txt.textContent = text; txt.style.display = ''; }
+    else txt.style.display = 'none';
+    if (status === 'error') { txt.style.background = '#fee2e2'; txt.style.color = 'var(--red500)'; }
+    else if (status === 'syncing') { txt.style.background = '#fef9c3'; txt.style.color = '#b45309'; }
+    else { txt.style.background = '#dcfce7'; txt.style.color = '#16a34a'; }
+  }
+  // 失敗時令「同步」掣更顯眼
+  if (btn) {
+    if (status === 'error') { btn.style.background = 'var(--red500)'; btn.style.animation = 'pulse 1s infinite'; }
+    else { btn.style.background = 'var(--blue500)'; btn.style.animation = ''; }
+  }
+}
+var _pendingAfterLoginSync = null; // 保存 afterLoginSync callback，供重試用
+function retryAfterLoginSync() {
+  if (_pendingAfterLoginSync) _pendingAfterLoginSync();
+}
+
 function afterLoginSync() {
   loadApiUrl();
-  _cloudLoadedThisSession = false; // v3.9.4: 每次登入先當未下載，強制先 download 再 upload
-  _cloudDataSnapshot = null; // v3.9.5: 每次登入清空舊快照，避免上一個 user 嘅 metadata 漏落呢個 user
+  _cloudLoadedThisSession = false;
+  _cloudDataSnapshot = null;
+
+  // v3.10.12: 如果有雲端，顯示 loading spinner 確保用家唔會見到舊數據
   if (CLOUD_ENABLED && agentName) {
     document.getElementById('cloudStatus').style.display = 'flex';
     document.getElementById('lastSyncTime').textContent = getLastSyncTime();
-    // 1. 先從雲端下載（合併最新數據）
-    loadFromCloud(function(ok){
-      // v3.9.4: 下載完無論成功與否都重新渲染，確保 UI 反映雲端最新數據（解決「落咗但畫面空白」）
-      renderDashboard(); renderCurrentTab();
-      // 2. 下載完畢後，只有「本地有數據」先自動上傳到 Supabase
-      //    ⚠️ v3.9.3 起修復：雲端下載失敗 / 本地為空 時唔上傳，避免用空 DB 覆蓋雲端清走晒資料
-      if (SUPA_URL && SUPA_KEY && !isDBEmpty()) {
-        setTimeout(function(){ saveToSupabase(function(ok2){
-          if (ok2) { setLastSyncTime(); document.getElementById('lastSyncTime').textContent = getLastSyncTime(); }
-          else { console.warn('[afterLoginSync] 上傳 Supabase 失敗，下次登入會自動重試'); }
-        }); }, 1500);
-      } else if (isDBEmpty()) {
-        console.warn('[afterLoginSync] 本地無數據，跳過自動上傳，避免清空白雲端');
-        if (!ok) toast('⚠️ 無法從雲端下載資料，已保留雲端資料避免被清走。請檢查網絡或稍後重試（你部機暫時顯示空白）', 'error');
-      }
-    });
+
+    // 顯示 spinner（首次同步顯示提示）
+    var isFirstSession = !localStorage.getItem('insurance_has_synced_once_' + encodeURIComponent(agentName));
+    showSyncSpinner(isFirstSession ? '首次同步可能需要幾秒鐘' : '', false);
+
+    // 儲存 callback 供重試
+    _pendingAfterLoginSync = function doAfterLoginSyncInner() {
+      // 1. 先從雲端下載（合併最新數據）
+      loadFromCloud(function(ok){
+        hideSyncSpinner(); // 無論成功失敗都隱藏 spinner
+        localStorage.setItem('insurance_has_synced_once_' + encodeURIComponent(agentName), '1');
+
+        // v3.9.4: 下載完無論成功與否都重新渲染，確保 UI 反映雲端最新數據
+        renderDashboard(); renderCurrentTab();
+
+        if (!ok) {
+          setSyncStatus('error', '載入失敗');
+          toast('⚠️ 雲端同步失敗，目前顯示本地數據。點擊「🔄 同步」掣重試', 'error', 8000);
+          return;
+        }
+
+        // v3.10.12: 啟動背景定期同步（每 5 分鐘）
+        startBackgroundSync();
+        setSyncStatus('ok', '');
+
+        // 2. 下載完畢後，只有「本地有數據」先自動上傳到 Supabase
+        if (SUPA_URL && SUPA_KEY && !isDBEmpty()) {
+          setTimeout(function(){ saveToSupabase(function(ok2){
+            if (ok2) { setLastSyncTime(); document.getElementById('lastSyncTime').textContent = getLastSyncTime(); }
+            else { console.warn('[afterLoginSync] 上傳 Supabase 失敗，下次登入會自動重試'); }
+          }); }, 1500);
+        } else if (isDBEmpty()) {
+          console.warn('[afterLoginSync] 本地無數據，跳過自動上傳，避免清空白雲端');
+        }
+      });
+    };
+    _pendingAfterLoginSync();
   }
 }
+
+// v3.10.12: 背景定期重新同步（每 5 分鐘靜静雞從 Supabase 拉最新數據）
+// 確保已開住嘅平台會自動收到其他平台嘅改動，用家完全唔使理
+var _bgSyncTimer = null;
+function startBackgroundSync() {
+  if (_bgSyncTimer) clearInterval(_bgSyncTimer); // 防重複
+  if (!CLOUD_ENABLED || !SUPA_URL || !SUPA_KEY || !agentName) return;
+  // 每 5 分鐘 (300000ms) 執行一次
+  _bgSyncTimer = setInterval(function(){
+    if (!CLOUD_ENABLED || !SUPA_URL || !agentName) return;
+    console.log('[bgSync] 定期同步檢查...', new Date().toLocaleTimeString());
+    setSyncStatus('syncing', '');
+    loadFromSupabase(function(ok){
+      if (ok) {
+        renderDashboard(); renderCurrentTab();
+        setLastSyncTime();
+        setSyncStatus('ok', '');
+        var el = document.getElementById('lastSyncTime');
+        if (el) el.textContent = getLastSyncTime();
+        console.log('[bgSync] ✅ 背景同步完成，已更新畫面');
+      } else {
+        console.warn('[bgSync] ⚠️ 背景同步失敗，下次再試');
+      }
+    });
+  }, 300000); // 5 minutes
+  console.log('[bgSync] 已啟動定期同步（每 5 分鐘）');
+}
+// 在 afterLoginSync 成功後啟動背景同步 — 我喺 loadFromCloud callback 入面加
 
 document.addEventListener('DOMContentLoaded',function(){
   // v3.10.11: iPad Safari 100vh bug 修正 — 確保 topbar 可見、scroll 歸零
@@ -2672,7 +2821,7 @@ document.addEventListener('DOMContentLoaded',function(){
   }, 100);
 
   // v3.8.5: 手機介面改底部導航
-  var CURRENT_VER = 'v3.10.11';
+  var CURRENT_VER = 'v3.10.12';
   var cachedVer = localStorage.getItem('app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, clearing cache and reloading...');
