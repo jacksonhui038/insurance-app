@@ -2,12 +2,27 @@
 <html lang="zh-HK">
 <head>
 <script>
+// 防無限 reload：若 3 秒內 reload 超過 2 次，強制用 ?nosw=1 開啟
+(function(){
+  try {
+    var now = Date.now();
+    var key = '_mgr_reload_log';
+    var log = JSON.parse(sessionStorage.getItem(key) || '[]');
+    log = log.filter(function(t){ return now - t < 3000; });
+    log.push(now);
+    sessionStorage.setItem(key, JSON.stringify(log));
+    if (log.length >= 3 && !/[?&]nosw=1/.test(location.search)) {
+      location.replace(location.pathname + '?nosw=1');
+      return;
+    }
+  } catch(e){}
+})();
 // 版本戳（只作調試用途）。自動更新交由 Service Worker 處理，
 // 唔再用 location.replace / 定時輪詢 redirect（避免無限 reload 循環）。
-var BUILD_ID='20260715-185648';
+var BUILD_ID='20260715-191500';
 </script>
 <script>// 版本號記錄：只喺版本真正變更時清除舊 cache（唔清 SW、唔 reload、唔 location.replace）
-var MGR_VER='v3.10.24',MGR_VER_KEY='mgr_app_version';
+var MGR_VER='v3.10.25',MGR_VER_KEY='mgr_app_version';
 (function(){
   var v=localStorage.getItem(MGR_VER_KEY)||'';
   if(v && v !== MGR_VER){
@@ -955,7 +970,7 @@ function mgrRunSupabaseDiagnostic() {
   if (!el) return;
   el.style.display = 'block';
   el.innerHTML = '🔬 開始診斷...\n';
-  el.innerHTML += '🔖 經理版版本: ' + (window.MGR_CURRENT_VER || CURRENT_VER || '未知') + '\n';
+  el.innerHTML += '🔖 經理版版本: ' + (window.MGR_CURRENT_VER || MGR_VER || '未知') + '\n';
   // localStorage
   var lsUrl = localStorage.getItem('mgr_supa_url') || '(空)';
   var lsKey = localStorage.getItem('mgr_supa_key') || '(空)';
@@ -1494,6 +1509,7 @@ function drawRankChart(ranks) {
 // CHARTS
 // ============================================================
 function renderCharts(ranks,maxComm,agentNames,y,m){
+  var isMobile = window.innerWidth <= 768;
   // ---- 排名表格版（默認顯示，可見全名 + 完整資料）----
   var roleColors={'SDD':'#1e40af','DD':'#2563eb','SDM':'#3b82f6','DM':'#60a5fa','SASM':'#93c5fd','ASM':'#bfdbfe','Agent':'#e5e7eb'};
   var tHtml='<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="background:var(--gray50)"><th style="text-align:left;padding:8px 6px">#</th><th style="text-align:left;padding:8px 6px">代理人</th><th style="text-align:right;padding:8px 6px">本月佣金</th><th style="text-align:right;padding:8px 6px">本年佣金</th><th style="text-align:right;padding:8px 6px">PC</th><th style="text-align:right;padding:8px 6px">淨收入</th></tr></thead><tbody>';
@@ -2510,9 +2526,6 @@ initLock();
 initActivitySelectors();
 updateActivitySelectorVisibility();
 </script>
-<script>
-if('serviceWorker' in navigator && !/[?&]nosw=1/.test(location.search)){navigator.serviceWorker.register('sw.js?b='+BUILD_ID).then(function(r){console.log('[PWA] Service Worker 已註冊:',r.scope);}).catch(function(e){console.warn('[PWA] SW 註冊失敗:',e);});}
-</script>
 
 <!-- MANAGER CLOUD SETUP MODAL -->
 <style>
@@ -2620,6 +2633,6 @@ if('serviceWorker' in navigator && !/[?&]nosw=1/.test(location.search)){navigato
 // v3.9.0: 強制解除舊 SW + Supabase fetch 加 ?apikey= 後備
 (function(){ window.MGR_CURRENT_VER = MGR_VER; })
 </script>
-<script src="./sw-register.js?b=20260715-185648"></script>
+<script src="./sw-register.js?b=20260715-191500"></script>
 </body>
 </html>
