@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <script>
 // 自動版本戳：每次部署 BUILD_ID 唔同 → URL 加 ?b=BUILD_ID → 瀏覽器/CDN 當新網址 → 一定去 server 攞最新（同事唔使清 cache）
-var BUILD_ID='20260715-184437';
+var BUILD_ID='20260715-184619';
 // v3.10.14: 即時版本檢查 — 頁面載入第一件事就係問 server 有冇新版
 // 就算瀏覽器/CDN 緩存咗舊 HTML，呢度都會偵測到並自動重載最新版
 (function(){
@@ -3027,8 +3027,8 @@ function renderDashboard() {
   var monthExp = 0; DB.expenses.filter(function(e){ var d=new Date(e.date); return d.getMonth()===mth&&d.getFullYear()===yr; }).forEach(function(e){ monthExp += Number(e.amount)||0; });
   var monthPC = 0; DB.pcs.filter(function(pc){ var d=new Date(pc.date); return d.getMonth()===mth&&d.getFullYear()===yr; }).forEach(function(pc){ monthPC += Number(pc.amount)||0; });
   document.getElementById('dashCards').innerHTML =
-    '<div class="stat-card" style="border-left-color:var(--blue500)"><div class="label">本月佣金總額</div><div class="value">'+money(monthTotal)+'</div><div class="sub">'+monthComms.length+' 筆記錄</div></div>'+
     '<div class="stat-card" style="border-left-color:var(--green500)"><div class="label">本月新增客戶</div><div class="value">'+newClients+'</div><div class="sub">共 '+DB.clients.length+' 位客戶</div></div>'+
+    '<div class="stat-card" style="border-left-color:var(--blue500)"><div class="label">本月佣金總額</div><div class="value">'+money(monthTotal)+'</div><div class="sub">'+monthComms.length+' 筆記錄</div></div>'+
     '<div class="stat-card" style="border-left-color:var(--yellow500)"><div class="label">本月新增保單</div><div class="value">'+newPolicies+'</div><div class="sub">共 '+DB.policies.length+' 份保單</div></div>'+
     '<div class="stat-card" style="border-left-color:var(--purple500)"><div class="label">待跟進保單</div><div class="value">'+pending+'</div><div class="sub">需儘快處理</div></div>'+
     '<div class="stat-card" style="border-left-color:var(--red500)"><div class="label">本月 PC 收取</div><div class="value">'+pcMoney(monthPC)+'</div><div class="sub">共 '+DB.pcs.filter(function(pc){var d=new Date(pc.date);return d.getMonth()===mth&&d.getFullYear()===yr;}).length+' 筆</div></div>';
