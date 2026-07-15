@@ -27,7 +27,7 @@ var MGR_VER='v3.9.14',MGR_VER_KEY='mgr_app_version';
 <meta name="theme-color" content="#2563eb">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="保經管家">
+<meta name="apple-mobile-web-app-title" content="SET理財規劃管家">
 <link rel="apple-touch-icon" href="icon-192.png">
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
@@ -254,7 +254,7 @@ tr:hover td{background:var(--blue50)}
   <div class="header">
     <div>
       <h1>📊 團隊總覽 <span id="mgrVerBadge" style="display:inline-block;background:var(--blue500);color:#fff;font-size:11px;font-weight:600;padding:2px 10px;border-radius:8px;margin-left:6px;letter-spacing:0.5px;vertical-align:middle">v3.9.12</span></h1>
-      <div class="sub" id="mgrNameDisplay">保險經紀業務管理系統 · 經理視角</div>
+      <div class="sub" id="mgrNameDisplay">保險代理人團隊協作系統 · 經理視角</div>
     </div>
     <div class="header-actions">
       <button class="btn btn-white" onclick="window.MGR_SHOW_ALL_AGENTS=false;mgrLoadFromCloud()" id="mgrCloudBtn">☁️ 載入團隊數據</button>
@@ -685,7 +685,7 @@ function mgrChangeName(){
   if(!newName){ errEl.textContent = '請輸入新姓名'; return; }
   localStorage.setItem(MGR_KEY, newName);
   var hdr = document.getElementById('mgrNameDisplay');
-  if(hdr) hdr.textContent = newName ? '經理：' + newName : '保險經紀業務管理系統 · 經理視角';
+  if(hdr) hdr.textContent = newName ? '經理：' + newName : '保險代理人團隊協作系統 · 經理視角';
   toast('✅ 姓名已更新為「' + newName + '」');
   document.getElementById('acctCurName').value = newName;
   document.getElementById('acctNewName').value = '';
