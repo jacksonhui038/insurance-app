@@ -5,7 +5,7 @@
 <script>
 // 版本戳（只作調試用途）。自動更新交由 Service Worker 處理，
 // 唔再用 location.replace / 定時輪詢 redirect（避免無限 reload 循環）。
-var BUILD_ID='20260715-185425';
+var BUILD_ID='20260715-185648';
 </script>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
@@ -4158,6 +4158,6 @@ setInterval(function(){
   }
 }, 30000);
 </script>
-<script src="./sw-register.js"></script>
+<script src="./sw-register.js?b=20260715-185648"></script>
 </body>
 </html>

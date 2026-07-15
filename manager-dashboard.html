@@ -4,7 +4,7 @@
 <script>
 // 版本戳（只作調試用途）。自動更新交由 Service Worker 處理，
 // 唔再用 location.replace / 定時輪詢 redirect（避免無限 reload 循環）。
-var BUILD_ID='20260715-185425';
+var BUILD_ID='20260715-185648';
 </script>
 <script>// 版本號記錄：只喺版本真正變更時清除舊 cache（唔清 SW、唔 reload、唔 location.replace）
 var MGR_VER='v3.10.24',MGR_VER_KEY='mgr_app_version';
@@ -2620,6 +2620,6 @@ if('serviceWorker' in navigator && !/[?&]nosw=1/.test(location.search)){navigato
 // v3.9.0: 強制解除舊 SW + Supabase fetch 加 ?apikey= 後備
 (function(){ window.MGR_CURRENT_VER = MGR_VER; })
 </script>
-<script src="./sw-register.js"></script>
+<script src="./sw-register.js?b=20260715-185648"></script>
 </body>
 </html>
