@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <script>
 // 自動版本戳：每次部署 BUILD_ID 唔同 → URL 加 ?b=BUILD_ID → 瀏覽器/CDN 當新網址 → 一定去 server 攞最新（同事唔使清 cache）
-var BUILD_ID='20260715-162000';
+var BUILD_ID='20260715-163104';
 // v3.10.14: 即時版本檢查 — 頁面載入第一件事就係問 server 有冇新版
 // 就算瀏覽器/CDN 緩存咗舊 HTML，呢度都會偵測到並自動重載最新版
 (function(){
@@ -2909,7 +2909,7 @@ document.addEventListener('DOMContentLoaded',function(){
   }, 100);
 
   // v3.8.5: 手機介面改底部導航
-  var CURRENT_VER = 'v3.10.20'; // 目標達成率圓環圖支持季度/年度/自訂切換
+  var CURRENT_VER = 'v3.10.21'; // 自訂目標提前 30 日預覽「即將開始」
   var cachedVer = localStorage.getItem('app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, clearing cache and reloading...');
@@ -3092,19 +3092,30 @@ function renderGoalOverview() {
     {label:'📆 本年佣金目標', g:getGoal('yearly','佣金'), actual:yearTotal, fmt:money},
     {label:'📆 本年 PC 目標', g:getGoal('yearly','PC'), actual:yearPC, fmt:pcMoney}
   ];
-  // 加自訂日期目標（當前活躍嘅）
+  // 加自訂日期目標（當前活躍嘅 + 提前 PREVIEW_DAYS 日即將開始嘅）
+  var PREVIEW_DAYS = 30;
   DB.goals.forEach(function(g){
     if (g.period!=='custom') return;
     var sd = new Date(g.startDate||'2099'), ed = new Date(g.endDate||'2000');
-    if (!(now>=sd && now<=ed)) return;
-    // 計算該範圍內嘅實際值
-    var rangeComm = sum(DB.commissions.filter(function(c){var d=new Date(c.date);return d>=sd&&d<=ed;}), 'amount');
-    var rangePC = sum(DB.pcs.filter(function(pc){var d=new Date(pc.date);return d>=sd&&d<=ed;}), 'amount');
     var isPC = g.type==='PC';
-    rows.push({
-      label:'📌 '+esc(g.type||'')+'目標 ('+(g.startDate||'?')+' ~ '+(g.endDate||'?')+')',
-      g:g, actual:isPC?rangePC:rangeComm, fmt:isPC?pcMoney:money
-    });
+    if (now>=sd && now<=ed) {
+      // 活躍中
+      var rangeComm = sum(DB.commissions.filter(function(c){var d=new Date(c.date);return d>=sd&&d<=ed;}), 'amount');
+      var rangePC = sum(DB.pcs.filter(function(pc){var d=new Date(pc.date);return d>=sd&&d<=ed;}), 'amount');
+      rows.push({
+        label:'📌 '+esc(g.type||'')+'目標 ('+(g.startDate||'?')+' ~ '+(g.endDate||'?')+')',
+        g:g, actual:isPC?rangePC:rangeComm, fmt:isPC?pcMoney:money
+      });
+    } else if (now < sd) {
+      // 未開始 — 若 PREVIEW_DAYS 日內開波，提前顯示為「即將開始」
+      var daysLeft = Math.ceil((sd - now) / 86400000);
+      if (daysLeft <= PREVIEW_DAYS) {
+        rows.push({
+          label:'📌 '+esc(g.type||'')+'目標 ('+(g.startDate||'?')+' ~ '+(g.endDate||'?')+')',
+          g:g, actual:0, fmt:isPC?pcMoney:money, upcoming:true, daysLeft:daysLeft
+        });
+      }
+    }
   });
   var html = '<h3>🎯 目標概覽</h3>';
   var any = false;
@@ -3115,11 +3126,18 @@ function renderGoalOverview() {
     var pct = target>0 ? Math.min(100, Math.round(r.actual/target*100)) : 0;
     var diff = r.actual - target;
     var color = diff>=0 ? '#22c55e' : '#3b82f6';
-    var diffTxt = diff>=0 ? ('✅ 已達標（超額 '+r.fmt(diff)+'）') : ('還差 '+r.fmt(-diff));
+    var diffTxt;
+    if (r.upcoming) {
+      // 即將開始：達成率 0%，標註仲有幾多日開波
+      color = '#f59e0b';
+      diffTxt = '⏳ 即將開始 · 仲有 '+r.daysLeft+' 日（'+r.fmt(target)+'）';
+    } else {
+      diffTxt = diff>=0 ? ('✅ 已達標（超額 '+r.fmt(diff)+'）') : ('還差 '+r.fmt(-diff));
+    }
     html += '<div class="goal-row"><div class="goal-label">'+r.label+'</div>'+
             '<div class="goal-vals">'+r.fmt(r.actual)+' / '+r.fmt(target)+'（'+pct+'%）</div></div>'+
             '<div class="goal-bar"><i style="width:'+pct+'%;background:'+color+'"></i></div>'+
-            '<div class="goal-diff" style="color:'+(diff>=0?'var(--green500)':'var(--red500)')+'">'+diffTxt+'</div>';
+            '<div class="goal-diff" style="color:'+(r.upcoming?'#f59e0b':(diff>=0?'var(--green500)':'var(--red500)'))+'">'+diffTxt+'</div>';
   });
   if (!any) html += '<div class="empty">尚未設定目標，前往「🎯 目標管理」設定本月 / 本季 / 本年 / 自訂日期目標，方便追蹤進度</div>';
   el.innerHTML = html;
@@ -3147,6 +3165,7 @@ function renderGoalChart() {
 
   // 根據選中週期搵目標 + 實際值
   var goal = null, actual = 0, periodTitle = '';
+  var customUpcoming = false, customDaysLeft = 0; // 自訂目標「即將開始」標記（30 日內）
   if (_goalPeriod === 'monthly') {
     for (var i=0;i<DB.goals.length;i++){var g=DB.goals[i];if(g.period==='monthly'&&g.type==='佣金'&&g.year===y&&g.month===m+1){goal=g;break;}}
     actual = monthTotal;
@@ -3160,16 +3179,21 @@ function renderGoalChart() {
     actual = yTotal;
     periodTitle = '📆 年度';
   } else if (_goalPeriod === 'custom') {
-    // 搵第一個活躍嘅自訂目標
+    // 搵第一個活躍（或 30 日內即將開始）嘅自訂目標
+    customUpcoming = false; customDaysLeft = 0;
     for (var i=0;i<DB.goals.length;i++){
       var g=DB.goals[i];
       if(g.period!=='custom'||g.type!=='佣金') continue;
       var sd=new Date(g.startDate||'2099'), ed=new Date(g.endDate||'2000');
       if(now>=sd && now<=ed){ goal=g; break; }
+      if(now < sd){
+        var dl = Math.ceil((sd - now)/86400000);
+        if(dl <= 30 && (!goal || dl < customDaysLeft)){ goal=g; customUpcoming=true; customDaysLeft=dl; }
+      }
     }
     if (goal) {
       var sd=new Date(goal.startDate||'2099'), ed=new Date(goal.endDate||'2000');
-      actual = sum(DB.commissions.filter(function(c){var d=new Date(c.date);return d>=sd&&d<=ed;}), 'amount');
+      actual = customUpcoming ? 0 : sum(DB.commissions.filter(function(c){var d=new Date(c.date);return d>=sd&&d<=ed;}), 'amount');
       periodTitle = '📌 '+(goal.startDate||'?')+' ~ '+(goal.endDate||'?');
     } else {
       actual = 0; periodTitle = '📌 自訂（未設定）';
@@ -3180,7 +3204,8 @@ function renderGoalChart() {
   var r = target > 0 ? Math.min(100, Math.round(actual / target * 100)) : 0;
 
   // 圓環中心文字（用 chart.js plugin 或 afterDraw）
-  var centerTxt = target > 0 ? r + '%' : (goal ? '—' : 'N/A');
+  var ringColor = customUpcoming ? '#f59e0b' : (r >= 100 ? '#22c55e' : '#3b82f6');
+  var centerTxt = customUpcoming ? '0%' : (target > 0 ? r + '%' : (goal ? '—' : 'N/A'));
 
   destroyChart('chartGoal');
   chartInstances['chartGoal'] = new chartLib(document.getElementById('chartGoal'), {
@@ -3189,7 +3214,7 @@ function renderGoalChart() {
       labels: [periodTitle + ' 已完成', '剩餘'],
       datasets: [{
         data: [r >= 100 ? 100 : r, r >= 100 ? 0 : 100 - r],
-        backgroundColor: r >= 100 ? ['#22c55e', '#e5e7eb'] : ['#3b82f6', '#e5e7eb'],
+        backgroundColor: r >= 100 ? ['#22c55e', '#e5e7eb'] : [ringColor, '#e5e7eb'],
         borderWidth: 0,
         circumference: r >= 100 ? 360 : undefined,
         rotation: 0
@@ -3217,14 +3242,17 @@ function renderGoalChart() {
         var cy = (chart.chartArea.top + chart.chartArea.bottom) / 2;
         ctx.save();
         ctx.font = "bold 28px -apple-system, sans-serif";
-        ctx.fillStyle = r >= 100 ? '#22c55e' : '#3b82f6';
+        ctx.fillStyle = ringColor;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(centerTxt, cx, cy);
         // 副標
         ctx.font = "12px -apple-system, sans-serif";
         ctx.fillStyle = '#94a3b8';
-        var sub = target > 0 ? money(actual)+'/'+money(target) : (goal ? '有目標無金額' : '未設目標');
+        var sub;
+        if (customUpcoming) sub = '⏳ 仲有 '+customDaysLeft+' 日開波';
+        else if (target > 0) sub = money(actual)+'/'+money(target);
+        else sub = goal ? '有目標無金額' : '未設目標';
         ctx.fillText(sub, cx, cy + 20);
         ctx.restore();
       }
