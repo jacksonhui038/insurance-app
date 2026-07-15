@@ -4,13 +4,20 @@
 <meta charset="UTF-8">
 <script>
 // 自動版本戳：每次部署 BUILD_ID 唔同 → URL 加 ?b=BUILD_ID → 瀏覽器/CDN 當新網址 → 一定去 server 攞最新（同事唔使清 cache）
-var BUILD_ID='20260715-123248';
+var BUILD_ID='20260715-125004';
 (function(){
   if (/[?&]nosw=1/.test(location.search)) return; // 安全模式唔重定向
   var bm = location.search.match(/[?&]b=([^&]+)/);
   if (bm && bm[1] === BUILD_ID) return; // 已經有正確版本戳
-  var base = location.href.split('?')[0];
-  location.replace(base + '?b=' + BUILD_ID);
+  // v3.9.12: 先問 server 攞最新版號，確保就算本頁係舊版都會跳去最新 URL
+  function go(target){
+    var b = location.href.split('?')[0];
+    location.replace(b + '?b=' + target);
+  }
+  fetch('./version.json?t=' + Date.now(), {cache:'no-store'})
+    .then(function(r){return r.json();})
+    .then(function(d){ go((d&&d.buildId)?d.buildId:BUILD_ID); })
+    .catch(function(){ go(BUILD_ID); });
 })();
 </script>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">

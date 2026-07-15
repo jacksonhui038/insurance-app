@@ -31,24 +31,33 @@
   }
 
   window.addEventListener('load', function () {
-    // 註冊帶 ?b=BUILD_ID 嘅 SW 網址：每次部署 BUILD_ID 改變 → 瀏覽器當新網址 → 一定去 server 攞最新 SW（唔使清 cache）
-    var swUrl = './sw.js' + (window.BUILD_ID ? '?b=' + window.BUILD_ID : '?b=' + Date.now());
-    navigator.serviceWorker.register(swUrl).then(function (reg) {
-      console.log('[PWA] Service Worker 已註冊:', reg.scope);
-      reg.addEventListener('updatefound', function () {
-        var installing = reg.installing;
-        if (!installing) return;
-        installing.addEventListener('statechange', function () {
-          if (installing.state === 'installed' && navigator.serviceWorker.controller) {
-            showUpdateBanner(function () {
-              installing.postMessage({ type: 'SKIP_WAITING' });
-            });
-          }
+    // v3.9.12: 先去 network 攞最新 buildId（唔用嵌入嘅），避免舊 HTML 永遠註冊舊 SW URL → 永遠唔更新
+    // 就算頁面係舊版，都會用最新版號註冊 SW → 新 SW 裝好 → 自動接手 → 用到最新 HTML
+    fetch('./version.json?t=' + Date.now(), { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var latest = (data && data.buildId) ? data.buildId : (window.BUILD_ID || '');
+        // 註冊帶 ?b=最新版號 嘅 SW 網址：每次部署版號改變 → 瀏覽器當新網址 → 一定去 server 攞最新 SW
+        var swUrl = './sw.js' + (latest ? '?b=' + latest : '?b=' + Date.now());
+        return navigator.serviceWorker.register(swUrl);
+      })
+      .then(function (reg) {
+        console.log('[PWA] Service Worker 已註冊:', reg.scope);
+        reg.addEventListener('updatefound', function () {
+          var installing = reg.installing;
+          if (!installing) return;
+          installing.addEventListener('statechange', function () {
+            if (installing.state === 'installed' && navigator.serviceWorker.controller) {
+              showUpdateBanner(function () {
+                installing.postMessage({ type: 'SKIP_WAITING' });
+              });
+            }
+          });
         });
+      })
+      .catch(function (e) {
+        console.warn('[PWA] SW 註冊失敗:', e);
       });
-    }).catch(function (e) {
-      console.warn('[PWA] SW 註冊失敗:', e);
-    });
   });
 
   // 新 SW 接手後自動重載，確保頁面用到新版本
@@ -58,4 +67,31 @@
     reloading = true;
     window.location.reload();
   });
+
+  /* v3.9.12: 版本號輪詢 — 解決「舊 SW 一直 serve 舊 HTML，永遠唔更新」嘅死循環
+   * 原理：定期 fetch version.json（永遠去 network），比對 BUILD_ID。
+   * 若唔同 → 強制跳去 ?b=最新版（舊 SW 會因 cache:'reload' 去 network 攞新 HTML）。
+   * 呢段唔經舊 SW 緩存，所以就算舊 HTML 入面嘅 BUILD_ID 過時都會被糾正。 */
+  function checkVersion() {
+    if (reloading) return;
+    // cache-bust 確保一定去 network，唔會俾舊 SW / 瀏覽器緩存
+    fetch('./version.json?t=' + Date.now(), { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data || !data.buildId) return;
+        var cur = window.BUILD_ID || '';
+        if (cur && data.buildId !== cur) {
+          console.log('[PWA] 偵測到新版本 ' + data.buildId + '（當前 ' + cur + '），自動更新…');
+          reloading = true;
+          var base = location.href.split('?')[0];
+          var sep = base.indexOf('?') === -1 ? '?' : '&';
+          // 跳去最新版 URL（舊 SW 會 network-first 攞最新 HTML）
+          location.replace(base + sep + 'b=' + data.buildId);
+        }
+      })
+      .catch(function () { /* 離線或失敗，下次再試 */ });
+  }
+  // 開頁即刻檢查一次，之後每 60 秒檢查（唔會太頻繁）
+  checkVersion();
+  setInterval(checkVersion, 60000);
 })();

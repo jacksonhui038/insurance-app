@@ -1,10 +1,11 @@
 // 保經管家 Service Worker — PWA 緩存策略 v3.9.0
-var CACHE_NAME = 'baojing-v3.10.9';
+var CACHE_NAME = 'baojing-v3.10.10';
 var CACHE_URLS = [
   './',
   './index.html',
   './agent-app.html',
   './manager-dashboard.html',
+  './version.json',
   './manifest.json',
   'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js'
 ];
