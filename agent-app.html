@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <script>
 // 自動版本戳：每次部署 BUILD_ID 唔同 → URL 加 ?b=BUILD_ID → 瀏覽器/CDN 當新網址 → 一定去 server 攞最新（同事唔使清 cache）
-var BUILD_ID='20260715-144551';
+var BUILD_ID='20260715-153541';
 // v3.10.14: 即時版本檢查 — 頁面載入第一件事就係問 server 有冇新版
 // 就算瀏覽器/CDN 緩存咗舊 HTML，呢度都會偵測到並自動重載最新版
 (function(){
@@ -1276,6 +1276,7 @@ function loadFromSupabase(callback, retry) {
       // 只有「本地剛改、雲端未收到」嘅項（60 秒內 updatedAt）先暫留，等下次 push 後自然收斂。
       var KEEP_WINDOW = 60000;
       var nowTs = Date.now();
+      var localOnlyCount = 0; // v3.10.17: 計本地有、雲端冇嘅新項數量，用嚟 download 後立即補 upload
       ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k){
         if (cloudData[k] === undefined) return; // 雲端冇呢個 key，唔動本地（最安全）
         var cloudArr = Array.isArray(cloudData[k]) ? cloudData[k] : [];
@@ -1288,7 +1289,7 @@ function loadFromSupabase(callback, retry) {
             if (!cloudMap[it.id]) {
               // 本地有、雲端冇 → 如果係近期新改就暫留，否則當已刪除（雲端權威）丟棄
               var t = it.updatedAt ? new Date(it.updatedAt).getTime() : 0;
-              if (t && (nowTs - t) < KEEP_WINDOW) kept.push(it);
+              if (t && (nowTs - t) < KEEP_WINDOW) { kept.push(it); localOnlyCount++; }
             }
           });
         }
@@ -1309,6 +1310,13 @@ function loadFromSupabase(callback, retry) {
       fixAllScheduleTimes(true);
       saveDB(); setLastSyncTime();
       _cloudLoadedThisSession = true; // v3.9.4: 標記已成功下載雲端
+      // v3.10.17: 發現「本地有、雲端冇」嘅新數據（例如 save 嗰陣 upload 因蜂窩網絡失敗/未及 push），
+      // 立即再 upload 一次，確保佢落咗雲端，避免下一輪雲端權威 merge 當佢已刪除而 drop（「入咗數據自動冇咗」）
+      // 注意：kept 只含 <60s 新項，唔會 re-upload 舊嘅已刪項，所以唔會引發死亡螺旋
+      if (localOnlyCount > 0) {
+        console.log('[loadFromSupabase] 發現 ' + localOnlyCount + ' 項本地新數據雲端未同步，立即補 upload 以防被 drop');
+        setTimeout(function(){ saveToCloud(); }, 600);
+      }
       if (callback) callback(true);
       else { toast('☁️ 已從 Supabase 下載最新數據'); renderDashboard(); renderCurrentTab(); }
     } else {
@@ -1392,19 +1400,27 @@ function saveDB() {
     // 同時備份到 sessionStorage
     try { sessionStorage.setItem(storeKey, JSON.stringify(DB)); } catch(se) {}
   } catch(e) { toast('儲存失敗，請檢查瀏覽器空間','error'); }
+  // v3.10.17: 每次本地儲存都排程 upload 到雲端（取代「要手動 call saveDBAutoSync」），
+  // 確保新增/刪除即時同步，唔會因為「只存本地冇 upload」而過 60 秒被雲端權威 merge 當已刪除而 drop
+  // （呢個就係「iPad 入咗新數據過陣自動冇咗」嘅元兇）
+  scheduleCloudUpload();
 }
 
-function saveDBAutoSync() {
-  saveDB();
-  if (CLOUD_ENABLED && agentName) {
-    var now = Date.now();
-    if (now - _lastSyncPush < 3000) {
-      if (!_pendingSync) { _pendingSync = true; setTimeout(function(){ _pendingSync=false; saveToCloud(); }, 3000); }
-      return;
-    }
-    _lastSyncPush = now;
-    saveToCloud();
+// v3.10.17: 抽出上傳排程（saveDB() 內部都會 call，確保任何 save 都會 upload）
+// 3 秒 debounce 防止連續 save 時瘋狂 push；蜂窩網絡慢亦唔會卡住（失敗有 saveToCloud 內部重試）
+function scheduleCloudUpload() {
+  if (!CLOUD_ENABLED || !agentName || !SUPA_URL) return;
+  var now = Date.now();
+  if (now - _lastSyncPush < 3000) {
+    if (!_pendingSync) { _pendingSync = true; setTimeout(function(){ _pendingSync=false; saveToCloud(); }, 3000); }
+    return;
   }
+  _lastSyncPush = now;
+  saveToCloud();
+}
+function saveDBAutoSync() {
+  // v3.10.17: saveDB() 已經內置 scheduleCloudUpload，呢度 call 一次就夠（保留舊 call site 兼容）
+  saveDB();
 }
 
 var AGENT_PIN_KEY = 'insurance_agent_pin';
@@ -2880,7 +2896,7 @@ document.addEventListener('DOMContentLoaded',function(){
   }, 100);
 
   // v3.8.5: 手機介面改底部導航
-  var CURRENT_VER = 'v3.10.16';
+  var CURRENT_VER = 'v3.10.17';
   var cachedVer = localStorage.getItem('app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, clearing cache and reloading...');
