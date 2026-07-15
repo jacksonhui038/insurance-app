@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <script>
 // 自動版本戳：每次部署 BUILD_ID 唔同 → URL 加 ?b=BUILD_ID → 瀏覽器/CDN 當新網址 → 一定去 server 攞最新（同事唔使清 cache）
-var BUILD_ID='20260715-121611';
+var BUILD_ID='20260715-122203';
 (function(){
   if (/[?&]nosw=1/.test(location.search)) return; // 安全模式唔重定向
   var bm = location.search.match(/[?&]b=([^&]+)/);
@@ -261,7 +261,7 @@ tr:hover td{background:var(--blue50)}
           <option value="Agent">Agent — 同事</option>
         </select>
       </div>
-      <div class="form-group"><label>👤 所屬經理 <span id="supervisorStar" style="color:var(--red500)">*</span> <span style="font-size:11px;color:var(--gray400)">由團隊自動填寫</span></label><input type="text" id="supervisorInput" list="supervisorList" autocomplete="off" readonly style="background:var(--gray50)"><datalist id="supervisorList"><option value="PAU CHI FUNG"><option value="NG MAN LOK"><option value="CHAN CHI HANG"></datalist></div>
+      <div class="form-group"><label>👤 所屬經理 <span id="supervisorStar" style="color:var(--red500)">*</span> <span style="font-size:11px;color:var(--gray400)">可輸入，或揀團隊自動填 / 由下拉揀選</span></label><input type="text" id="supervisorInput" list="supervisorList" autocomplete="off" placeholder="輸入經理英文名（全大寫）" style="text-transform:uppercase" oninput="this.value=this.value.replace(/[^a-zA-Z\s]/g,'').toUpperCase()"><datalist id="supervisorList"><option value="PAU CHI FUNG"><option value="NG MAN LOK"><option value="CHAN CHI HANG"><option value="TSANG OI TING"><option value="WONG WAI KIT"><option value="HUI YUEN SHU"></datalist></div>
       <div class="form-group"><label>團隊 / 所屬區域 <span style="color:var(--red500)">*</span> <span style="font-size:11px;color:var(--gray400)">揀完會自動填所屬經理（DD）</span></label>
         <select id="teamInput" onchange="onTeamChange()" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px;font-family:inherit;background:var(--white)">
           <option value="">-- 請選擇團隊 --</option>
@@ -1359,33 +1359,32 @@ function onRoleChange() {
   var role = document.getElementById('roleSelect').value;
   var star = document.getElementById('supervisorStar');
   var supInput = document.getElementById('supervisorInput');
+  // v3.9.12: 所屬經理欄永遠可編輯（手機/iPad 上 readonly 會令 input 完全 click 唔到）
+  supInput.readOnly = false;
+  supInput.style.background = 'var(--white)';
   if (role === 'SDD') {
     star.style.color = 'var(--gray400)';
     star.textContent = '(選填)';
     supInput.placeholder = 'SDD 為最高層級，可留空';
-    supInput.readOnly = false;
-    supInput.style.background = 'var(--white)';
   } else {
     star.style.color = 'var(--red500)';
     star.textContent = '*';
-    supInput.placeholder = '由團隊自動填寫';
+    supInput.placeholder = '可輸入，或揀團隊自動填';
   }
 }
 
-// v3.9.2: 揀團隊 → 自動填對應 DD 全名
+// v3.9.2: 揀團隊 → 自動填對應 DD 全名（仍可手動修改，唔鎖死）
 function onTeamChange() {
   var teamSel = document.getElementById('teamInput');
   var supInput = document.getElementById('supervisorInput');
   var selected = teamSel.options[teamSel.selectedIndex];
   var mgrName = selected.getAttribute('data-mgr') || '';
-  supInput.value = mgrName;
+  // v3.9.12: 只自動填寫，唔再鎖 readonly，同事可手動改經理名
   if (mgrName) {
-    supInput.readOnly = true;
-    supInput.style.background = 'var(--gray50)';
-  } else {
-    supInput.readOnly = false;
-    supInput.style.background = 'var(--white)';
+    supInput.value = mgrName;
   }
+  supInput.readOnly = false;
+  supInput.style.background = 'var(--white)';
 }
 
 var loginInProgress = false;
