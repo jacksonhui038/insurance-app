@@ -9,7 +9,7 @@
 <!-- v3.10.11: 強制解除舊 Service Worker + 自動偵測版本變化重載（多平台同步保證） -->
 <script>
 (function(){
-  var AGENT_VER='v3.10.21',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.22',AGENT_VER_KEY='agent_app_version';
   var stored=localStorage.getItem(AGENT_VER_KEY)||'';
   if(stored && stored!==AGENT_VER && !/v=new/.test(location.search)){
     console.log('[CacheBuster] agent '+stored+'→'+AGENT_VER+'，強制重載');
@@ -190,6 +190,10 @@ tr:hover td{background:var(--blue50)}
 .sync-btn:hover{background:#16a34a}
 .bottom-nav{display:none}
 .mobile-sync-bar{display:none}
+/* v3.10.22: iPad / Tablet — Safari 地址欄+Tab欄佔 ~105px，直接推開個版面 */
+@media (min-width:769px) and (max-width:1200px){
+  body{padding-top:105px;height:calc(100vh - 105px)}
+}
 @media(max-width:768px){
   .sidebar{display:none}
   .bottom-nav{position:fixed;bottom:0;left:0;right:0;display:flex;justify-content:space-around;align-items:center;background:var(--white);border-top:1px solid var(--gray200);padding:6px 0 8px;padding-bottom:calc(8px + env(safe-area-inset-bottom));z-index:1000}
@@ -451,7 +455,7 @@ tr:hover td{background:var(--blue50)}
   <div class="sidebar-head">
     <h1>📊 SET理財規劃管家</h1>
     <div class="agent-info" id="sidebarAgentInfo">代理人版</div>
-    <div class="agent-ver" id="sidebarVer">v3.10.21</div>
+    <div class="agent-ver" id="sidebarVer">v3.10.22</div>
   </div>
   <nav class="sidebar-nav" id="sidebarNav">
     <button class="nav-btn" onclick="switchTab('dashboard',this)"><span class="nav-icon">📋</span> 總覽</button>
