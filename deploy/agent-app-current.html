@@ -9,7 +9,7 @@
 <!-- v3.10.11: 強制解除舊 Service Worker + 自動偵測版本變化重載（多平台同步保證） -->
 <script>
 (function(){
-  var AGENT_VER='v3.10.14',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.15',AGENT_VER_KEY='agent_app_version';
   var stored=localStorage.getItem(AGENT_VER_KEY)||'';
   if(stored && stored!==AGENT_VER && !/v=new/.test(location.search)){
     console.log('[CacheBuster] agent '+stored+'→'+AGENT_VER+'，強制重載');
@@ -186,9 +186,11 @@ tr:hover td{background:var(--blue50)}
   .topbar-right .btn{padding:6px 8px;font-size:10px;flex-shrink:0;white-space:nowrap}
   .topbar-right .agent-badge{flex-shrink:0;margin-right:4px}
   .agent-badge{white-space:nowrap}
-  /* iOS Safari / PWA 瀏海/動態島避讓 */
-  @supports (-webkit-touch-callout: none){
-    .topbar{padding-top:60px !important}
+  /* iOS Safari 瀏海/動態島避讓（僅 iPhone，iPad 不適用） */
+  @media (max-width: 768px) and (pointer: coarse) {
+    @supports (-webkit-touch-callout: none){
+      .topbar{padding-top:60px !important}
+    }
   }
   /* 手機版：雲端狀態同同步掣獨立一行，避免被狀態欄遮住 */
   #cloudStatus{position:static !important;display:flex !important;width:100%;justify-content:space-between;align-items:center;padding:8px 14px;background:var(--gray50);border-bottom:1px solid var(--gray200);box-sizing:border-box}
@@ -549,6 +551,14 @@ tr:hover td{background:var(--blue50)}
     </div>
     <!-- GOALS -->
     <div class="tab-panel" id="panel-goals">
+      <div class="period-btns" id="goalFilterBtns" style="margin-bottom:12px">
+        <button class="period-btn active" onclick="filterGoals('all',this)">📋 全部</button>
+        <button class="period-btn" onclick="filterGoals('yearly',this)">📈 年度</button>
+        <button class="period-btn" onclick="filterGoals('quarterly',this)">📊 季度</button>
+        <button class="period-btn" onclick="filterGoals('monthly',this)">📅 每月</button>
+        <button class="period-btn" onclick="filterGoals('custom',this)">📆 自訂</button>
+        <button class="period-btn" onclick="filterGoals('active',this)">✅ 進行中</button>
+      </div>
       <div style="margin-bottom:16px"><button class="btn btn-primary" onclick="openForm('goal')">+ 新增目標</button></div>
       <div id="goalList"></div>
     </div>
@@ -2972,10 +2982,42 @@ function renderReportCharts(s, e) {
 // GOALS
 // ===================================================================
 function parseYMD(s){ if(!s) return null; var p=String(s).slice(0,10); var a=p.split('-'); if(a.length<3||!a[0]||!a[1]||!a[2]) return null; var d=new Date(Number(a[0]),Number(a[1])-1,Number(a[2])); return isNaN(d.getTime())?null:d; }
+// 目標狀態判斷（v3.9.10: 修正自訂日期誤判為「已過」）
+function isGoalActive(g){
+  var now = new Date();
+  if(g.period==='custom' && g.startDate && g.endDate){
+    var s = new Date(parseYMD(g.startDate)+'T00:00:00'), e = new Date(parseYMD(g.endDate)+'T23:59:59');
+    return now >= s && now <= e;
+  }
+  var gy = Number(g.year), gm = Number(g.month), gq = Number(g.quarter);
+  if(g.period==='monthly') return gy === now.getFullYear() && gm === now.getMonth()+1;
+  if(g.period==='quarterly'){ var q = Math.ceil((now.getMonth()+1)/3); return gy===now.getFullYear() && gq===q; }
+  return gy === now.getFullYear();
+}
+
+// 目標篩選狀態
+var goalFilter = 'all';
+function filterGoals(f, btn) {
+  goalFilter = f;
+  // 更新按鈕 active 狀態
+  var btns = document.querySelectorAll('#goalFilterBtns .period-btn');
+  btns.forEach(function(b){ b.classList.remove('active'); });
+  if(btn) btn.classList.add('active');
+  renderGoals();
+}
+
 function renderGoals() {
   var now = new Date(), y = now.getFullYear(), m = now.getMonth();
-  var h = ''; if (DB.goals.length===0) h='<div class="empty"><div class="icon">🎯</div>尚無目標，點擊新增開始設定</div>';
-  else DB.goals.forEach(function(g){
+  var filtered = DB.goals.filter(function(g){
+    if (goalFilter === 'all') return true;
+    if (goalFilter === 'active') {
+      // 進行中：未過期且已開始（簡化判斷）
+      return isGoalActive(g);
+    }
+    return g.period === goalFilter;
+  });
+  var h = ''; if (filtered.length===0) h='<div class="empty"><div class="icon">🎯</div>尚無目標，點擊新增開始設定</div>';
+  else filtered.forEach(function(g){
     var mn=['','1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
     var pl, actual = 0;
     var isPC = g.type === 'PC';
