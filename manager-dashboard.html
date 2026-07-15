@@ -3,7 +3,7 @@
 <head>
 <script>
 // 自動版本戳：每次部署 BUILD_ID 唔同 → URL 加 ?b=BUILD_ID → 瀏覽器/CDN 當新網址 → 一定去 server 攞最新（同事唔使清 cache）
-var BUILD_ID='20260715-153541';
+var BUILD_ID='20260715-155247';
 (function(){
   if (/[?&]nosw=1/.test(location.search)) return; // 安全模式唔重定向
   var bm = location.search.match(/[?&]b=([^&]+)/);
@@ -74,6 +74,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft JhengHei
 .chart-card{background:var(--white);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow)}
 .chart-card h3{font-size:14px;color:var(--gray600);margin-bottom:14px;font-weight:600}
 .chart-card canvas{max-height:300px}
+/* Rank view toggle buttons */
+.rank-toggle-btn{font-size:11px;padding:4px 10px;border:none;border-radius:5px;cursor:pointer;background:transparent;color:var(--gray500);font-weight:600;transition:all .15s}
+.rank-toggle-btn.active{background:var(--white);color:var(--blue600);box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.rank-toggle-btn:hover:not(.active){color:var(--gray700)}
 /* TABLE */
 .table-wrap{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;margin-bottom:24px}
 .table-head{padding:14px 20px;border-bottom:1px solid var(--gray200);display:flex;align-items:center;justify-content:space-between}
@@ -340,7 +344,19 @@ tr:hover td{background:var(--blue50)}
 
     <!-- Charts -->
     <div class="charts-row">
-      <div class="chart-card"><h3>🏆 代理人佣金排名</h3><canvas id="chartRanking"></canvas></div>
+      <div class="chart-card" id="rankingCard">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <h3 style="margin:0">🏆 代理人佣金排名</h3>
+          <div class="rank-toggle" style="display:flex;gap:4px;background:var(--gray100);border-radius:6px;padding:2px">
+            <button class="rank-toggle-btn active" onclick="switchRankView('table',this)" id="rankBtnTable" title="表格版（顯示完整資料）">📋 表格</button>
+            <button class="rank-toggle-btn" onclick="switchRankView('chart',this)" id="rankBtnChart" title="圖表版">📊 圖表</button>
+          </div>
+        </div>
+        <!-- 表格版（默認顯示）-->
+        <div id="rankingTableView" style="overflow-x:auto"></div>
+        <!-- 圖表版（預設隱藏）-->
+        <div id="rankingChartView" style="display:none"><canvas id="chartRanking"></canvas></div>
+      </div>
       <div class="chart-card"><h3>📊 月度佣金趨勢（全團隊）</h3><canvas id="chartTeamTrend"></canvas></div>
     </div>
 
@@ -388,6 +404,7 @@ tr:hover td{background:var(--blue50)}
         <button class="detail-tab" onclick="showDetailTab('expenses',this)">💳 開支</button>
         <button class="detail-tab" onclick="showDetailTab('schedules',this)">📅 行程</button>
         <button class="detail-tab" onclick="showDetailTab('goals',this)">🎯 目標</button>
+        <button class="detail-tab" onclick="showDetailTab('pcs',this)">💻 PC</button>
       </div>
       <div class="detail-content" id="detailContent"></div>
     </div>
@@ -1429,17 +1446,80 @@ function render(){
 }
 
 // ============================================================
-// CHARTS
+// RANK VIEW TOGGLE (圖表 ⇄ 表格)
 // ============================================================
-function renderCharts(ranks,maxComm,agentNames,y,m){
-  if(!chartLib)return;
+var _rankViewMode = 'table'; // default: table (顯示全名 + 完整資料)
+function switchRankView(mode, btn) {
+  _rankViewMode = mode;
+  document.querySelectorAll('.rank-toggle-btn').forEach(function(b){ b.classList.remove('active'); });
+  if(btn) btn.classList.add('active');
+  var tv = document.getElementById('rankingTableView');
+  var cv = document.getElementById('rankingChartView');
+  if(mode==='table'){ tv.style.display=''; cv.style.display='none'; }
+  else { tv.style.display='none'; cv.style.display=''; }
+  // 如果切到 chart 但 chart 未 render 過，強制 render
+  if(mode==='chart' && chartLib && !chartInstances['chartRanking']) {
+    var agentNames = getTree(currentRoot);
+    // re-extract ranks from current state
+    var isMobile = window.innerWidth <= 768;
+    var mgrMap = buildTeamMgrMap();
+    var now=new Date(),m=now.getMonth(),y=now.getFullYear();
+    var rlist=[];
+    getTree(currentRoot).forEach(function(a){
+      var d=TEAM[a];
+      var mc=0; d.commissions.forEach(function(c){var dt=new Date(c.date);if(dt.getMonth()===m&&dt.getFullYear()===y)mc+=Number(c.amount)||0;});
+      rlist.push({name:a,monthComm:mc,role:d.role||'Agent'});
+    });
+    rlist.sort(function(a,b){return b.monthComm-a.monthComm;});
+    drawRankChart(rlist);
+  }
+}
+function drawRankChart(ranks) {
+  if(!chartLib || !ranks.length) return;
   var isMobile = window.innerWidth <= 768;
   var topCount = isMobile ? 8 : 15;
   var top=ranks.slice(0,topCount),labels=top.map(function(r){return r.name;}),data=top.map(function(r){return r.monthComm;});
-  if(chartInstances['chartRanking'])chartInstances['chartRanking'].destroy();
-  chartInstances['chartRanking']=new chartLib(document.getElementById('chartRanking'),{type:'bar',data:{labels:labels,datasets:[{data:data,backgroundColor:'#3b82f6',borderRadius:6}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{callback:function(v){return'HK$'+v.toLocaleString()}}},y:{ticks:{font:{size:isMobile?10:12}}}}}});
+  if(chartInstances['chartRanking']) chartInstances['chartRanking'].destroy();
+  chartInstances['chartRanking']=new chartLib(document.getElementById('chartRanking'),{
+    type:'bar',
+    data:{labels:labels,datasets:[{data:data,backgroundColor:'#3b82f6',borderRadius:6}]},
+    options:{
+      indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{beginAtZero:true,ticks:{callback:function(v){return'HK$'+v.toLocaleString()}}},
+        y:{ticks:{font:{size:isMobile?10:12}}}
+      }
+    }
+  });
+}
 
-  if(chartInstances['chartTeamTrend'])chartInstances['chartTeamTrend'].destroy();
+// ============================================================
+// CHARTS
+// ============================================================
+function renderCharts(ranks,maxComm,agentNames,y,m){
+  // ---- 排名表格版（默認顯示，可見全名 + 完整資料）----
+  var roleColors={'SDD':'#1e40af','DD':'#2563eb','SDM':'#3b82f6','DM':'#60a5fa','SASM':'#93c5fd','ASM':'#bfdbfe','Agent':'#e5e7eb'};
+  var tHtml='<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="background:var(--gray50)"><th style="text-align:left;padding:8px 6px">#</th><th style="text-align:left;padding:8px 6px">代理人</th><th style="text-align:right;padding:8px 6px">本月佣金</th><th style="text-align:right;padding:8px 6px">本年佣金</th><th style="text-align:right;padding:8px 6px">PC</th><th style="text-align:right;padding:8px 6px">淨收入</th></tr></thead><tbody>';
+  ranks.forEach(function(r,i){
+    var rc=roleColors[r.role]||'#e5e7eb';
+    var roleBadge='<span style="background:'+rc+';color:'+(r.role==='Agent'?'#374151':'#fff')+';padding:1px 5px;border-radius:3px;font-size:9px;font-weight:600">'+esc(r.role)+'</span>';
+    tHtml+='<tr style="border-bottom:1px solid var(--gray100);'+(i%2===0?'background:#fafbfc':'')+'">'+
+      '<td style="padding:6px;color:var(--gray400);font-size:12px">'+(i+1)+'</td>'+
+      '<td style="padding:6px;font-weight:500;white-space:nowrap;max-width:200px;overflow:hidden;text-overflow:ellipsis" title="'+esc(r.name)+'">'+esc(r.name)+' '+roleBadge+'</td>'+
+      '<td style="padding:6px;text-align:right;color:var(--green600);font-weight:600;white-space:nowrap">'+money(r.monthComm)+'</td>'+
+      '<td style="padding:6px;text-align:right;white-space:nowrap">'+money(r.yearComm)+'</td>'+
+      '<td style="padding:6px;text-align:right;white-space:nowrap">'+money(r.monthPC)+'</td>'+
+      '<td style="padding:6px;text-align:right;white-space:nowrap">'+money(r.net)+'</td></tr>';
+  });
+  if(!ranks.length) tHtml+='<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--gray400)">暫無數據</td></tr>';
+  tHtml+='</tbody></table>';
+  document.getElementById('rankingTableView').innerHTML=tHtml;
+
+  // ---- 圖表版（按需 render）----
+  drawRankChart(ranks);
+
+  // ---- 月度趨勢圖（保持不變）----
   var tlabels=[],tdata=[];
   for(var i=5;i>=0;i--){var dm=new Date(y,m-i,1);tlabels.push(dm.getFullYear()+'/'+(dm.getMonth()+1));var ts=0;agentNames.forEach(function(a){TEAM[a].commissions.forEach(function(c){var d=new Date(c.date);if(d.getMonth()===dm.getMonth()&&d.getFullYear()===dm.getFullYear())ts+=Number(c.amount)||0;});});tdata.push(ts);}
   chartInstances['chartTeamTrend']=new chartLib(document.getElementById('chartTeamTrend'),{type:'line',data:{labels:tlabels,datasets:[{data:tdata,borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,0.1)',fill:true,tension:0.4,pointRadius:isMobile?3:4,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:isMobile?10:12}}},y:{beginAtZero:true,ticks:{callback:function(v){return'HK$'+v.toLocaleString()}}}}}});
