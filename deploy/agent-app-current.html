@@ -9,7 +9,7 @@
 <!-- v3.10.11: 強制解除舊 Service Worker + 自動偵測版本變化重載（多平台同步保證） -->
 <script>
 (function(){
-  var AGENT_VER='v3.10.18',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.19',AGENT_VER_KEY='agent_app_version';
   var stored=localStorage.getItem(AGENT_VER_KEY)||'';
   if(stored && stored!==AGENT_VER && !/v=new/.test(location.search)){
     console.log('[CacheBuster] agent '+stored+'→'+AGENT_VER+'，強制重載');
@@ -444,7 +444,7 @@ tr:hover td{background:var(--blue50)}
   <div class="sidebar-head">
     <h1>📊 SET理財規劃管家</h1>
     <div class="agent-info" id="sidebarAgentInfo">代理人版</div>
-    <div class="agent-ver" id="sidebarVer">v3.10.18</div>
+    <div class="agent-ver" id="sidebarVer">v3.10.19</div>
   </div>
   <nav class="sidebar-nav" id="sidebarNav">
     <button class="nav-btn" onclick="switchTab('dashboard',this)"><span class="nav-icon">📋</span> 總覽</button>
@@ -540,7 +540,7 @@ tr:hover td{background:var(--blue50)}
       <div class="cards-grid" id="dashCards"></div>
       <div class="charts-grid">
         <div class="chart-card"><h3>📊 佣金收入趨勢</h3><canvas id="chartCommission"></canvas></div>
-        <div class="chart-card"><h3>🎯 月度目標達成率</h3><canvas id="chartGoal"></canvas></div>
+        <div class="chart-card"><h3>🎯 目標達成率</h3><div class="period-btns" id="dashGoalFilterBtns" style="margin-bottom:10px"><button class="period-btn active" onclick="filterDashGoal('monthly',this)">📅 每月</button><button class="period-btn" onclick="filterDashGoal('quarterly',this)">📊 季度</button><button class="period-btn" onclick="filterDashGoal('yearly',this)">📈 年度</button></div><canvas id="chartGoal"></canvas></div>
       </div>
       <div class="charts-grid-2">
         <div class="chart-card"><h3>📋 保單類型分佈</h3><canvas id="chartPolicyType"></canvas></div>
@@ -2896,6 +2896,40 @@ function renderDashboard() {
   renderDashboardCharts();
 }
 
+// v3.10.19: 總覽目標達成率支援週期篩選（每月/季度/年度）+ 支援 PC 型目標
+var dashGoalPeriod = 'monthly';
+function filterDashGoal(p, btn) {
+  dashGoalPeriod = p;
+  var btns = document.querySelectorAll('#dashGoalFilterBtns .period-btn');
+  for (var i = 0; i < btns.length; i++) btns[i].classList.remove('active');
+  if (btn) btn.classList.add('active');
+  renderDashboardCharts();
+}
+function findDashGoal() {
+  var now = new Date(), m = now.getMonth(), y = now.getFullYear(), q = Math.ceil((m + 1) / 3);
+  for (var i = 0; i < DB.goals.length; i++) {
+    var g = DB.goals[i];
+    if (g.period === dashGoalPeriod) {
+      if (dashGoalPeriod === 'monthly' && Number(g.year) === y && Number(g.month) === m + 1) return g;
+      if (dashGoalPeriod === 'quarterly' && Number(g.year) === y && Number(g.quarter) === q) return g;
+      if (dashGoalPeriod === 'yearly' && Number(g.year) === y) return g;
+    }
+  }
+  return null;
+}
+function calcGoalProgress(g) {
+  if (!g) return { pct: 0, actual: 0, label: '未設定目標', unit: '' };
+  var now = new Date(), m = now.getMonth(), y = now.getFullYear(), q = Math.ceil((m + 1) / 3);
+  var isPc = (g.type || 'commission') === 'PC';
+  // 範圍過濾
+  var inRange = function(d) { var dt = new Date(d); if (g.period === 'custom') { var s = new Date(g.startDate || 0), e = new Date(g.endDate || 0); return dt >= s && dt <= e; } if (g.period === 'monthly') return dt.getMonth() === m && dt.getFullYear() === y; if (g.period === 'quarterly') { var mq = Math.ceil((dt.getMonth() + 1) / 3); return dt.getFullYear() === y && mq === Number(g.quarter); } if (g.period === 'yearly') return dt.getFullYear() === y; return true; };
+  var actual = 0;
+  if (isPc) { DB.pcs.forEach(function(pc){ if (inRange(pc.date)) { var subType = g.pcSubType || ''; if (!subType || pc.type === subType) actual += Number(pc.amount) || 0; } }); }
+  else { DB.commissions.forEach(function(c){ if (inRange(c.date)) actual += Number(c.amount) || 0; }); }
+  var pct = g.target > 0 ? Math.min(100, Math.round(actual / g.target * 100)) : 0;
+  return { pct: pct, actual: actual, label: (isPc ? pcMoney(actual) : money(actual)) + ' / ' + (isPc ? pcMoney(g.target) : money(g.target)), unit: isPc ? 'PC' : 'HK$' };
+}
+
 function renderDashboardCharts() {
   if (!chartLib) return;
   var now=new Date(), m=now.getMonth(), y=now.getFullYear();
@@ -2904,9 +2938,14 @@ function renderDashboardCharts() {
   for (var i=11; i>=0; i--) { var dm=new Date(y,m-i,1); labels.push(dm.getFullYear()+'/'+(dm.getMonth()+1)); var s=0; DB.commissions.filter(function(c){var d=new Date(c.date);return d.getMonth()===dm.getMonth()&&d.getFullYear()===dm.getFullYear();}).forEach(function(c){s+=Number(c.amount)||0;}); d12.push(s); }
   chartInstances['chartCommission'] = new chartLib(document.getElementById('chartCommission'),{type:'line',data:{labels:labels,datasets:[{data:d12,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.1)',fill:true,tension:0.4,pointRadius:2}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:function(v){return'HK$'+v.toLocaleString();}}}}}});
   destroyChart('chartGoal');
-  var ag=null; for (var i=0;i<DB.goals.length;i++){if(DB.goals[i].period==='monthly'&&DB.goals[i].year===y&&DB.goals[i].month===m+1){ag=DB.goals[i];break;}}
-  var r=ag?Math.min(100,Math.round(DB.commissions.filter(function(c){var d=new Date(c.date);return d.getMonth()===m&&d.getFullYear()===y;}).reduce(function(s,c){return s+(Number(c.amount)||0);},0)/ag.target*100)):0;
-  chartInstances['chartGoal'] = new chartLib(document.getElementById('chartGoal'),{type:'doughnut',data:{labels:['已完成','剩餘'],datasets:[{data:[r,100-r],backgroundColor:r>=100?['#22c55e','#e5e7eb']:['#3b82f6','#e5e7eb'],borderWidth:0}]},options:{responsive:true,cutout:'75%',plugins:{legend:{display:false},tooltip:{enabled:false}}}});
+  var dg = findDashGoal(), dp = calcGoalProgress(dg);
+  var r = dp.pct;
+  var goalOpts = {
+    type:'doughnut',
+    data:{labels:['已完成','剩餘'],datasets:[{data:[Math.min(r,100),Math.max(0,100-r)],backgroundColor:r>=100?['#22c55e','#e5e7eb']:['#3b82f6','#e5e7eb'],borderWidth:0}]},
+    options:{responsive:true,cutout:'75%',plugins:{legend:{display:false},tooltip:{callbacks:{title:function(){return dp.label;},label:function(c){return c.index===0?'達成 '+r+'%':'剩餘 '+Math.max(0,100-r)+'%';}}}}}
+  };
+  chartInstances['chartGoal'] = new chartLib(document.getElementById('chartGoal'), goalOpts);
   destroyChart('chartPolicyType'); var tc={}; DB.policies.forEach(function(p){tc[p.type]=(tc[p.type]||0)+1;}); var pt=Object.keys(tc), pn=pt.map(function(k){return tc[k];});
   chartInstances['chartPolicyType'] = new chartLib(document.getElementById('chartPolicyType'),{type:'doughnut',data:{labels:pt,datasets:[{data:pn,backgroundColor:['#3b82f6','#22c55e','#eab308','#ef4444','#a855f7','#06b6d4','#f97316','#64748b'],borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,plugins:{legend:{position:'bottom'}}}});
   // 收支分類圖表 (使用 incomes 數據)
