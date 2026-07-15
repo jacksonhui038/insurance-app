@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <script>
 // 自動版本戳：每次部署 BUILD_ID 唔同 → URL 加 ?b=BUILD_ID → 瀏覽器/CDN 當新網址 → 一定去 server 攞最新（同事唔使清 cache）
-var BUILD_ID='20260715-160715';
+var BUILD_ID='20260715-161124';
 // v3.10.14: 即時版本檢查 — 頁面載入第一件事就係問 server 有冇新版
 // 就算瀏覽器/CDN 緩存咗舊 HTML，呢度都會偵測到並自動重載最新版
 (function(){
@@ -2905,7 +2905,7 @@ document.addEventListener('DOMContentLoaded',function(){
   }, 100);
 
   // v3.8.5: 手機介面改底部導航
-  var CURRENT_VER = 'v3.10.18';
+  var CURRENT_VER = 'v3.10.19';
   var cachedVer = localStorage.getItem('app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, clearing cache and reloading...');
@@ -3063,13 +3063,19 @@ function renderGoalOverview() {
   var qs = new Date(y, Math.floor(m/3)*3, 1), qe = new Date(y, Math.floor(m/3)*3+3, 1);
   var qTotal = sum(DB.commissions.filter(function(c){var d=new Date(c.date);return d>=qs&&d<qe;}), 'amount');
   var qPC = sum(DB.pcs.filter(function(pc){var d=new Date(pc.date);return d>=qs&&d<qe;}), 'amount');
+  // 找指定週期 + 類型嘅活躍目標（含 custom 自訂日期）
   function getGoal(period, type){
     for (var i=0;i<DB.goals.length;i++){
       var g = DB.goals[i];
-      if (g.period===period && g.type===type){
+      if ((period==='custom') ? true : (g.period===period) && g.type===type){
         if (period==='monthly'){ if (g.year===y && g.month===m+1) return g; }
         else if (period==='yearly'){ if (g.year===y) return g; }
         else if (period==='quarterly'){ if (g.year===y && g.quarter===Math.floor(m/3)+1) return g; }
+        else if (period==='custom'){
+          // 自訂日期：當前日期喺 start/end 範圍內就顯示
+          var sd = new Date(g.startDate||'2099'), ed = new Date(g.endDate||'2000');
+          if (now>=sd && now<=ed && g.type===type) return g;
+        }
       }
     }
     return null;
@@ -3082,6 +3088,20 @@ function renderGoalOverview() {
     {label:'📆 本年佣金目標', g:getGoal('yearly','佣金'), actual:yearTotal, fmt:money},
     {label:'📆 本年 PC 目標', g:getGoal('yearly','PC'), actual:yearPC, fmt:pcMoney}
   ];
+  // 加自訂日期目標（當前活躍嘅）
+  DB.goals.forEach(function(g){
+    if (g.period!=='custom') return;
+    var sd = new Date(g.startDate||'2099'), ed = new Date(g.endDate||'2000');
+    if (!(now>=sd && now<=ed)) return;
+    // 計算該範圍內嘅實際值
+    var rangeComm = sum(DB.commissions.filter(function(c){var d=new Date(c.date);return d>=sd&&d<=ed;}), 'amount');
+    var rangePC = sum(DB.pcs.filter(function(pc){var d=new Date(pc.date);return d>=sd&&d<=ed;}), 'amount');
+    var isPC = g.type==='PC';
+    rows.push({
+      label:'📌 '+esc(g.type||'')+'目標 ('+(g.startDate||'?')+' ~ '+(g.endDate||'?')+')',
+      g:g, actual:isPC?rangePC:rangeComm, fmt:isPC?pcMoney:money
+    });
+  });
   var html = '<h3>🎯 目標概覽</h3>';
   var any = false;
   rows.forEach(function(r){
@@ -3097,7 +3117,7 @@ function renderGoalOverview() {
             '<div class="goal-bar"><i style="width:'+pct+'%;background:'+color+'"></i></div>'+
             '<div class="goal-diff" style="color:'+(diff>=0?'var(--green500)':'var(--red500)')+'">'+diffTxt+'</div>';
   });
-  if (!any) html += '<div class="empty">尚未設定目標，前往「🎯 目標管理」設定本月 / 本季 / 本年目標，方便追蹤進度</div>';
+  if (!any) html += '<div class="empty">尚未設定目標，前往「🎯 目標管理」設定本月 / 本季 / 本年 / 自訂日期目標，方便追蹤進度</div>';
   el.innerHTML = html;
 }
 
