@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <script>
 // 自動版本戳：每次部署 BUILD_ID 唔同 → URL 加 ?b=BUILD_ID → 瀏覽器/CDN 當新網址 → 一定去 server 攞最新（同事唔使清 cache）
-var BUILD_ID='20260715-161124';
+var BUILD_ID='20260715-161944';
 // v3.10.14: 即時版本檢查 — 頁面載入第一件事就係問 server 有冇新版
 // 就算瀏覽器/CDN 緩存咗舊 HTML，呢度都會偵測到並自動重載最新版
 (function(){
@@ -109,6 +109,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft JhengHei
 .goal-bar{height:10px;background:#eef2f7;border-radius:6px;overflow:hidden;margin-bottom:4px}
 .goal-bar>i{display:block;height:100%;border-radius:6px;transition:width .4s ease}
 .goal-diff{font-size:12px;margin-bottom:14px}
+.goal-period-tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.goal-tab{padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--gray200);background:var(--white);color:var(--gray500);transition:all .2s}
+.goal-tab.active{background:var(--blue500);color:#fff;border-color:var(--blue500)}
+.goal-tab:hover:not(.active){border-color:var(--blue300);color:var(--blue600)}
 .chart-card h3{font-size:14px;color:var(--gray600);margin-bottom:14px;font-weight:600}
 .chart-card canvas{max-height:260px}
 /* TABLES */
@@ -534,7 +538,7 @@ tr:hover td{background:var(--blue50)}
       <div class="goal-overview-card" id="goalOverview"></div>
       <div class="charts-grid">
         <div class="chart-card"><h3>📊 佣金收入趨勢</h3><canvas id="chartCommission"></canvas></div>
-        <div class="chart-card"><h3>🎯 月度目標達成率</h3><canvas id="chartGoal"></canvas></div>
+        <div class="chart-card"><h3>🎯 目標達成率</h3><div class="goal-period-tabs"><button class="goal-tab active" data-gp="monthly" onclick="switchGoalPeriod('monthly')">📅 月度</button><button class="goal-tab" data-gp="quarterly" onclick="switchGoalPeriod('quarterly')">🔶 季度</button><button class="goal-tab" data-gp="yearly" onclick="switchGoalPeriod('yearly')">📆 年度</button><button class="goal-tab" data-gp="custom" onclick="switchGoalPeriod('custom')">📌 自訂</button></div><canvas id="chartGoal"></canvas></div>
       </div>
       <div class="charts-grid-2">
         <div class="chart-card"><h3>📋 保單類型分佈</h3><canvas id="chartPolicyType"></canvas></div>
@@ -2905,7 +2909,7 @@ document.addEventListener('DOMContentLoaded',function(){
   }, 100);
 
   // v3.8.5: 手機介面改底部導航
-  var CURRENT_VER = 'v3.10.19';
+  var CURRENT_VER = 'v3.10.20'; // 目標達成率圓環圖支持季度/年度/自訂切換
   var cachedVer = localStorage.getItem('app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, clearing cache and reloading...');
@@ -3121,6 +3125,113 @@ function renderGoalOverview() {
   el.innerHTML = html;
 }
 
+// v3.10.20: 目標達成率圓環圖 — 支持月度/季度/年度/自訂日期切換
+var _goalPeriod = 'monthly'; // default
+function switchGoalPeriod(period) {
+  _goalPeriod = period;
+  // update tab UI
+  document.querySelectorAll('.goal-tab').forEach(function(btn){
+    btn.classList.toggle('active', btn.dataset.gp === period);
+  });
+  renderGoalChart();
+}
+function renderGoalChart() {
+  if (!chartLib || !document.getElementById('chartGoal')) return;
+  var now = new Date(), m = now.getMonth(), y = now.getFullYear();
+  var sum = function(arr, field){ return arr.reduce(function(s,it){return s+(Number(it[field])||0);},0); };
+  var monthTotal = sum(DB.commissions.filter(function(c){var d=new Date(c.date);return d.getMonth()===m&&d.getFullYear()===y;}), 'amount');
+  var qTotal, yTotal, cTotal, cLabel;
+  var qs = new Date(y, Math.floor(m/3)*3, 1), qe = new Date(y, Math.floor(m/3)*3+3, 1);
+  qTotal = sum(DB.commissions.filter(function(c){var d=new Date(c.date);return d>=qs&&d<qe;}), 'amount');
+  yTotal = sum(DB.commissions.filter(function(c){var d=new Date(c.date);return d.getFullYear()===y;}), 'amount');
+
+  // 根據選中週期搵目標 + 實際值
+  var goal = null, actual = 0, periodTitle = '';
+  if (_goalPeriod === 'monthly') {
+    for (var i=0;i<DB.goals.length;i++){var g=DB.goals[i];if(g.period==='monthly'&&g.type==='佣金'&&g.year===y&&g.month===m+1){goal=g;break;}}
+    actual = monthTotal;
+    periodTitle = '📅 月度';
+  } else if (_goalPeriod === 'quarterly') {
+    for (var i=0;i<DB.goals.length;i++){var g=DB.goals[i];if(g.period==='quarterly'&&g.type==='佣金'&&g.year===y&&g.quarter===Math.floor(m/3)+1){goal=g;break;}}
+    actual = qTotal;
+    periodTitle = '🔶 季度';
+  } else if (_goalPeriod === 'yearly') {
+    for (var i=0;i<DB.goals.length;i++){var g=DB.goals[i];if(g.period==='yearly'&&g.type==='佣金'&&g.year===y){goal=g;break;}}
+    actual = yTotal;
+    periodTitle = '📆 年度';
+  } else if (_goalPeriod === 'custom') {
+    // 搵第一個活躍嘅自訂目標
+    for (var i=0;i<DB.goals.length;i++){
+      var g=DB.goals[i];
+      if(g.period!=='custom'||g.type!=='佣金') continue;
+      var sd=new Date(g.startDate||'2099'), ed=new Date(g.endDate||'2000');
+      if(now>=sd && now<=ed){ goal=g; break; }
+    }
+    if (goal) {
+      var sd=new Date(goal.startDate||'2099'), ed=new Date(goal.endDate||'2000');
+      actual = sum(DB.commissions.filter(function(c){var d=new Date(c.date);return d>=sd&&d<=ed;}), 'amount');
+      periodTitle = '📌 '+(goal.startDate||'?')+' ~ '+(goal.endDate||'?');
+    } else {
+      actual = 0; periodTitle = '📌 自訂（未設定）';
+    }
+  }
+
+  var target = goal ? (Number(goal.target)||0) : 0;
+  var r = target > 0 ? Math.min(100, Math.round(actual / target * 100)) : 0;
+
+  // 圓環中心文字（用 chart.js plugin 或 afterDraw）
+  var centerTxt = target > 0 ? r + '%' : (goal ? '—' : 'N/A');
+
+  destroyChart('chartGoal');
+  chartInstances['chartGoal'] = new chartLib(document.getElementById('chartGoal'), {
+    type: 'doughnut',
+    data: {
+      labels: [periodTitle + ' 已完成', '剩餘'],
+      datasets: [{
+        data: [r >= 100 ? 100 : r, r >= 100 ? 0 : 100 - r],
+        backgroundColor: r >= 100 ? ['#22c55e', '#e5e7eb'] : ['#3b82f6', '#e5e7eb'],
+        borderWidth: 0,
+        circumference: r >= 100 ? 360 : undefined,
+        rotation: 0
+      }]
+    },
+    options: {
+      responsive: true,
+      cutout: '75%',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) {
+              return periodTitle + ': ' + money(actual) + ' / ' + money(target) + ' (' + r + '%)';
+            }
+          }
+        }
+      }
+    },
+    plugins: [{
+      id: 'goalCenterText',
+      beforeDraw: function(chart) {
+        var ctx = chart.ctx;
+        var cx = (chart.chartArea.left + chart.chartArea.right) / 2;
+        var cy = (chart.chartArea.top + chart.chartArea.bottom) / 2;
+        ctx.save();
+        ctx.font = "bold 28px -apple-system, sans-serif";
+        ctx.fillStyle = r >= 100 ? '#22c55e' : '#3b82f6';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(centerTxt, cx, cy);
+        // 副標
+        ctx.font = "12px -apple-system, sans-serif";
+        ctx.fillStyle = '#94a3b8';
+        var sub = target > 0 ? money(actual)+'/'+money(target) : (goal ? '有目標無金額' : '未設目標');
+        ctx.fillText(sub, cx, cy + 20);
+        ctx.restore();
+      }
+    }]
+  });
+}
+
 function renderDashboardCharts() {
   if (!chartLib) return;
   var now=new Date(), m=now.getMonth(), y=now.getFullYear();
@@ -3128,10 +3239,7 @@ function renderDashboardCharts() {
   var labels=[], d12=[];
   for (var i=11; i>=0; i--) { var dm=new Date(y,m-i,1); labels.push(dm.getFullYear()+'/'+(dm.getMonth()+1)); var s=0; DB.commissions.filter(function(c){var d=new Date(c.date);return d.getMonth()===dm.getMonth()&&d.getFullYear()===dm.getFullYear();}).forEach(function(c){s+=Number(c.amount)||0;}); d12.push(s); }
   chartInstances['chartCommission'] = new chartLib(document.getElementById('chartCommission'),{type:'line',data:{labels:labels,datasets:[{data:d12,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.1)',fill:true,tension:0.4,pointRadius:2}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:function(v){return'HK$'+v.toLocaleString();}}}}}});
-  destroyChart('chartGoal');
-  var ag=null; for (var i=0;i<DB.goals.length;i++){if(DB.goals[i].period==='monthly'&&DB.goals[i].year===y&&DB.goals[i].month===m+1){ag=DB.goals[i];break;}}
-  var r=ag?Math.min(100,Math.round(DB.commissions.filter(function(c){var d=new Date(c.date);return d.getMonth()===m&&d.getFullYear()===y;}).reduce(function(s,c){return s+(Number(c.amount)||0);},0)/ag.target*100)):0;
-  chartInstances['chartGoal'] = new chartLib(document.getElementById('chartGoal'),{type:'doughnut',data:{labels:['已完成','剩餘'],datasets:[{data:[r,100-r],backgroundColor:r>=100?['#22c55e','#e5e7eb']:['#3b82f6','#e5e7eb'],borderWidth:0}]},options:{responsive:true,cutout:'75%',plugins:{legend:{display:false},tooltip:{enabled:false}}}});
+  renderGoalChart();
   destroyChart('chartPolicyType'); var tc={}; DB.policies.forEach(function(p){tc[p.type]=(tc[p.type]||0)+1;}); var pt=Object.keys(tc), pn=pt.map(function(k){return tc[k];});
   chartInstances['chartPolicyType'] = new chartLib(document.getElementById('chartPolicyType'),{type:'doughnut',data:{labels:pt,datasets:[{data:pn,backgroundColor:['#3b82f6','#22c55e','#eab308','#ef4444','#a855f7','#06b6d4','#f97316','#64748b'],borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,plugins:{legend:{position:'bottom'}}}});
   // 收支分類圖表 (使用 incomes 數據)
