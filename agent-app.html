@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <script>
 // 自動版本戳：每次部署 BUILD_ID 唔同 → URL 加 ?b=BUILD_ID → 瀏覽器/CDN 當新網址 → 一定去 server 攞最新（同事唔使清 cache）
-var BUILD_ID='20260715-132005';
+var BUILD_ID='20260715-133412';
 (function(){
   if (/[?&]nosw=1/.test(location.search)) return; // 安全模式唔重定向
   var bm = location.search.match(/[?&]b=([^&]+)/);
@@ -2785,25 +2785,36 @@ var _bgSyncTimer = null;
 function startBackgroundSync() {
   if (_bgSyncTimer) clearInterval(_bgSyncTimer); // 防重複
   if (!CLOUD_ENABLED || !SUPA_URL || !SUPA_KEY || !agentName) return;
-  // 每 5 分鐘 (300000ms) 執行一次
+  // 每 10 秒 (10000ms) 執行一次 — 其他平台改咗嘅數據 10 秒內同步到（唔使人手掣同步）
   _bgSyncTimer = setInterval(function(){
     if (!CLOUD_ENABLED || !SUPA_URL || !agentName) return;
+    // 跳過：用家正在打字/編輯輸入框，避免打斷 + caret 跳位
+    var ae = document.activeElement;
+    var editing = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT' || ae.isContentEditable);
+    if (editing) return; // 下次 tick 再試
     console.log('[bgSync] 定期同步檢查...', new Date().toLocaleTimeString());
-    setSyncStatus('syncing', '');
+    setSyncStatus('syncing', '同步中…');
+    var snapshot = JSON.stringify(db || {});
     loadFromSupabase(function(ok){
       if (ok) {
-        renderDashboard(); renderCurrentTab();
+        var after = JSON.stringify(db || {});
+        if (after !== snapshot) {
+          renderDashboard(); renderCurrentTab();
+          console.log('[bgSync] ✅ 背景同步完成，已更新畫面');
+        } else {
+          console.log('[bgSync] 雲端無新數據，跳過重畫');
+        }
         setLastSyncTime();
-        setSyncStatus('ok', '');
+        setSyncStatus('ok', '已同步');
         var el = document.getElementById('lastSyncTime');
         if (el) el.textContent = getLastSyncTime();
-        console.log('[bgSync] ✅ 背景同步完成，已更新畫面');
       } else {
         console.warn('[bgSync] ⚠️ 背景同步失敗，下次再試');
+        setSyncStatus('error', '同步失敗');
       }
     });
-  }, 300000); // 5 minutes
-  console.log('[bgSync] 已啟動定期同步（每 5 分鐘）');
+  }, 10000); // 10 秒
+  console.log('[bgSync] 已啟動定期同步（每 10 秒）');
 }
 // 在 afterLoginSync 成功後啟動背景同步 — 我喺 loadFromCloud callback 入面加
 
@@ -2821,7 +2832,7 @@ document.addEventListener('DOMContentLoaded',function(){
   }, 100);
 
   // v3.8.5: 手機介面改底部導航
-  var CURRENT_VER = 'v3.10.12';
+  var CURRENT_VER = 'v3.10.13';
   var cachedVer = localStorage.getItem('app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, clearing cache and reloading...');

@@ -3,7 +3,7 @@
 <head>
 <script>
 // 自動版本戳：每次部署 BUILD_ID 唔同 → URL 加 ?b=BUILD_ID → 瀏覽器/CDN 當新網址 → 一定去 server 攞最新（同事唔使清 cache）
-var BUILD_ID='20260715-132005';
+var BUILD_ID='20260715-133412';
 (function(){
   if (/[?&]nosw=1/.test(location.search)) return; // 安全模式唔重定向
   var bm = location.search.match(/[?&]b=([^&]+)/);
@@ -786,12 +786,12 @@ function mgrLoadApiUrl() {
   console.log('[mgrLoadApiUrl] URL:', MGR_SUPA_URL, '| Enabled:', MGR_CLOUD_ENABLED);
 }
 
-function mgrLoadFromSupabase() {
+function mgrLoadFromSupabase(silent) {
   if (!MGR_SUPA_URL || !MGR_SUPA_KEY) { return Promise.resolve(false); }
   var myName = (localStorage.getItem(MGR_KEY) || '').trim();
   var myRole = localStorage.getItem('mgr_role') || '';
   console.log('[mgrLoadFromSupabase] 開始 — URL:', MGR_SUPA_URL, '| 登入名稱:', myName, '| 職級:', myRole);
-  toast('☁️ 從 Supabase 載入團隊數據...');
+  if (!silent) toast('☁️ 從 Supabase 載入團隊數據...');
   var controller = new AbortController();
   var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
   // Load ALL agents, then filter client-side by manager field
@@ -838,6 +838,7 @@ function mgrLoadFromSupabase() {
       myDownline.forEach(function(n){ downlineSet[(n||'').toLowerCase()] = true; });  // 小寫 key
       console.log('[mgrLoadFromSupabase] 登入:', myName, '| 下屬:', myDownline);
 
+      var _snapshot = JSON.stringify(TEAM || {});
       TEAM = {};
       var visibleCount = 0;
       rows.forEach(function(r){
@@ -872,20 +873,25 @@ function mgrLoadFromSupabase() {
       // v3.9.3: 初始化下鑽根節點為登入者自己
       currentRoot = myName;
       rootStack = [];
-      render();
-      document.getElementById("noDataMsg").style.display = "none";
-      document.getElementById("dataView").style.display = "block";
-      // 確保 Chart.js 已加載後再渲染圖表
-      whenReady(function(){ render(); });
-      if (visibleCount === 0) {
-        toast('⚠️ 你嘅下屬尚未註冊。請讓佢哋喺代理人版註冊時填寫你為直屬上司。', 'warning');
-      } else {
-        toast('☁️ 已載入 '+visibleCount+' 位團隊成員數據（登入：'+myName+' / '+(myRole||'未設職級')+'）');
+      var _changed = JSON.stringify(TEAM || {}) !== _snapshot;
+      // 背景同步（silent）模式：只有數據真係變咗先重畫，避免每 10 秒重置下鑽視圖
+      if (!silent || _changed) {
+        render();
+        document.getElementById("noDataMsg").style.display = "none";
+        document.getElementById("dataView").style.display = "block";
+        whenReady(function(){ render(); });
+      }
+      if (!silent) {
+        if (visibleCount === 0) {
+          toast('⚠️ 你嘅下屬尚未註冊。請讓佢哋喺代理人版註冊時填寫你為直屬上司。', 'warning');
+        } else {
+          toast('☁️ 已載入 '+visibleCount+' 位團隊成員數據（登入：'+myName+' / '+(myRole||'未設職級')+'）');
+        }
       }
       return true;
     }
     if (rows && rows.length === 0) {
-      toast('⚠️ Supabase 無數據。請確認團隊成員已在代理人版完成註冊並同步。', 'warning');
+      if (!silent) toast('⚠️ Supabase 無數據。請確認團隊成員已在代理人版完成註冊並同步。', 'warning');
     }
     return false;
   })
@@ -901,12 +907,34 @@ function mgrLoadFromSupabase() {
       MGR_SUPA_URL = 'https://wwnyfwqaqdhddcxvgelu.supabase.co';
       MGR_SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3bnlmd3FhcWRoZGRjeHZnZWx1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MTU4NTIsImV4cCI6MjA5ODM5MTg1Mn0.pzYPKK9rt-LuGV-sVtmHCzTjym1OXaHiDVbsZ9f0GQY';
       MGR_CLOUD_ENABLED = true;
-      toast('⚠️ Supabase key 無效，已自動重設。請再按「載入團隊數據」。', 'error');
+      if (!silent) toast('⚠️ Supabase key 無效，已自動重設。請再按「載入團隊數據」。', 'error');
     } else {
-      toast('⚠️ Supabase 載入失敗：' + msg, 'error');
+      if (!silent) toast('⚠️ Supabase 載入失敗：' + msg, 'error');
     }
     return false;
   });
+}
+
+// v3.10.13: 經理版背景自動同步（每 10 秒）— 其他平台改咗數據，經理 10 秒內見到，唔使人手掣同步
+var _mgrBgSyncTimer = null;
+function startMgrBackgroundSync() {
+  if (_mgrBgSyncTimer) clearInterval(_mgrBgSyncTimer); // 防重複
+  if (!MGR_CLOUD_ENABLED || !MGR_SUPA_URL || !MGR_SUPA_KEY) return;
+  var myName = (localStorage.getItem(MGR_KEY) || '').trim();
+  if (!myName) return;
+  _mgrBgSyncTimer = setInterval(function(){
+    if (!MGR_CLOUD_ENABLED || !MGR_SUPA_URL) return;
+    // 跳過：用家正在打字/編輯輸入框，避免打斷
+    var ae = document.activeElement;
+    var editing = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT' || ae.isContentEditable);
+    if (editing) return; // 下次 tick 再試
+    console.log('[mgrBgSync] 定期同步檢查...', new Date().toLocaleTimeString());
+    // silent=true：唔彈 toast、數據無變唔重畫（唔重置下鑽視圖）
+    mgrLoadFromSupabase(true).then(function(ok){
+      if (ok) console.log('[mgrBgSync] ✅ 經理版背景同步完成');
+    });
+  }, 10000); // 10 秒
+  console.log('[mgrBgSync] 已啟動經理版定期同步（每 10 秒）');
 }
 
 // v3.9.0: 經理版 Supabase 診斷（強化 key 比較 + query param 後備）
@@ -1060,6 +1088,7 @@ function mgrLoadFromCloud() {
       if (ok) {
         document.getElementById("noDataMsg").style.display = "none";
         document.getElementById("dataView").style.display = "block";
+        startMgrBackgroundSync(); // v3.10.13: 啟動 10 秒背景同步，其他平台改咗即時見到
       } else {
         toast('⚠️ Supabase 載入失敗，請檢查網絡或 Supabase 設定', 'error');
       }
