@@ -9,7 +9,7 @@
 <!-- v3.10.11: 強制解除舊 Service Worker + 自動偵測版本變化重載（多平台同步保證） -->
 <script>
 (function(){
-  var AGENT_VER='v3.10.11',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.14',AGENT_VER_KEY='agent_app_version';
   var stored=localStorage.getItem(AGENT_VER_KEY)||'';
   if(stored && stored!==AGENT_VER && !/v=new/.test(location.search)){
     console.log('[CacheBuster] agent '+stored+'→'+AGENT_VER+'，強制重載');
@@ -405,7 +405,6 @@ tr:hover td{background:var(--blue50)}
     <button class="nav-btn" onclick="switchTab('expenses',this)"><span class="nav-icon">💳</span> 支出記錄</button>
     <button class="nav-btn" onclick="switchTab('pcs',this)"><span class="nav-icon">📊</span> PC記錄</button>
     <button class="nav-btn" onclick="switchTab('reports',this)"><span class="nav-icon">📈</span> 業績報表</button>
-    <button class="nav-btn" onclick="switchTab('goals',this)"><span class="nav-icon">🎯</span> 目標管理</button>
   </nav>
   <div style="margin-top:auto;padding:12px 8px 16px">
     <button class="nav-btn" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="width:100%;border:1px dashed var(--blue500);color:var(--blue700);background:var(--blue50)">
@@ -424,7 +423,6 @@ tr:hover td{background:var(--blue50)}
   <button class="bottom-nav-btn" onclick="switchTab('expenses',this)"><span class="bottom-nav-icon">💳</span><span class="bottom-nav-label">支出</span></button>
   <button class="bottom-nav-btn" onclick="switchTab('pcs',this)"><span class="bottom-nav-icon">📊</span><span class="bottom-nav-label">PC</span></button>
   <button class="bottom-nav-btn" onclick="switchTab('reports',this)"><span class="bottom-nav-icon">📈</span><span class="bottom-nav-label">報表</span></button>
-  <button class="bottom-nav-btn" onclick="switchTab('goals',this)"><span class="bottom-nav-icon">🎯</span><span class="bottom-nav-label">目標</span></button>
   <button class="bottom-nav-btn" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'"><span class="bottom-nav-icon">🔄</span><span class="bottom-nav-label">經理</span></button>
 </nav>
 
@@ -2643,7 +2641,7 @@ function afterLoginSync() {
 
 document.addEventListener('DOMContentLoaded',function(){
   // v3.8.5: 手機介面改底部導航
-  var CURRENT_VER = 'v3.10.11';
+  var CURRENT_VER = AGENT_VER;
   var cachedVer = localStorage.getItem('app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, clearing cache and reloading...');
@@ -3724,8 +3722,27 @@ setInterval(function(){
 }, 30000);
 </script>
 <script>
-// v3.10.8: 暫停註冊 Service Worker，避免舊 cache 導致手機版載入舊數據
-// if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(function(r){console.log('[PWA] Service Worker 已註冊:',r.scope);}).catch(function(e){console.warn('[PWA] SW 註冊失敗:',e);});}
+// v3.10.14: 開啟自動 pull 雲端（解決跨裝置唔 sync / 「行程表改唔到」）
+// 註：頭部 sync script 每次載入都會 unregister SW + 清 cache，故唔喺度 register SW
+//      （否則 register/unregister 震盪會觸發 controllerchange 無限 reload）。
+//      程式碼新鮮度由頭部 version-bump 機制負責（版本唔同就自動 reload 一次）。
+(function(){
+  var pullTimer=null;
+  function doAutoPull(){
+    if(!CLOUD_ENABLED || !agentName) return;            // 未登入/未開雲端就唔 pull
+    if(pullTimer) clearTimeout(pullTimer);
+    pullTimer=setTimeout(function(){
+      var mb=document.getElementById('modalBg');
+      if(mb && mb.classList.contains('show')) return;   // 編輯緊就唔 pull，避免干擾
+      loadFromCloud(function(){
+        if(typeof renderCurrentTab==='function') renderCurrentTab();
+      });
+    }, 800);
+  }
+  document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible') doAutoPull(); });
+  window.addEventListener('focus', doAutoPull);
+  if(typeof agentName!=='undefined' && agentName){ doAutoPull(); }
+})();
 </script>
 </body>
 </html>
