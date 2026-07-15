@@ -9,7 +9,7 @@
 <!-- v3.10.11: 強制解除舊 Service Worker + 自動偵測版本變化重載（多平台同步保證） -->
 <script>
 (function(){
-  var AGENT_VER='v3.10.26',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.27',AGENT_VER_KEY='agent_app_version';
   var stored=localStorage.getItem(AGENT_VER_KEY)||'';
   if(stored && stored!==AGENT_VER && !/v=new/.test(location.search)){
     console.log('[CacheBuster] agent '+stored+'→'+AGENT_VER+'，強制重載');
@@ -1264,13 +1264,21 @@ function loadFromSupabase(callback, retry) {
   if (!SUPA_URL || !SUPA_KEY || !agentName) { if (callback) callback(false); return; }
   var controller = new AbortController();
   var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
-  fetch(SUPA_URL + '/rest/v1/agents?name=eq.'+encodeURIComponent(agentName)+'&select=data', {
+  fetch(SUPA_URL + '/rest/v1/agents?name=eq.'+encodeURIComponent(agentName)+'&select=data,manager,role,team', {
     headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Cache-Control':'no-cache','Pragma':'no-cache'},
     signal:controller.signal
   })
   .then(function(res){ clearTimeout(timeoutId); return res.json(); })
   .then(function(rows){
     if (rows && rows.length>0 && rows[0].data) {
+      // v3.10.27: 每次雲端載入都刷新直屬經理（頂層 manager 優先，其次 data.manager），令 unlock/自動同步後 sidebar 即時更新
+      var cloudMgr = rows[0].manager || (rows[0].data && rows[0].data.manager) || '';
+      if (cloudMgr && cloudMgr !== assignedManager) {
+        assignedManager = cloudMgr;
+        try { localStorage.setItem('insurance_mgr_'+encodeURIComponent(agentName), cloudMgr); } catch(e){}
+        var _si = document.getElementById('sidebarAgentInfo');
+        if (_si) _si.textContent = agentName+' | '+agentRole+(cloudMgr?' | 經理：'+cloudMgr:'');
+      }
       // v3.9.5: 保存雲端快照（保護 metadata 同雲端既有記錄，供 saveToSupabase 合併用）
       _cloudDataSnapshot = JSON.parse(JSON.stringify(rows[0].data));
       // v3.6.0: 徹底簡化登入流程 + 修復 race condition
@@ -3316,7 +3324,7 @@ function renderSchedules() {
       daySchedules.forEach(function(s){
         var sc = s.status==='已完成'?'badge-green':s.status==='已確認'?'badge-blue':s.status==='已取消'?'badge-red':'badge-yellow';
         var hasNotes = (s.meetingNotes && s.meetingNotes.trim()) || (s.followUp && s.followUp.trim());
-        html += '<div style="background:var(--blue50);border-radius:6px;padding:6px 8px;margin-bottom:4px;font-size:11px;cursor:pointer" onclick="openForm(\'schedule\','+s.id+')">';
+        html += '<div style="background:var(--blue50);border-radius:6px;padding:6px 8px;margin-bottom:4px;font-size:11px;cursor:pointer" onclick="openForm(\'schedule\',\''+esc(String(s.id))+'\')">';
         html += '<div style="font-weight:600;color:var(--blue700)">'+normalizeTime(s.startTime)+' - '+normalizeTime(s.endTime)+(hasNotes?' 📝':'')+'</div>';
         html += '<div style="color:var(--blue500);margin-top:2px;cursor:pointer;text-decoration:underline" onclick="event.stopPropagation();showQuickView(\''+esc(s.clientName||'')+'\')">'+esc(s.clientName||'')+'</div>';
         html += '<div style="color:var(--gray400)">'+fmtPurposes(s.purpose)+'</div>';
@@ -3336,7 +3344,7 @@ function renderSchedules() {
       var sc = s.status==='已完成'?'badge-green':s.status==='已確認'?'badge-blue':s.status==='已取消'?'badge-red':'badge-yellow';
       var hasNotes = (s.meetingNotes && s.meetingNotes.trim()) || (s.followUp && s.followUp.trim());
       var notesBtn = hasNotes ? '<button class="btn btn-sm btn-outline" style="border-color:var(--blue500);color:var(--blue500)" onclick="event.stopPropagation();showMeetingNotes('+s.id+')">📝 查看</button>' : '<span style="color:var(--gray300);font-size:11px">—</span>';
-      h += '<tr><td>'+esc(dFmt(s.date))+'</td><td>'+normalizeTime(s.startTime)+'-'+normalizeTime(s.endTime)+'</td><td><a style="color:var(--blue500);cursor:pointer;text-decoration:underline" onclick="showQuickView(\''+esc(s.clientName||'')+'\')">'+esc(s.clientName||'—')+'</a></td><td>'+fmtPurposes(s.purpose||'—')+'</td><td>'+esc(s.location||'—')+'</td><td><span class="badge '+sc+'">'+esc(s.status)+'</span></td><td>'+notesBtn+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'schedule\','+s.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'schedules\','+s.id+')">刪除</button></td></tr>';
+      h += '<tr><td>'+esc(dFmt(s.date))+'</td><td>'+normalizeTime(s.startTime)+'-'+normalizeTime(s.endTime)+'</td><td><a style="color:var(--blue500);cursor:pointer;text-decoration:underline" onclick="showQuickView(\''+esc(s.clientName||'')+'\')">'+esc(s.clientName||'—')+'</a></td><td>'+fmtPurposes(s.purpose||'—')+'</td><td>'+esc(s.location||'—')+'</td><td><span class="badge '+sc+'">'+esc(s.status)+'</span></td><td>'+notesBtn+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'schedule\',\''+esc(String(s.id))+'\')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'schedules\',\''+esc(String(s.id))+'\')">刪除</button></td></tr>';
     });
   }
   document.getElementById('scheduleTable').innerHTML = h;
