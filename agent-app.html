@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <script>
 // 自動版本戳：每次部署 BUILD_ID 唔同 → URL 加 ?b=BUILD_ID → 瀏覽器/CDN 當新網址 → 一定去 server 攞最新（同事唔使清 cache）
-var BUILD_ID='20260715-143039';
+var BUILD_ID='20260715-144551';
 // v3.10.14: 即時版本檢查 — 頁面載入第一件事就係問 server 有冇新版
 // 就算瀏覽器/CDN 緩存咗舊 HTML，呢度都會偵測到並自動重載最新版
 (function(){
@@ -1258,7 +1258,7 @@ function doForceUpload(payload, mgr, team) {
 function loadFromSupabase(callback, retry) {
   if (!SUPA_URL || !SUPA_KEY || !agentName) { if (callback) callback(false); return; }
   var controller = new AbortController();
-  var timeoutId = setTimeout(function(){ controller.abort(); }, 12000);
+  var timeoutId = setTimeout(function(){ controller.abort(); }, 20000);
   fetch(SUPA_URL + '/rest/v1/agents?name=eq.'+encodeURIComponent(agentName)+'&select=data', {
     headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Cache-Control':'no-cache','Pragma':'no-cache'},
     signal:controller.signal
@@ -1268,40 +1268,41 @@ function loadFromSupabase(callback, retry) {
     if (rows && rows.length>0 && rows[0].data) {
       // v3.9.5: 保存雲端快照（保護 metadata 同雲端既有記錄，供 saveToSupabase 合併用）
       _cloudDataSnapshot = JSON.parse(JSON.stringify(rows[0].data));
-      // v3.6.0: 徹底簡化登入流程 + 修復 race condition
-      // v3.10.12: 時間戳智能合併 — 同 ID 記錄比較 updatedAt，留新嘅嗰個
-      var hasData = false;
-      var now = new Date().toISOString();
-      function ts(r) { return r && r.updatedAt ? r.updatedAt : ''; }
+      var cloudData = rows[0].data;
+      // v3.10.16: 雲端係 source of truth —— 解決「刪除/減少永遠傳唔到」嘅死亡螺旋 bug
+      // 舊版用 additive merge：雲端有幾多就加幾多，但本地多餘項（已刪客戶、舊佣金）永遠唔會被刪走，
+      // 仲會喺 auto-upload 時將舊數據寫返上雲端 → 污染晒所有平台（iPad/手機全部變 6 客 / 8 萬）。
+      // 新邏輯：雲端有提供嘅 key（就算係空 array，例如佣金清零）直接取代本地；
+      // 只有「本地剛改、雲端未收到」嘅項（60 秒內 updatedAt）先暫留，等下次 push 後自然收斂。
+      var KEEP_WINDOW = 60000;
+      var nowTs = Date.now();
       ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k){
-        if (rows[0].data[k] && Array.isArray(rows[0].data[k]) && rows[0].data[k].length > 0) {
-          hasData = true;
-          var localMap = {};
-          if (DB[k] && Array.isArray(DB[k])) {
-            DB[k].forEach(function(item) {
-              // 確保本地記錄有時間戳（冇嘅就補上當前時間，代表「本地剛改過」）
-              if (!item.updatedAt) item.updatedAt = now;
-              localMap[item.id] = item;
-            });
-          }
-          rows[0].data[k].forEach(function(item) {
-            var existing = localMap[item.id];
-            if (existing) {
-              // 同 ID → 比較 updatedAt，留新嘅
-              if (ts(item) >= ts(existing)) {
-                localMap[item.id] = item; // 雲端更新或一樣新 → 用雲端版
-              }
-              // else: 本地更新 → 保留本地版（唔覆蓋）
-            } else {
-              localMap[item.id] = item; // 雲端有、本地冇 → 加入
+        if (cloudData[k] === undefined) return; // 雲端冇呢個 key，唔動本地（最安全）
+        var cloudArr = Array.isArray(cloudData[k]) ? cloudData[k] : [];
+        var cloudMap = {};
+        cloudArr.forEach(function(it){ if (it && it.id !== undefined && it.id !== null) cloudMap[it.id] = true; });
+        var kept = [];
+        if (DB[k] && Array.isArray(DB[k])) {
+          DB[k].forEach(function(it){
+            if (!it || it.id === undefined || it.id === null) return;
+            if (!cloudMap[it.id]) {
+              // 本地有、雲端冇 → 如果係近期新改就暫留，否則當已刪除（雲端權威）丟棄
+              var t = it.updatedAt ? new Date(it.updatedAt).getTime() : 0;
+              if (t && (nowTs - t) < KEEP_WINDOW) kept.push(it);
             }
           });
-          DB[k] = Object.values(localMap);
+        }
+        DB[k] = cloudArr.concat(kept);
+      });
+      // 頂層 meta 欄位：本地冇就用雲端（email/phone/role 等，供 2FA 同跨平台一致）
+      var META_KEYS = ['role','manager','team','_pinHash','createdAt','registeredAt','email','phone'];
+      META_KEYS.forEach(function(mk){
+        if ((DB[mk] === undefined || DB[mk] === null || DB[mk] === '') && cloudData[mk] !== undefined) {
+          DB[mk] = cloudData[mk];
         }
       });
       // v3.10.5: content-based 去重 — 解決「id 重生成後本地舊 id + 雲端新 id 導致重複」
-      // schedules 用 date|clientName|startTime 做 composite key，其餘表用 id（已有去重）
-      DB.schedules = deduplicateArray(DB.schedules, function(s){
+      DB.schedules = deduplicateArray(DB.schedules || [], function(s){
         return (s.date||'')+'|'+(s.clientName||'')+'|'+(s.startTime||'');
       });
       // v3.6.0: 修復雲端帶入嘅壞時間格式（Excel/ISO 日期）
@@ -1309,7 +1310,7 @@ function loadFromSupabase(callback, retry) {
       saveDB(); setLastSyncTime();
       _cloudLoadedThisSession = true; // v3.9.4: 標記已成功下載雲端
       if (callback) callback(true);
-      else { toast('☁️ 已從 Supabase 合併數據'); renderDashboard(); renderCurrentTab(); }
+      else { toast('☁️ 已從 Supabase 下載最新數據'); renderDashboard(); renderCurrentTab(); }
     } else {
       // v3.9.4: 第一次失敗自動重試一次（應對瞬間網絡抖動）
       if (!retry) { setTimeout(function(){ loadFromSupabase(callback, true); }, 2000); }
@@ -2879,7 +2880,7 @@ document.addEventListener('DOMContentLoaded',function(){
   }, 100);
 
   // v3.8.5: 手機介面改底部導航
-  var CURRENT_VER = 'v3.10.15';
+  var CURRENT_VER = 'v3.10.16';
   var cachedVer = localStorage.getItem('app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, clearing cache and reloading...');
