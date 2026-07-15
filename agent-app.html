@@ -9,7 +9,7 @@
 <!-- v3.10.11: 強制解除舊 Service Worker + 自動偵測版本變化重載（多平台同步保證） -->
 <script>
 (function(){
-  var AGENT_VER='v3.10.23',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.24',AGENT_VER_KEY='agent_app_version';
   var stored=localStorage.getItem(AGENT_VER_KEY)||'';
   if(stored && stored!==AGENT_VER && !/v=new/.test(location.search)){
     console.log('[CacheBuster] agent '+stored+'→'+AGENT_VER+'，強制重載');
@@ -455,7 +455,7 @@ tr:hover td{background:var(--blue50)}
   <div class="sidebar-head">
     <h1>📊 SET理財規劃管家</h1>
     <div class="agent-info" id="sidebarAgentInfo">代理人版</div>
-    <div class="agent-ver" id="sidebarVer">v3.10.23</div>
+    <div class="agent-ver" id="sidebarVer">v3.10.24</div>
   </div>
   <nav class="sidebar-nav" id="sidebarNav">
     <button class="nav-btn" onclick="switchTab('dashboard',this)"><span class="nav-icon">📋</span> 總覽</button>
@@ -2915,7 +2915,7 @@ function renderDashboard() {
     // 計算開始日期
     var gStart = null;
     if (g.period === 'custom' && g.startDate) {
-      gStart = new Date(parseYMD(g.startDate) + 'T00:00:00');
+      gStart = parseYMD(g.startDate);
     } else if (g.period === 'monthly') {
       gStart = new Date(Number(g.year), Number(g.month) - 1, 1);
     } else if (g.period === 'quarterly') {
@@ -2926,9 +2926,7 @@ function renderDashboard() {
     }
     if (!gStart || gStart <= today) continue; // 已過或無開始日期
     var daysLeft = Math.ceil((gStart - today) / 86400000); // ms → days
-    if (daysLeft <= 30) { // 未來30天內開始
-      upcomingGoals.push({ goal: g, daysLeft: daysLeft, start: gStart });
-    }
+    upcomingGoals.push({ goal: g, daysLeft: daysLeft, start: gStart }); // 所有未來目標
   }
   if (upcomingGoals.length > 0) {
     upcomingGoals.sort(function(a, b) { return a.daysLeft - b.daysLeft; });
@@ -3179,7 +3177,9 @@ function parseYMD(s){ if(!s) return null; var p=String(s).slice(0,10); var a=p.s
 function isGoalActive(g){
   var now = new Date();
   if(g.period==='custom' && g.startDate && g.endDate){
-    var s = new Date(parseYMD(g.startDate)+'T00:00:00'), e = new Date(parseYMD(g.endDate)+'T23:59:59');
+    var s = parseYMD(g.startDate), e = parseYMD(g.endDate);
+    if(!s || !e) return false;
+    s.setHours(0,0,0,0); e.setHours(23,59,59,999);
     return now >= s && now <= e;
   }
   var gy = Number(g.year), gm = Number(g.month), gq = Number(g.quarter);
