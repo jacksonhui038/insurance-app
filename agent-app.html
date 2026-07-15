@@ -9,7 +9,7 @@
 <!-- v3.10.11: 強制解除舊 Service Worker + 自動偵測版本變化重載（多平台同步保證） -->
 <script>
 (function(){
-  var AGENT_VER='v3.10.29',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.30',AGENT_VER_KEY='agent_app_version';
   var stored=localStorage.getItem(AGENT_VER_KEY)||'';
   if(stored && stored!==AGENT_VER && !/v=new/.test(location.search)){
     console.log('[CacheBuster] agent '+stored+'→'+AGENT_VER+'，強制重載');
@@ -356,16 +356,8 @@ tr:hover td{background:var(--blue50)}
   <div class="modal" style="max-width:520px">
     <h3>☁️ 雲端同步設定</h3>
     <p style="color:var(--gray500);font-size:13px;margin-bottom:14px">
-      可同時設定 Google Sheets（兼容模式）同 Supabase（推薦）。兩個同時用最安全。
+      使用 Supabase（推薦，更安全）同步你的數據，已取消 Google Sheets（兼容模式）。
     </p>
-    <!-- Google Sheets 區塊 -->
-    <div class="acct-section">
-      <h4 style="font-size:13px;color:var(--gray600);margin-bottom:8px">📊 Google Sheets（兼容模式）</h4>
-      <div class="form-group">
-        <label>Google Apps Script 網址</label>
-        <input type="url" id="apiUrlInput" placeholder="https://script.google.com/macros/s/..." style="font-size:12px">
-      </div>
-    </div>
     <!-- Supabase 區塊 -->
     <div class="acct-section">
       <h4 style="font-size:13px;color:var(--green600);margin-bottom:8px">🚀 Supabase（推薦，更安全）</h4>
@@ -455,7 +447,7 @@ tr:hover td{background:var(--blue50)}
   <div class="sidebar-head">
     <h1>📊 SET理財規劃管家</h1>
     <div class="agent-info" id="sidebarAgentInfo">代理人版</div>
-    <div class="agent-ver" id="sidebarVer">v3.10.24</div>
+    <div class="agent-ver" id="sidebarVer">v3.10.30</div>
   </div>
   <nav class="sidebar-nav" id="sidebarNav">
     <button class="nav-btn" onclick="switchTab('dashboard',this)"><span class="nav-icon">📋</span> 總覽</button>
@@ -881,21 +873,15 @@ function getCachedAgentList() {
 }
 
 // ===== 雲端同步設定 =====
-var API_URL = 'https://script.google.com/macros/s/AKfycbxgU-gqY_oFNj03Us28bcs6PK9vH0wchjgzic5lww4uc5nu8byTGbmrLp8kBOZ0nSU6/exec';
-var CLOUD_ENABLED = Boolean(API_URL && API_URL.length > 0);
+var API_URL = ''; // v3.10.30: Google Sheets 兼容模式已取消，僅保留 Supabase 作為雲端同步
+var CLOUD_ENABLED = Boolean(SUPA_URL && SUPA_URL.length > 0);
 var SUPA_URL = 'https://wwnyfwqaqdhddcxvgelu.supabase.co';
 var SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3bnlmd3FhcWRoZGRjeHZnZWx1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MTU4NTIsImV4cCI6MjA5ODM5MTg1Mn0.pzYPKK9rt-LuGV-sVtmHCzTjym1OXaHiDVbsZ9f0GQY';
 
-function setApiUrl(url) {
-  API_URL = url;
-  CLOUD_ENABLED = url.length > 0 || (SUPA_URL && SUPA_URL.length > 0);
-  localStorage.setItem('insurance_cloud_api', url);
-  updateCloudUI();
-}
 function setSupaConfig(url, key) {
   SUPA_URL = url;
   SUPA_KEY = key;
-  CLOUD_ENABLED = url.length > 0 || (API_URL && API_URL.length > 0);
+  CLOUD_ENABLED = url.length > 0;
   localStorage.setItem('insurance_supa_url', url);
   localStorage.setItem('insurance_supa_key', key);
   updateCloudUI();
@@ -910,7 +896,6 @@ function updateCloudUI() {
     if (modeEl) { modeEl.textContent = '雲端'; modeEl.style.color = 'var(--blue500)'; }
     if (hintEl) {
       if (SUPA_URL) hintEl.textContent = '（數據同步至 Supabase）';
-      else hintEl.textContent = '（數據已同步至 Google Sheets）';
     }
   } else {
     if (statusEl) statusEl.style.display = 'none';
@@ -919,8 +904,7 @@ function updateCloudUI() {
   }
 }
 function loadApiUrl() {
-  var saved = localStorage.getItem('insurance_cloud_api') || '';
-  if (saved) { API_URL = saved; }
+  // v3.10.30: Google Sheets 已取消，唔再從 localStorage 恢復 API_URL
   var savedSupaUrl = localStorage.getItem('insurance_supa_url') || '';
   var savedSupaKey = localStorage.getItem('insurance_supa_key') || '';
   if (savedSupaUrl) { SUPA_URL = savedSupaUrl; SUPA_KEY = savedSupaKey; }
@@ -932,7 +916,7 @@ function loadApiUrl() {
   }
 }
 
-// ===== 雲端同步函數（雙寫：Supabase + Google Sheets）=====
+// ===== 雲端同步函數（僅 Supabase）=====
 var _syncRetryCount = 0;
 var _syncMaxRetry = 3;
 var _syncTimer = null;
@@ -965,54 +949,23 @@ function buildUploadData() {
 }
 function saveToCloud(callback, retry) {
   if (!CLOUD_ENABLED || !agentName) { if (callback) callback(false); return; }
-  var mgr = assignedManager || localStorage.getItem('insurance_mgr_'+encodeURIComponent(agentName)) || '';
-  var team = assignedTeam || localStorage.getItem('insurance_team_'+encodeURIComponent(agentName)) || '';
-
   var done = false;
-  var supaOk = false, gsOk = false;
+  var supaOk = false;
   function checkDone() {
     if (done) return;
-    if (supaOk || gsOk) {
+    if (supaOk) {
       done = true; _syncRetryCount = 0; setLastSyncTime();
       if (callback) callback(true);
       else toast('☁️ 已同步到雲端');
     }
   }
-
-  // 寫入 Supabase
   if (SUPA_URL && SUPA_KEY) {
     saveToSupabase(function(ok, errMsg){ supaOk=ok; if (!ok) console.error('[saveToCloud Supabase]', errMsg||'unknown'); checkDone(); });
+  } else {
+    if (callback) callback(false);
+    else toast('⚠️ 未設定 Supabase，無法同步','error');
+    return;
   }
-
-  // 寫入 Google Sheets
-  if (API_URL) {
-    if (!mgr) {
-      // 如果冇經理但有 Supabase，跳過 Google Sheets
-      if (!SUPA_URL) { toast('⚠️ 請先設定所屬經理（右上角 ☁️ 雲端）', 'error'); if (callback) callback(false); }
-      return;
-    }
-    registerToCloudFetch(agentName, mgr, team, function(regOk) {
-      var payload = {action:'sync',agentId:agentName,manager:mgr,team:team,data:JSON.stringify(DB)};
-      var controller = new AbortController();
-      var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
-      fetch(API_URL, {
-        method:'POST',
-        headers:{'Content-Type':'application/x-www-form-urlencoded'},
-        body: Object.keys(payload).map(function(k){return encodeURIComponent(k)+'='+encodeURIComponent(payload[k]);}).join('&'),
-        signal: controller.signal
-      })
-      .then(function(res){ clearTimeout(timeoutId); return res.json(); })
-      .then(function(r){
-        if (r.success) { gsOk=true; checkDone(); }
-        else { console.error('[saveToCloud GS]',r.error); }
-      })
-      .catch(function(e){ clearTimeout(timeoutId); console.error('[saveToCloud GS]',e); });
-    });
-  }
-
-  // 兩個都冇設定
-  if (!API_URL && !SUPA_URL) { if (callback) callback(false); return; }
-
   // 重試邏輯：最多 3 次，間隔逐步增加
   if (!retry) {
     _syncRetryCount = 0;
@@ -1022,7 +975,6 @@ function saveToCloud(callback, retry) {
       _syncRetryCount++;
       _scheduleRetry(callback);
     } else {
-      // 所有重試失敗
       if (callback) callback(false);
       else toast('⚠️ 同步失敗，請檢查網絡後重試','error');
     }
@@ -1038,92 +990,14 @@ function _scheduleRetry(callback) {
 
 function loadFromCloud(callback, retry) {
   if (!CLOUD_ENABLED || !agentName) { if (callback) callback(false); return; }
-
-  // 優先 Supabase
   if (SUPA_URL && SUPA_KEY) {
-    loadFromSupabase(function(ok){
-      if (ok) return; // Supabase 成功，唔使 fallback
-      // Supabase 失敗，fallback Google Sheets
-      if (API_URL) { loadFromGoogleSheets(callback, retry); }
-      else { if (callback) callback(false); }
-    });
+    loadFromSupabase(function(ok){ if (callback) callback(ok); });
     return;
   }
-
-  // 只有 Google Sheets
-  if (API_URL) {
-    loadFromGoogleSheets(callback, retry);
-    return;
-  }
-
   if (callback) callback(false);
 }
 
-function loadFromGoogleSheets(callback, retry) {
-  var qs = 'action=load&agentId=' + encodeURIComponent(agentName);
-  var controller = new AbortController();
-  var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
-  fetch(API_URL + '?' + qs, {signal: controller.signal})
-    .then(function(res){ clearTimeout(timeoutId); return res.json(); })
-    .then(function(r){
-      if (r.success && r.data) {
-        // v3.6.0: 徹底簡化登入流程 + 修復 race condition
-        var hasData = false;
-        ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k){
-          if (r.data[k] && Array.isArray(r.data[k]) && r.data[k].length > 0) {
-            hasData = true;
-            // 按 ID 合併
-            var localMap = {};
-            if (DB[k] && Array.isArray(DB[k])) {
-              DB[k].forEach(function(item) { localMap[item.id] = item; });
-            }
-            r.data[k].forEach(function(item) {
-              var existing = localMap[item.id];
-              if (existing) {
-                // v3.10.29: 衝突解決 — 雲端較新（或相等）才覆蓋，否則保留本地剛改動
-                var ct = item.updatedAt || 0, lt = existing.updatedAt || 0;
-                if (ct >= lt) localMap[item.id] = item;
-              } else {
-                localMap[item.id] = item; // 本地冇就用雲端
-              }
-            });
-            DB[k] = Object.values(localMap);
-          }
-        });
-        // v3.10.5: content-based 去重（同 Supabase 路徑一致）
-        DB.schedules = deduplicateArray(DB.schedules, function(s){ return (s.date||'')+'|'+(s.clientName||'')+'|'+(s.startTime||''); });
-        saveDB(); setLastSyncTime();
-        _cloudLoadedThisSession = true; // v3.9.4: 標記已成功下載雲端
-        if (callback) callback(true);
-        else { toast('☁️ 已從雲端合併數據'); renderDashboard(); renderCurrentTab(); }
-      } else {
-        if (callback) callback(false);
-        else if (!retry) { setTimeout(function(){ loadFromCloud(null, true); }, 3000); }
-      }
-    })
-    .catch(function(e){
-      clearTimeout(timeoutId);
-      console.error('[loadFromCloud] 錯誤：', e);
-      if (callback) callback(false);
-      else if (!retry) { setTimeout(function(){ loadFromCloud(null, true); }, 3000); }
-    });
-}
 
-function registerToCloudFetch(agentName, managerName, team, callback) {
-  if (!CLOUD_ENABLED || !API_URL) { if (callback) callback(false); return; }
-  var qs = 'action=register_agent&agentId='+encodeURIComponent(agentName)+'&agentName='+encodeURIComponent(agentName)+'&managerName='+encodeURIComponent(managerName||'')+'&team='+encodeURIComponent(team||'');
-  var controller = new AbortController();
-  var timeoutId = setTimeout(function(){ controller.abort(); }, 15000);
-  fetch(API_URL + '?' + qs, {signal: controller.signal})
-    .then(function(res){ clearTimeout(timeoutId); return res.json(); })
-    .then(function(r){ if (callback) callback(r.success===true); if (!r.success) console.error('[registerToCloud]',r.error); })
-    .catch(function(e){ clearTimeout(timeoutId); console.error('[registerToCloud]',e); if (callback) callback(false); });
-}
-
-// ===== 兼容舊版 registerToCloud =====
-function registerToCloud(agentName, managerName, team, callback) {
-  registerToCloudFetch(agentName, managerName, team, callback);
-}
 
 // ===== Supabase 同步函數 =====
 function saveToSupabase(callback) {
@@ -1715,149 +1589,7 @@ function tryLocalLogin(name, pin, errEl, btn, safetyTimer) {
 }
 
 
-function loginViaGS(name, pin, pinH, errEl, btn) {
-  if (!API_URL) {
-    loginInProgress = false;
-    errEl.textContent = '無法連接雲端，請聯絡經理重置 PIN'; errEl.style.display = 'block';
-    btn.textContent = '登入'; btn.disabled = false;
-    return;
-  }
-  var qs = 'action=verify_agent&agentId=' + encodeURIComponent(name) + '&pinHash=' + encodeURIComponent(pinH);
-  var ctrl = new AbortController();
-  var tid = setTimeout(function(){ ctrl.abort(); }, 8000);
-  fetch(API_URL + '?' + qs, {signal: ctrl.signal})
-    .then(function(res) { clearTimeout(tid); return res.json(); })
-    .then(function(r) {
-      if (r.verified) {
-        loginInProgress = false;
-        agentName = name; agentPIN = pin;
-        assignedManager = r.managerName || '';
-        assignedTeam = r.team || '';
-        agentRole = r.role || 'Agent';
-        localStorage.setItem(AGENT_KEY, name);
-        localStorage.setItem(AGENT_PIN_KEY, pin);
-        localStorage.setItem('insurance_agent_name_locked', 'true');
-        localStorage.setItem('insurance_mgr_'+encodeURIComponent(name), assignedManager);
-        localStorage.setItem('insurance_role_'+encodeURIComponent(name), agentRole);
-        if (assignedTeam) localStorage.setItem('insurance_team_'+encodeURIComponent(name), assignedTeam);
-        // Load data: merge cloud into local
-        loadDB();
-        if (r.data) {
-          var data = r.data;
-          ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k) {
-            if (data[k] && Array.isArray(data[k])) {
-              var localMap = {};
-              DB[k].forEach(function(item) { localMap[item.id] = item; });
-              data[k].forEach(function(item) { localMap[item.id] = item; });
-              DB[k] = Object.values(localMap);
-            }
-          });
-          saveDB();
-        }
-        document.getElementById('nameModalBg').classList.remove('show');
-        document.getElementById('agentNameDisplay').textContent = name;
-        renderDashboard(); renderCurrentTab(); afterLoginSync();
-        toast('登入成功！');
-        btn.textContent = '登入'; btn.disabled = false;
-      } else if (r.notFound) {
-        // Fall through to legacy login
-        tryLegacyLogin(name, pin, pinH, errEl, btn);
-      } else if (r.found && !r.hasPin) {
-        loginInProgress = false;
-        agentName = name; agentPIN = pin;
-        assignedManager = r.managerName || ''; assignedTeam = r.team || '';
-        agentRole = r.role || 'Agent';
-        localStorage.setItem(AGENT_KEY, name); localStorage.setItem(AGENT_PIN_KEY, pin);
-        localStorage.setItem('insurance_agent_name_locked', 'true');
-        localStorage.setItem('insurance_mgr_'+encodeURIComponent(name), assignedManager);
-        localStorage.setItem('insurance_role_'+encodeURIComponent(name), agentRole);
-        if (assignedTeam) localStorage.setItem('insurance_team_'+encodeURIComponent(name), assignedTeam);
-        loadDB();
-        // Also try to load from cloud
-        loadFromSupabase(function(ok){
-          document.getElementById('nameModalBg').classList.remove('show');
-          document.getElementById('agentNameDisplay').textContent = name;
-          renderDashboard(); renderCurrentTab(); afterLoginSync();
-          toast('登入成功！');
-          btn.textContent = '登入'; btn.disabled = false;
-        });
-      } else {
-        // PIN wrong or other error
-        loginInProgress = false;
-        errEl.textContent = '登入失敗：' + (r.message||'請檢查姓名及 PIN');
-        errEl.style.display = 'block';
-        btn.textContent = '登入'; btn.disabled = false;
-      }
-    })
-    .catch(function(e) {
-      clearTimeout(tid);
-      console.error('[doLogin] GS:', e);
-      // Network error - try legacy login
-      tryLegacyLogin(name, pin, pinH, errEl, btn);
-    });
-}
 
-// Legacy fallback: load agent data from Google Sheets without PIN verification
-// Legacy fallback: load agent data from Google Sheets without PIN verification
-function tryLegacyLogin(name, pin, pinH, errEl, btn) {
-  if (!API_URL) {
-    loginInProgress = false;
-    errEl.innerHTML = '無法連接雲端。<br>請聯絡經理<a style="color:var(--blue500);cursor:pointer;text-decoration:underline" onclick="showRegisterMode()">重新註冊</a> 或重置 PIN';
-    errEl.style.display = 'block';
-    btn.textContent = '登入'; btn.disabled = false;
-    return;
-  }
-  var ctrl = new AbortController();
-  var tid = setTimeout(function(){ ctrl.abort(); }, 8000);
-  fetch(API_URL + '?action=load&agentId=' + encodeURIComponent(name), {signal: ctrl.signal})
-    .then(function(res) { clearTimeout(tid); return res.json(); })
-    .then(function(r) {
-      loginInProgress = false;
-      if (r.success && r.data) {
-        agentName = name; agentPIN = pin;
-        assignedManager = r.data.manager || r.managerName || '';
-        assignedTeam = r.data.team || r.team || '';
-        agentRole = r.data.role || 'Agent';
-        localStorage.setItem(AGENT_KEY, name);
-        localStorage.setItem(AGENT_PIN_KEY, pin);
-        localStorage.setItem('insurance_agent_name_locked', 'true');
-        localStorage.setItem('insurance_mgr_'+encodeURIComponent(name), assignedManager);
-        localStorage.setItem('insurance_role_'+encodeURIComponent(name), agentRole);
-        if (assignedTeam) localStorage.setItem('insurance_team_'+encodeURIComponent(name), assignedTeam);
-        // Merge cloud data into local
-        loadDB();
-        ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k){
-          if (r.data[k] && Array.isArray(r.data[k])) {
-            var localMap = {};
-            DB[k].forEach(function(item) { localMap[item.id] = item; });
-            r.data[k].forEach(function(item) { localMap[item.id] = item; });
-            DB[k] = Object.values(localMap);
-          }
-        });
-        // v3.10.5: content-based 去重
-        DB.schedules = deduplicateArray(DB.schedules, function(s){ return (s.date||'')+'|'+(s.clientName||'')+'|'+(s.startTime||''); });
-        saveDB();
-        document.getElementById('nameModalBg').classList.remove('show');
-        document.getElementById('agentNameDisplay').textContent = name;
-        renderDashboard(); renderCurrentTab(); afterLoginSync();
-        toast('登入成功！');
-        btn.textContent = '登入'; btn.disabled = false;
-      } else {
-        loginInProgress = false;
-        errEl.innerHTML = '此姓名未註冊。請用<a style="color:var(--blue500);cursor:pointer;text-decoration:underline" onclick="showRegisterMode()">註冊新帳戶</a>';
-        errEl.style.display = 'block';
-        btn.textContent = '登入'; btn.disabled = false;
-      }
-    })
-    .catch(function(e) {
-      clearTimeout(tid);
-      loginInProgress = false;
-      console.error('[tryLegacyLogin]', e);
-      errEl.innerHTML = '連線失敗，請檢查網路後重試。<br>如持續失敗，請聯絡經理重置 PIN';
-      errEl.style.display = 'block';
-      btn.textContent = '登入'; btn.disabled = false;
-    });
-}
 
 
 function saveName() {
@@ -1972,28 +1704,14 @@ function checkAgentExists(name, callback) {
     })
     .then(function(res) { clearTimeout(tid); return res.json(); })
     .then(function(rows) { callback(rows && rows.length > 0); })
-    .catch(function() { clearTimeout(tid); checkAgentExistsGS(name, callback); });
+    .catch(function() { clearTimeout(tid); callback(false); });
   } else {
-    checkAgentExistsGS(name, callback);
+    callback(false);
   }
 }
 
-function checkAgentExistsGS(name, callback) {
-  if (!API_URL) { callback(false); return; }
-  fetch(API_URL + '?action=check_agent&agentId=' + encodeURIComponent(name))
-    .then(function(res) { return res.json(); })
-    .then(function(r) { callback(r.found === true); })
-    .catch(function() { callback(false); });
-}
 
 function registerToCloudWithPin(name, manager, team, pinH, role, hPath) {
-  if (API_URL) {
-    var qs = 'action=register_agent&agentId='+encodeURIComponent(name)+'&agentName='+encodeURIComponent(name)+'&managerName='+encodeURIComponent(manager||'')+'&team='+encodeURIComponent(team||'')+'&pinHash='+encodeURIComponent(pinH)+'&role='+encodeURIComponent(role||'Agent')+'&hierarchyPath='+encodeURIComponent(hPath||name);
-    fetch(API_URL + '?' + qs)
-      .then(function(r){return r.json();})
-      .then(function(r){ console.log('[reg]', r); })
-      .catch(function(e){ console.error('[reg]', e); });
-  }
   if (SUPA_URL && SUPA_KEY) {
     var dwp = Object.assign({}, DB, {_pinHash: pinH, role: role||'Agent', hierarchyPath: hPath||name, supervisor: manager||''});
     var controller = new AbortController();
@@ -2198,11 +1916,6 @@ function changeName() {
   toast('✅ 姓名已更新為「' + newName + '」');
 
   // 6. Re-register to cloud with new name
-  if (CLOUD_ENABLED && mgr) {
-    registerToCloudFetch(newName, mgr, team || '', function(ok) {
-      if (ok) { saveDBAutoSync(); toast('☁️ 雲端已更新為新姓名'); }
-    });
-  }
   if (SUPA_URL && SUPA_KEY) {
     supabaseDeleteAgent(oldName, function(){
       saveToSupabase(function(ok){
@@ -2571,7 +2284,6 @@ function loadFromCloudManual() {
 
 function showCloudSetup() {
   document.getElementById('cloudModalBg').classList.add('show');
-  document.getElementById('apiUrlInput').value = API_URL;
   document.getElementById('supaUrlInput').value = SUPA_URL;
   document.getElementById('supaKeyInput').value = SUPA_KEY;
   var mgr = assignedManager || '';
@@ -2600,7 +2312,6 @@ function hideCloudSetup() {
 }
 
 function saveCloudSetup() {
-  var url = document.getElementById('apiUrlInput').value.trim();
   var supaUrl = document.getElementById('supaUrlInput').value.trim();
   var supaKey = document.getElementById('supaKeyInput').value.trim();
   var mgr = document.getElementById('mgrInputSetting').value.trim();
@@ -2642,16 +2353,14 @@ function saveCloudSetup() {
     }
   }
 
-  var hasAnyCloud = url || supaUrl;
+  var hasAnyCloud = supaUrl;
   if (!hasAnyCloud) {
-    setApiUrl(''); setSupaConfig('', '');
+    setSupaConfig('', '');
     hideCloudSetup();
     toast('已關閉雲端同步');
     return;
   }
 
-  // 儲存 Google Sheets
-  if (url) setApiUrl(url); else setApiUrl('');
 
   // 儲存 Supabase
   if (supaUrl && supaKey) {
@@ -2668,37 +2377,6 @@ function saveCloudSetup() {
     return;
   }
 
-  // 只有 Google Sheets：測試連線
-  if (url && !supaUrl) {
-    toast('☁️ 測試連接中...');
-    var controller = new AbortController();
-    var timeoutId = setTimeout(function(){ controller.abort(); }, 15000);
-    fetch(API_URL + '?action=init', {signal: controller.signal})
-      .then(function(res){ clearTimeout(timeoutId); return res.json(); })
-      .then(function(r){
-        if (r.success || r.message) {
-          hideCloudSetup();
-          if (mgr) {
-            registerToCloudFetch(agentName, mgr, localStorage.getItem('insurance_team_'+encodeURIComponent(agentName))||'', function(){
-              toast('✅ 連線成功！已設定所屬經理：' + mgr);
-            });
-          } else {
-            toast('✅ 雲端連接成功！');
-          }
-          document.getElementById('cloudStatus').style.display = 'flex';
-          document.getElementById('lastSyncTime').textContent = getLastSyncTime();
-          setTimeout(function(){ loadFromCloudManual(); }, 500);
-        } else {
-          setApiUrl('');
-          toast('連接失敗：' + (r.error||'未知錯誤'),'error');
-        }
-      })
-      .catch(function(e){
-        clearTimeout(timeoutId);
-        setApiUrl('');
-        toast('連接失敗，請檢查網址同網絡','error');
-      });
-  }
 }
 
 // v3.10.16: 代理人自行設定直屬經理
@@ -3991,7 +3669,7 @@ initAgent();
 
 // 自動同步：每 30 秒推送一次（如果有連接雲端）
 setInterval(function(){
-  if (CLOUD_ENABLED && agentName && API_URL) {
+  if (CLOUD_ENABLED && agentName) {
     saveToCloud();
   }
 }, 30000);
