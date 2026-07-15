@@ -1,35 +1,20 @@
 <!DOCTYPE html>
 <html lang="zh-HK">
 <head>
-<script>
-// 防無限 reload：若 3 秒內 reload 超過 2 次，強制用 ?nosw=1 開啟
-(function(){
-  try {
-    var now = Date.now();
-    var key = '_mgr_reload_log';
-    var log = JSON.parse(sessionStorage.getItem(key) || '[]');
-    log = log.filter(function(t){ return now - t < 3000; });
-    log.push(now);
-    sessionStorage.setItem(key, JSON.stringify(log));
-    if (log.length >= 3 && !/[?&]nosw=1/.test(location.search)) {
-      location.replace(location.pathname + '?nosw=1');
-      return;
-    }
-  } catch(e){}
-})();
-// 版本戳（只作調試用途）。自動更新交由 Service Worker 處理，
-// 唔再用 location.replace / 定時輪詢 redirect（避免無限 reload 循環）。
-var BUILD_ID='20260715-191500';
-</script>
-<script>// 版本號記錄：只喺版本真正變更時清除舊 cache（唔清 SW、唔 reload、唔 location.replace）
-var MGR_VER='v3.10.25',MGR_VER_KEY='mgr_app_version';
+<script>// v3.9.12 強制破 cache + 強制解除舊 SW：sync script 喺一切之前執行
+var MGR_VER='v3.9.12',MGR_VER_KEY='mgr_app_version';
 (function(){
   var v=localStorage.getItem(MGR_VER_KEY)||'';
-  if(v && v !== MGR_VER){
-    console.log('[Cache] '+v+'→'+MGR_VER+'，清除舊 cache');
-    if('caches' in window){caches.keys().then(function(ns){return Promise.all(ns.map(function(n){return caches.delete(n);}));}).catch(function(){});}
+  if(v&&v!==MGR_VER){console.log('[CacheBuster] '+v+'→'+MGR_VER);localStorage.setItem(MGR_VER_KEY,MGR_VER);}
+  // v3.9.0: 強制解除所有 Service Worker 並清除 cache（iOS PWA 舊 SW 會攔截 Supabase）
+  function finish(){localStorage.setItem(MGR_VER_KEY,MGR_VER);}
+  if('caches' in window){caches.keys().then(function(ns){return Promise.all(ns.map(function(n){return caches.delete(n);}));}).then(finish).catch(finish);}else{finish();}
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.getRegistrations().then(function(regs){
+      regs.forEach(function(r){r.unregister(); console.log('[SW] unregistered', r.scope);});
+    }).catch(function(e){console.log('[SW] unregister error', e);});
   }
-  localStorage.setItem(MGR_VER_KEY,MGR_VER);
+  if(v&&v!==MGR_VER){location.replace(location.href.split('?')[0]+'?v='+Date.now());}
 })();
 </script>
 <meta charset="UTF-8">
@@ -42,7 +27,7 @@ var MGR_VER='v3.10.25',MGR_VER_KEY='mgr_app_version';
 <meta name="theme-color" content="#2563eb">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="SET理財規劃管家">
+<meta name="apple-mobile-web-app-title" content="保經管家">
 <link rel="apple-touch-icon" href="icon-192.png">
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
@@ -71,10 +56,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft JhengHei
 .chart-card{background:var(--white);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow)}
 .chart-card h3{font-size:14px;color:var(--gray600);margin-bottom:14px;font-weight:600}
 .chart-card canvas{max-height:300px}
-/* Rank view toggle buttons */
-.rank-toggle-btn{font-size:11px;padding:4px 10px;border:none;border-radius:5px;cursor:pointer;background:transparent;color:var(--gray500);font-weight:600;transition:all .15s}
-.rank-toggle-btn.active{background:var(--white);color:var(--blue600);box-shadow:0 1px 3px rgba(0,0,0,.1)}
-.rank-toggle-btn:hover:not(.active){color:var(--gray700)}
 /* TABLE */
 .table-wrap{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;margin-bottom:24px}
 .table-head{padding:14px 20px;border-bottom:1px solid var(--gray200);display:flex;align-items:center;justify-content:space-between}
@@ -272,8 +253,8 @@ tr:hover td{background:var(--blue50)}
   <!-- HEADER -->
   <div class="header">
     <div>
-      <h1>📊 團隊總覽 <span style="font-size:11px;opacity:0.6;font-weight:400">v3.9.11</span></h1>
-      <div class="sub" id="mgrNameDisplay">保險代理人業務管理系統 · 經理視角</div>
+      <h1>📊 團隊總覽 <span id="mgrVerBadge" style="display:inline-block;background:var(--blue500);color:#fff;font-size:11px;font-weight:600;padding:2px 10px;border-radius:8px;margin-left:6px;letter-spacing:0.5px;vertical-align:middle">v3.9.12</span></h1>
+      <div class="sub" id="mgrNameDisplay">保險經紀業務管理系統 · 經理視角</div>
     </div>
     <div class="header-actions">
       <button class="btn btn-white" onclick="window.MGR_SHOW_ALL_AGENTS=false;mgrLoadFromCloud()" id="mgrCloudBtn">☁️ 載入團隊數據</button>
@@ -341,19 +322,7 @@ tr:hover td{background:var(--blue50)}
 
     <!-- Charts -->
     <div class="charts-row">
-      <div class="chart-card" id="rankingCard">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-          <h3 style="margin:0">🏆 代理人佣金排名</h3>
-          <div class="rank-toggle" style="display:flex;gap:4px;background:var(--gray100);border-radius:6px;padding:2px">
-            <button class="rank-toggle-btn active" onclick="switchRankView('table',this)" id="rankBtnTable" title="表格版（顯示完整資料）">📋 表格</button>
-            <button class="rank-toggle-btn" onclick="switchRankView('chart',this)" id="rankBtnChart" title="圖表版">📊 圖表</button>
-          </div>
-        </div>
-        <!-- 表格版（默認顯示）-->
-        <div id="rankingTableView" style="overflow-x:auto"></div>
-        <!-- 圖表版（預設隱藏）-->
-        <div id="rankingChartView" style="display:none"><canvas id="chartRanking"></canvas></div>
-      </div>
+      <div class="chart-card"><h3>🏆 代理人佣金排名</h3><canvas id="chartRanking"></canvas></div>
       <div class="chart-card"><h3>📊 月度佣金趨勢（全團隊）</h3><canvas id="chartTeamTrend"></canvas></div>
     </div>
 
@@ -401,7 +370,6 @@ tr:hover td{background:var(--blue50)}
         <button class="detail-tab" onclick="showDetailTab('expenses',this)">💳 開支</button>
         <button class="detail-tab" onclick="showDetailTab('schedules',this)">📅 行程</button>
         <button class="detail-tab" onclick="showDetailTab('goals',this)">🎯 目標</button>
-        <button class="detail-tab" onclick="showDetailTab('pcs',this)">💻 PC</button>
       </div>
       <div class="detail-content" id="detailContent"></div>
     </div>
@@ -717,7 +685,7 @@ function mgrChangeName(){
   if(!newName){ errEl.textContent = '請輸入新姓名'; return; }
   localStorage.setItem(MGR_KEY, newName);
   var hdr = document.getElementById('mgrNameDisplay');
-  if(hdr) hdr.textContent = newName ? '經理：' + newName : '保險代理人業務管理系統 · 經理視角';
+  if(hdr) hdr.textContent = newName ? '經理：' + newName : '保險經紀業務管理系統 · 經理視角';
   toast('✅ 姓名已更新為「' + newName + '」');
   document.getElementById('acctCurName').value = newName;
   document.getElementById('acctNewName').value = '';
@@ -800,12 +768,12 @@ function mgrLoadApiUrl() {
   console.log('[mgrLoadApiUrl] URL:', MGR_SUPA_URL, '| Enabled:', MGR_CLOUD_ENABLED);
 }
 
-function mgrLoadFromSupabase(silent) {
+function mgrLoadFromSupabase() {
   if (!MGR_SUPA_URL || !MGR_SUPA_KEY) { return Promise.resolve(false); }
   var myName = (localStorage.getItem(MGR_KEY) || '').trim();
   var myRole = localStorage.getItem('mgr_role') || '';
   console.log('[mgrLoadFromSupabase] 開始 — URL:', MGR_SUPA_URL, '| 登入名稱:', myName, '| 職級:', myRole);
-  if (!silent) toast('☁️ 從 Supabase 載入團隊數據...');
+  toast('☁️ 從 Supabase 載入團隊數據...');
   var controller = new AbortController();
   var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
   // Load ALL agents, then filter client-side by manager field
@@ -818,7 +786,6 @@ function mgrLoadFromSupabase(silent) {
     if (rows && !Array.isArray(rows)) {
       console.error('[mgrLoadFromSupabase] unexpected response:', rows);
       var msg = rows.message || rows.error || rows.error_description || JSON.stringify(rows).slice(0,120);
-      mgrLastLoadError = '📦 回應非陣列：' + msg;
       toast('⚠️ Supabase 回應異常：' + msg, 'error');
       return false;
     }
@@ -853,7 +820,6 @@ function mgrLoadFromSupabase(silent) {
       myDownline.forEach(function(n){ downlineSet[(n||'').toLowerCase()] = true; });  // 小寫 key
       console.log('[mgrLoadFromSupabase] 登入:', myName, '| 下屬:', myDownline);
 
-      var _snapshot = JSON.stringify(TEAM || {});
       TEAM = {};
       var visibleCount = 0;
       rows.forEach(function(r){
@@ -888,43 +854,27 @@ function mgrLoadFromSupabase(silent) {
       // v3.9.3: 初始化下鑽根節點為登入者自己
       currentRoot = myName;
       rootStack = [];
-      var _changed = JSON.stringify(TEAM || {}) !== _snapshot;
-      // 背景同步（silent）模式：只有數據真係變咗先重畫，避免每 10 秒重置下鑽視圖
-      if (!silent || _changed) {
-        render();
-        document.getElementById("noDataMsg").style.display = "none";
-        document.getElementById("dataView").style.display = "block";
-        whenReady(function(){ render(); });
-      }
-      if (!silent) {
-        if (visibleCount === 0) {
-          toast('⚠️ 你嘅下屬尚未註冊。請讓佢哋喺代理人版註冊時填寫你為直屬上司。', 'warning');
-        } else {
-          toast('☁️ 已載入 '+visibleCount+' 位團隊成員數據（登入：'+myName+' / '+(myRole||'未設職級')+'）');
-        }
+      render();
+      document.getElementById("noDataMsg").style.display = "none";
+      document.getElementById("dataView").style.display = "block";
+      // 確保 Chart.js 已加載後再渲染圖表
+      whenReady(function(){ render(); });
+      if (visibleCount === 0) {
+        toast('⚠️ 你嘅下屬尚未註冊。請讓佢哋喺代理人版註冊時填寫你為直屬上司。', 'warning');
+      } else {
+        toast('☁️ 已載入 '+visibleCount+' 位團隊成員數據（登入：'+myName+' / '+(myRole||'未設職級')+'）');
       }
       return true;
     }
     if (rows && rows.length === 0) {
-      if (!silent) toast('⚠️ Supabase 無數據。請確認團隊成員已在代理人版完成註冊並同步。', 'warning');
+      toast('⚠️ Supabase 無數據。請確認團隊成員已在代理人版完成註冊並同步。', 'warning');
     }
     return false;
   })
   .catch(function(e){
     clearTimeout(timeoutId);
     console.error('[mgrLoadFromSupabase]',e);
-    // v3.10.22: 記錄真正錯因，方便用家回報
-    var errName = e && e.name ? e.name : '';
-    var msg = e && e.message ? e.message : String(e);
-    if (errName === 'AbortError' || msg.indexOf('aborted') >= 0) {
-      mgrLastLoadError = '⏱️ 請求超時（30 秒）— 網絡慢或 Supabase 繁忙';
-    } else if (msg.indexOf('Failed to fetch') >= 0 || msg.indexOf('NetworkError') >= 0 || msg.indexOf('network') >= 0) {
-      mgrLastLoadError = '🌐 網絡連唔到 Supabase（DNS/防火牆/離線）';
-    } else if (msg.indexOf('401') >= 0 || msg.indexOf('Invalid') >= 0) {
-      mgrLastLoadError = '🔑 401 認證失敗（key 無效）';
-    } else {
-      mgrLastLoadError = '❌ ' + (errName ? errName + ': ' : '') + msg;
-    }
+    var msg = e.message || String(e) || '請檢查網絡或 Supabase 設定';
     // v3.8.5: 401 時自動清除壞 key 並重設為正確預設值
     if (msg.indexOf('401') >= 0 || msg.indexOf('Invalid') >= 0) {
       console.warn('[mgrLoadFromSupabase] 偵測到 401，自動清除 localStorage 並重設預設值');
@@ -933,35 +883,12 @@ function mgrLoadFromSupabase(silent) {
       MGR_SUPA_URL = 'https://wwnyfwqaqdhddcxvgelu.supabase.co';
       MGR_SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3bnlmd3FhcWRoZGRjeHZnZWx1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MTU4NTIsImV4cCI6MjA5ODM5MTg1Mn0.pzYPKK9rt-LuGV-sVtmHCzTjym1OXaHiDVbsZ9f0GQY';
       MGR_CLOUD_ENABLED = true;
-      if (!silent) toast('⚠️ Supabase key 無效，已自動重設。請再按「載入團隊數據」。', 'error');
+      toast('⚠️ Supabase key 無效，已自動重設。請再按「載入團隊數據」。', 'error');
     } else {
-      if (!silent) toast('⚠️ Supabase 載入失敗：' + mgrLastLoadError, 'error');
+      toast('⚠️ Supabase 載入失敗：' + msg, 'error');
     }
     return false;
   });
-}
-
-// v3.10.13: 經理版背景自動同步（每 10 秒）— 其他平台改咗數據，經理 10 秒內見到，唔使人手掣同步
-var _mgrBgSyncTimer = null;
-var mgrLastLoadError = ''; // v3.10.22: 記錄最近一次載入失敗嘅真正原因，方便診斷
-function startMgrBackgroundSync() {
-  if (_mgrBgSyncTimer) clearInterval(_mgrBgSyncTimer); // 防重複
-  if (!MGR_CLOUD_ENABLED || !MGR_SUPA_URL || !MGR_SUPA_KEY) return;
-  var myName = (localStorage.getItem(MGR_KEY) || '').trim();
-  if (!myName) return;
-  _mgrBgSyncTimer = setInterval(function(){
-    if (!MGR_CLOUD_ENABLED || !MGR_SUPA_URL) return;
-    // 跳過：用家正在打字/編輯輸入框，避免打斷
-    var ae = document.activeElement;
-    var editing = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT' || ae.isContentEditable);
-    if (editing) return; // 下次 tick 再試
-    console.log('[mgrBgSync] 定期同步檢查...', new Date().toLocaleTimeString());
-    // silent=true：唔彈 toast、數據無變唔重畫（唔重置下鑽視圖）
-    mgrLoadFromSupabase(true).then(function(ok){
-      if (ok) console.log('[mgrBgSync] ✅ 經理版背景同步完成');
-    });
-  }, 10000); // 10 秒
-  console.log('[mgrBgSync] 已啟動經理版定期同步（每 10 秒）');
 }
 
 // v3.9.0: 經理版 Supabase 診斷（強化 key 比較 + query param 後備）
@@ -970,7 +897,7 @@ function mgrRunSupabaseDiagnostic() {
   if (!el) return;
   el.style.display = 'block';
   el.innerHTML = '🔬 開始診斷...\n';
-  el.innerHTML += '🔖 經理版版本: ' + (window.MGR_CURRENT_VER || MGR_VER || '未知') + '\n';
+  el.innerHTML += '🔖 經理版版本: ' + (window.MGR_CURRENT_VER || CURRENT_VER || '未知') + '\n';
   // localStorage
   var lsUrl = localStorage.getItem('mgr_supa_url') || '(空)';
   var lsKey = localStorage.getItem('mgr_supa_key') || '(空)';
@@ -1115,10 +1042,8 @@ function mgrLoadFromCloud() {
       if (ok) {
         document.getElementById("noDataMsg").style.display = "none";
         document.getElementById("dataView").style.display = "block";
-        startMgrBackgroundSync(); // v3.10.13: 啟動 10 秒背景同步，其他平台改咗即時見到
       } else {
-        var why = mgrLastLoadError ? (' — ' + mgrLastLoadError) : '（請檢查網絡或 Supabase 設定）';
-        toast('⚠️ Supabase 載入失敗' + why, 'error');
+        toast('⚠️ Supabase 載入失敗，請檢查網絡或 Supabase 設定', 'error');
       }
     }).catch(function(e){
       done();
@@ -1457,81 +1382,17 @@ function render(){
 }
 
 // ============================================================
-// RANK VIEW TOGGLE (圖表 ⇄ 表格)
-// ============================================================
-var _rankViewMode = 'table'; // default: table (顯示全名 + 完整資料)
-function switchRankView(mode, btn) {
-  _rankViewMode = mode;
-  document.querySelectorAll('.rank-toggle-btn').forEach(function(b){ b.classList.remove('active'); });
-  if(btn) btn.classList.add('active');
-  var tv = document.getElementById('rankingTableView');
-  var cv = document.getElementById('rankingChartView');
-  if(mode==='table'){ tv.style.display=''; cv.style.display='none'; }
-  else { tv.style.display='none'; cv.style.display=''; }
-  // 如果切到 chart 但 chart 未 render 過，強制 render
-  if(mode==='chart' && chartLib && !chartInstances['chartRanking']) {
-    var agentNames = getTree(currentRoot);
-    // re-extract ranks from current state
-    var isMobile = window.innerWidth <= 768;
-    var mgrMap = buildTeamMgrMap();
-    var now=new Date(),m=now.getMonth(),y=now.getFullYear();
-    var rlist=[];
-    getTree(currentRoot).forEach(function(a){
-      var d=TEAM[a];
-      var mc=0; d.commissions.forEach(function(c){var dt=new Date(c.date);if(dt.getMonth()===m&&dt.getFullYear()===y)mc+=Number(c.amount)||0;});
-      rlist.push({name:a,monthComm:mc,role:d.role||'Agent'});
-    });
-    rlist.sort(function(a,b){return b.monthComm-a.monthComm;});
-    drawRankChart(rlist);
-  }
-}
-function drawRankChart(ranks) {
-  if(!chartLib || !ranks.length) return;
-  var isMobile = window.innerWidth <= 768;
-  var topCount = isMobile ? 8 : 15;
-  var top=ranks.slice(0,topCount),labels=top.map(function(r){return r.name;}),data=top.map(function(r){return r.monthComm;});
-  if(chartInstances['chartRanking']) chartInstances['chartRanking'].destroy();
-  chartInstances['chartRanking']=new chartLib(document.getElementById('chartRanking'),{
-    type:'bar',
-    data:{labels:labels,datasets:[{data:data,backgroundColor:'#3b82f6',borderRadius:6}]},
-    options:{
-      indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false}},
-      scales:{
-        x:{beginAtZero:true,ticks:{callback:function(v){return'HK$'+v.toLocaleString()}}},
-        y:{ticks:{font:{size:isMobile?10:12}}}
-      }
-    }
-  });
-}
-
-// ============================================================
 // CHARTS
 // ============================================================
 function renderCharts(ranks,maxComm,agentNames,y,m){
+  if(!chartLib)return;
   var isMobile = window.innerWidth <= 768;
-  // ---- 排名表格版（默認顯示，可見全名 + 完整資料）----
-  var roleColors={'SDD':'#1e40af','DD':'#2563eb','SDM':'#3b82f6','DM':'#60a5fa','SASM':'#93c5fd','ASM':'#bfdbfe','Agent':'#e5e7eb'};
-  var tHtml='<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="background:var(--gray50)"><th style="text-align:left;padding:8px 6px">#</th><th style="text-align:left;padding:8px 6px">代理人</th><th style="text-align:right;padding:8px 6px">本月佣金</th><th style="text-align:right;padding:8px 6px">本年佣金</th><th style="text-align:right;padding:8px 6px">PC</th><th style="text-align:right;padding:8px 6px">淨收入</th></tr></thead><tbody>';
-  ranks.forEach(function(r,i){
-    var rc=roleColors[r.role]||'#e5e7eb';
-    var roleBadge='<span style="background:'+rc+';color:'+(r.role==='Agent'?'#374151':'#fff')+';padding:1px 5px;border-radius:3px;font-size:9px;font-weight:600">'+esc(r.role)+'</span>';
-    tHtml+='<tr style="border-bottom:1px solid var(--gray100);'+(i%2===0?'background:#fafbfc':'')+'">'+
-      '<td style="padding:6px;color:var(--gray400);font-size:12px">'+(i+1)+'</td>'+
-      '<td style="padding:6px;font-weight:500;white-space:nowrap;max-width:200px;overflow:hidden;text-overflow:ellipsis" title="'+esc(r.name)+'">'+esc(r.name)+' '+roleBadge+'</td>'+
-      '<td style="padding:6px;text-align:right;color:var(--green600);font-weight:600;white-space:nowrap">'+money(r.monthComm)+'</td>'+
-      '<td style="padding:6px;text-align:right;white-space:nowrap">'+money(r.yearComm)+'</td>'+
-      '<td style="padding:6px;text-align:right;white-space:nowrap">'+money(r.monthPC)+'</td>'+
-      '<td style="padding:6px;text-align:right;white-space:nowrap">'+money(r.net)+'</td></tr>';
-  });
-  if(!ranks.length) tHtml+='<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--gray400)">暫無數據</td></tr>';
-  tHtml+='</tbody></table>';
-  document.getElementById('rankingTableView').innerHTML=tHtml;
+  var topCount = isMobile ? 8 : 15;
+  var top=ranks.slice(0,topCount),labels=top.map(function(r){return r.name;}),data=top.map(function(r){return r.monthComm;});
+  if(chartInstances['chartRanking'])chartInstances['chartRanking'].destroy();
+  chartInstances['chartRanking']=new chartLib(document.getElementById('chartRanking'),{type:'bar',data:{labels:labels,datasets:[{data:data,backgroundColor:'#3b82f6',borderRadius:6}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{callback:function(v){return'HK$'+v.toLocaleString()}}},y:{ticks:{font:{size:isMobile?10:12}}}}}});
 
-  // ---- 圖表版（按需 render）----
-  drawRankChart(ranks);
-
-  // ---- 月度趨勢圖（保持不變）----
+  if(chartInstances['chartTeamTrend'])chartInstances['chartTeamTrend'].destroy();
   var tlabels=[],tdata=[];
   for(var i=5;i>=0;i--){var dm=new Date(y,m-i,1);tlabels.push(dm.getFullYear()+'/'+(dm.getMonth()+1));var ts=0;agentNames.forEach(function(a){TEAM[a].commissions.forEach(function(c){var d=new Date(c.date);if(d.getMonth()===dm.getMonth()&&d.getFullYear()===dm.getFullYear())ts+=Number(c.amount)||0;});});tdata.push(ts);}
   chartInstances['chartTeamTrend']=new chartLib(document.getElementById('chartTeamTrend'),{type:'line',data:{labels:tlabels,datasets:[{data:tdata,borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,0.1)',fill:true,tension:0.4,pointRadius:isMobile?3:4,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:isMobile?10:12}}},y:{beginAtZero:true,ticks:{callback:function(v){return'HK$'+v.toLocaleString()}}}}}});
@@ -2526,6 +2387,9 @@ initLock();
 initActivitySelectors();
 updateActivitySelectorVisibility();
 </script>
+<script>
+if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(function(r){console.log('[PWA] Service Worker 已註冊:',r.scope);}).catch(function(e){console.warn('[PWA] SW 註冊失敗:',e);});}
+</script>
 
 <!-- MANAGER CLOUD SETUP MODAL -->
 <style>
@@ -2631,8 +2495,18 @@ updateActivitySelectorVisibility();
 </div>
 <script>
 // v3.9.0: 強制解除舊 SW + Supabase fetch 加 ?apikey= 後備
-(function(){ window.MGR_CURRENT_VER = MGR_VER; })
+(function(){
+  var CURRENT_VER = 'v3.9.11';
+  window.MGR_CURRENT_VER = CURRENT_VER;
+  // sync script 已經處理咗 cache，呢度只係 fallback
+  var cachedVer = localStorage.getItem('mgr_app_version') || '';
+  if (cachedVer && cachedVer !== CURRENT_VER) {
+    localStorage.setItem('mgr_app_version', CURRENT_VER);
+    location.replace(location.href.split('?')[0] + '?v=' + Date.now());
+    return;
+  }
+  localStorage.setItem('mgr_app_version', CURRENT_VER);
+})();
 </script>
-<script src="./sw-register.js?b=20260715-191500"></script>
 </body>
 </html>
