@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <script>
 // 自動版本戳：每次部署 BUILD_ID 唔同 → URL 加 ?b=BUILD_ID → 瀏覽器/CDN 當新網址 → 一定去 server 攞最新（同事唔使清 cache）
-var BUILD_ID='20260715-125004';
+var BUILD_ID='20260715-125524';
 (function(){
   if (/[?&]nosw=1/.test(location.search)) return; // 安全模式唔重定向
   var bm = location.search.match(/[?&]b=([^&]+)/);
@@ -54,7 +54,7 @@ var BUILD_ID='20260715-125004';
   --green500:#22c55e;--red500:#ef4444;--yellow500:#eab308;--purple500:#a855f7;
   --radius:10px;--shadow:0 1px 3px rgba(0,0,0,0.08),0 4px 12px rgba(0,0,0,0.05)
 }
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft JhengHei',sans-serif;background:var(--bg);color:var(--gray800);display:flex;height:100vh;overflow:hidden;font-size:14px}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft JhengHei',sans-serif;background:var(--bg);color:var(--gray800);display:flex;height:100dvh;overflow:hidden;font-size:14px}
 /* SIDEBAR */
 .sidebar{width:230px;background:var(--white);border-right:1px solid var(--gray200);display:flex;flex-direction:column;flex-shrink:0}
 .sidebar-head{padding:16px 18px;border-bottom:1px solid var(--gray200);background:linear-gradient(135deg,var(--blue500),var(--blue700));color:#fff}
@@ -67,7 +67,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft JhengHei
 .nav-icon{font-size:18px;width:24px;text-align:center}
 /* MAIN */
 .main{flex:1;display:flex;flex-direction:column;overflow:hidden}
-.topbar{padding:10px 24px;background:var(--white);border-bottom:1px solid var(--gray200);display:flex;align-items:center;justify-content:space-between}
+.topbar{padding:10px 24px;background:var(--white);border-bottom:1px solid var(--gray200);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
 .topbar h2{font-size:18px;font-weight:700}
 .topbar-right{display:flex;gap:8px;align-items:center}
 .agent-badge{display:flex;align-items:center;gap:6px;padding:4px 12px;background:var(--blue50);border-radius:20px;font-size:12px;color:var(--blue700)}
@@ -173,7 +173,7 @@ tr:hover td{background:var(--blue50)}
 .name-modal input{width:200px;padding:10px 14px;border-radius:8px;border:2px solid var(--blue500);font-size:16px;text-align:center;outline:none;margin:12px 0}
 .name-modal .btn{padding:10px 24px;font-size:15px}
 /* SYNC BAR */
-.sync-bar{padding:6px 24px;background:var(--blue50);border-bottom:1px solid var(--blue100);display:flex;align-items:center;justify-content:space-between;font-size:12px}
+.sync-bar{padding:6px 24px;background:var(--blue50);border-bottom:1px solid var(--blue100);display:flex;align-items:center;justify-content:space-between;font-size:12px;flex-shrink:0}
 .sync-bar .last-sync{color:var(--gray500)}
 .sync-btn{cursor:pointer;background:var(--green500);color:#fff;border:none;padding:4px 14px;border-radius:12px;font-size:12px;font-weight:500;transition:all .15s}
 .sync-btn:hover{background:#16a34a}
@@ -2659,8 +2659,20 @@ function afterLoginSync() {
 }
 
 document.addEventListener('DOMContentLoaded',function(){
+  // v3.10.11: iPad Safari 100vh bug 修正 — 確保 topbar 可見、scroll 歸零
+  var mainContent = document.getElementById('mainContent');
+  if (mainContent) { mainContent.scrollTop = 0; }
+  var topbar = document.querySelector('.topbar');
+  if (topbar) { topbar.scrollIntoViewIfNeeded ? topbar.scrollIntoViewIfNeeded() : null; }
+  // 延遲再確保一次（Safari render timing）
+  setTimeout(function(){
+    if (mainContent) mainContent.scrollTop = 0;
+    var tb = document.querySelector('.topbar');
+    if (tb) { tb.style.display='none'; tb.style.display=''; } // force reflow
+  }, 100);
+
   // v3.8.5: 手機介面改底部導航
-  var CURRENT_VER = 'v3.10.10';
+  var CURRENT_VER = 'v3.10.11';
   var cachedVer = localStorage.getItem('app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, clearing cache and reloading...');
