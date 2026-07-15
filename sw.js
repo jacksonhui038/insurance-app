@@ -1,11 +1,10 @@
 // 保經管家 Service Worker — PWA 緩存策略 v3.9.0
-var CACHE_NAME = 'baojing-' + ('20260715-191500' || 'fallback');
+var CACHE_NAME = 'baojing-v3.10.8';
 var CACHE_URLS = [
   './',
   './index.html',
   './agent-app.html',
   './manager-dashboard.html',
-  './version.json',
   './manifest.json',
   'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js'
 ];
@@ -50,10 +49,8 @@ self.addEventListener('fetch', function(event) {
     return;
   }
 
-  // cache:'reload' → 繞過瀏覽器 HTTP 緩存（GitHub Pages 設咗 max-age=600），
-  // 強制去 server/CDN 攞最新，同事唔使清 cache 都自動更新
   event.respondWith(
-    fetch(event.request, { cache: 'reload' }).then(function(response) {
+    fetch(event.request).then(function(response) {
       // 網絡成功 → 更新緩存
       if (response && response.status === 200 && response.type === 'basic') {
         var responseClone = response.clone();
