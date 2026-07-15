@@ -9,7 +9,7 @@
 <!-- v3.10.11: 強制解除舊 Service Worker + 自動偵測版本變化重載（多平台同步保證） -->
 <script>
 (function(){
-  var AGENT_VER='v3.10.15',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.16',AGENT_VER_KEY='agent_app_version';
   var stored=localStorage.getItem(AGENT_VER_KEY)||'';
   if(stored && stored!==AGENT_VER && !/v=new/.test(location.search)){
     console.log('[CacheBuster] agent '+stored+'→'+AGENT_VER+'，強制重載');
@@ -391,12 +391,52 @@ tr:hover td{background:var(--blue50)}
   </div>
 </div>
 
+<!-- MY MANAGER MODAL -->
+<div class="modal-bg" id="mgrAssignModalBg">
+  <div class="modal" style="max-width:480px">
+    <h3>👥 設定直屬經理</h3>
+    <p style="color:var(--gray500);font-size:13px;margin-bottom:14px">
+      填寫你所屬嘅直屬經理，經理版就可以睇到你嘅數據同業績。
+    </p>
+    <div style="font-size:12px;color:var(--gray400);margin-bottom:10px">目前直屬經理：「<b id="currentMyMgrDisplay" style="color:var(--gray600)">尚未設定</b>」</div>
+    <div class="form-group">
+      <label>選擇直屬經理</label>
+      <select id="myManagerSelect" onchange="onMyManagerSelect()" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px;font-family:inherit;background:var(--white)">
+        <option value="">-- 請選擇 --</option>
+        <option value="PAU CHI FUNG">PAU CHI FUNG (DD)</option>
+        <option value="NG MAN LOK">NG MAN LOK (DD)</option>
+        <option value="CHAN CHI HANG">CHAN CHI HANG (SDD)</option>
+        <option value="TSANG OI TING">TSANG OI TING (SASM)</option>
+        <option value="WONG WAI KIT">WONG WAI KIT</option>
+        <option value="HUI YUEN SHU">HUI YUEN SHU (ASM)</option>
+        <option value="LUNG CHI SUM">LUNG CHI SUM</option>
+        <option value="CHAN CHI WANG">CHAN CHI WANG</option>
+        <option value="CHAN KA KIT">CHAN KA KIT</option>
+        <option value="CHENG CHEUK MAN">CHENG CHEUK MAN</option>
+        <option value="LEUNG CHI PANG">LEUNG CHI PANG</option>
+        <option value="__other__">✍️ 其他（手動輸入）</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>或手動輸入經理姓名 <span style="font-size:11px;color:var(--gray400)">（英文全名大寫）</span></label>
+      <input type="text" id="myManagerInput" placeholder="例如：PAU CHI FUNG" style="text-transform:uppercase;letter-spacing:normal;font-size:15px;text-align:left" oninput="this.value=this.value.toUpperCase()">
+    </div>
+    <div style="font-size:12px;color:var(--gray400);margin-bottom:14px">
+      💡 儲存後會自動同步到雲端（如有連線）。
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="hideMyManager()">取消</button>
+      <button class="btn btn-primary" onclick="saveMyManager()">儲存</button>
+    </div>
+  </div>
+</div>
+
 <!-- SIDEBAR -->
 <aside class="sidebar">
   <div class="sidebar-head">
     <h1>📊 SET理財規劃管家</h1>
     <div class="agent-info" id="sidebarAgentInfo">代理人版</div>
-    <div class="agent-ver" id="sidebarVer">v3.10.11</div>
+    <div class="agent-ver" id="sidebarVer">v3.10.16</div>
   </div>
   <nav class="sidebar-nav" id="sidebarNav">
     <button class="nav-btn" onclick="switchTab('dashboard',this)"><span class="nav-icon">📋</span> 總覽</button>
@@ -443,6 +483,7 @@ tr:hover td{background:var(--blue50)}
       <button class="btn btn-outline btn-sm" onclick="exportData()">📥 備份</button>
       <button class="btn btn-outline btn-sm" onclick="document.getElementById('importInput').click()">📤 匯入</button>
       <button class="btn btn-outline btn-sm" onclick="showCloudSetup()">☁️ 雲端</button>
+      <button class="btn btn-outline btn-sm" onclick="showMyManager()" style="border-color:var(--blue500);color:var(--blue600)">👥 直屬經理</button>
       <button class="btn btn-outline btn-sm" onclick="showDeleteAccountModal()" style="color:var(--red500);border-color:var(--red500)">🗑️ 刪除帳戶</button>
     </div>
   </div>
@@ -2615,6 +2656,56 @@ function saveCloudSetup() {
         setApiUrl('');
         toast('連接失敗，請檢查網址同網絡','error');
       });
+  }
+}
+
+// v3.10.16: 代理人自行設定直屬經理
+function showMyManager() {
+  var bg = document.getElementById('mgrAssignModalBg');
+  var disp = document.getElementById('currentMyMgrDisplay');
+  if (disp) disp.textContent = assignedManager || '尚未設定';
+  var sel = document.getElementById('myManagerSelect');
+  var cur = (assignedManager || '').toUpperCase();
+  var found = false;
+  for (var i = 0; i < sel.options.length; i++) {
+    if (sel.options[i].value === cur) { sel.selectedIndex = i; found = true; break; }
+  }
+  if (!found) sel.selectedIndex = 0;
+  var inp = document.getElementById('myManagerInput');
+  inp.value = (found || !assignedManager) ? '' : assignedManager;
+  bg.classList.add('show');
+}
+function hideMyManager() {
+  document.getElementById('mgrAssignModalBg').classList.remove('show');
+}
+function onMyManagerSelect() {
+  var sel = document.getElementById('myManagerSelect');
+  var inp = document.getElementById('myManagerInput');
+  if (sel.value === '__other__') { inp.value = ''; inp.focus(); }
+  else if (sel.value) { inp.value = sel.value; }
+}
+function saveMyManager() {
+  if (!agentName) { toast('⚠️ 請先登入', 'error'); return; }
+  var mgr = (document.getElementById('myManagerInput').value || '').trim().toUpperCase();
+  if (!mgr) { toast('⚠️ 請選擇或輸入直屬經理', 'error'); return; }
+  assignedManager = mgr;
+  try { localStorage.setItem('insurance_mgr_' + encodeURIComponent(agentName), mgr); } catch (e) {}
+  var info = document.getElementById('sidebarAgentInfo');
+  if (info) info.textContent = agentName + ' | ' + agentRole + (mgr ? ' | 經理：' + mgr : '');
+  var disp = document.getElementById('currentMyMgrDisplay');
+  if (disp) disp.textContent = mgr;
+  hideMyManager();
+  toast('✅ 已設定直屬經理：' + mgr);
+  // PATCH Supabase（如有連線）
+  if (typeof SUPA_URL !== 'undefined' && SUPA_URL && SUPA_KEY) {
+    fetch(SUPA_URL + '/rest/v1/agents?name=eq.' + encodeURIComponent(agentName), {
+      method: 'PATCH',
+      headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+      body: JSON.stringify({ manager: mgr })
+    }).then(function (r) {
+      if (r.ok) { console.log('[my-manager] ✅ manager updated:', mgr); toast('☁️ 已同步到雲端'); }
+      else r.text().then(function (t) { console.error('[my-manager] ❌', r.status, t); });
+    }).catch(function (e) { console.error('[my-manager] ❌', e); });
   }
 }
 
