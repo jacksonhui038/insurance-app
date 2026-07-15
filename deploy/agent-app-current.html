@@ -9,7 +9,7 @@
 <!-- v3.10.11: 強制解除舊 Service Worker + 自動偵測版本變化重載（多平台同步保證） -->
 <script>
 (function(){
-  var AGENT_VER='v3.10.30',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.31',AGENT_VER_KEY='agent_app_version';
   var stored=localStorage.getItem(AGENT_VER_KEY)||'';
   if(stored && stored!==AGENT_VER && !/v=new/.test(location.search)){
     console.log('[CacheBuster] agent '+stored+'→'+AGENT_VER+'，強制重載');
@@ -447,7 +447,7 @@ tr:hover td{background:var(--blue50)}
   <div class="sidebar-head">
     <h1>📊 SET理財規劃管家</h1>
     <div class="agent-info" id="sidebarAgentInfo">代理人版</div>
-    <div class="agent-ver" id="sidebarVer">v3.10.30</div>
+    <div class="agent-ver" id="sidebarVer">v3.10.31</div>
   </div>
   <nav class="sidebar-nav" id="sidebarNav">
     <button class="nav-btn" onclick="switchTab('dashboard',this)"><span class="nav-icon">📋</span> 總覽</button>
@@ -3514,6 +3514,7 @@ function saveForm() {
   else if (editType === 'goal') {
     var o = {id:editId||uid(),type:val('f_type'),pcType:val('f_pcType'),period:val('f_period'),year:Number(val('f_year'))||0,month:Number(val('f_month'))||0,quarter:Number(val('f_quarter'))||0,startDate:val('f_startDate'),endDate:val('f_endDate'),target:Number(val('f_target')),desc:val('f_desc')};
     saveTo('goals',o);
+    if (CLOUD_ENABLED && agentName) setTimeout(function(){ saveToCloud(); }, 200); // v3.10.31: 新目標立即 push，避免 auto-pull race 清走
   }
   else if (editType === 'schedule') {
     var clientName = (val('f_clientName')||'').trim();

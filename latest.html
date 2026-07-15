@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>保經管家 — 載入中…</title>
+<script>
+  // v3.10.31: 升級入口 — 每次開都帶全新 timestamp，強制 CDN 攞最新 agent-app.html，繞過所有 HTTP/瀏覽器 cache
+  // 用戶請將 bookmark 改為此網址，以後永遠自動保持最新版，唔使再手動硬刷。
+  (function(){
+    var t = Date.now();
+    var sep = (location.pathname.indexOf('?') >= 0) ? '&' : '?';
+    location.replace('agent-app.html' + sep + 'v=' + t);
+  })();
+</script>
+</head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f5f7fa;color:#666">
+  載入中… 如果未自動跳轉，<a href="agent-app.html?v=1">請按此</a>。
+</body>
+</html>
