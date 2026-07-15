@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <script>
 // 自動版本戳：每次部署 BUILD_ID 唔同 → URL 加 ?b=BUILD_ID → 瀏覽器/CDN 當新網址 → 一定去 server 攞最新（同事唔使清 cache）
-var BUILD_ID='20260715-140338';
+var BUILD_ID='20260715-143039';
 // v3.10.14: 即時版本檢查 — 頁面載入第一件事就係問 server 有冇新版
 // 就算瀏覽器/CDN 緩存咗舊 HTML，呢度都會偵測到並自動重載最新版
 (function(){
@@ -1027,7 +1027,7 @@ function loadFromCloud(callback, retry) {
   // 優先 Supabase
   if (SUPA_URL && SUPA_KEY) {
     loadFromSupabase(function(ok){
-      if (ok) return; // Supabase 成功，唔使 fallback
+      if (ok) { if (callback) callback(true); return; } // v3.10.14: Supabase 成功要 call 返外層 callback（否則登入後 status 永遠卡喺「同步中」）
       // Supabase 失敗，fallback Google Sheets
       if (API_URL) { loadFromGoogleSheets(callback, retry); }
       else { if (callback) callback(false); }
@@ -1258,7 +1258,7 @@ function doForceUpload(payload, mgr, team) {
 function loadFromSupabase(callback, retry) {
   if (!SUPA_URL || !SUPA_KEY || !agentName) { if (callback) callback(false); return; }
   var controller = new AbortController();
-  var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
+  var timeoutId = setTimeout(function(){ controller.abort(); }, 12000);
   fetch(SUPA_URL + '/rest/v1/agents?name=eq.'+encodeURIComponent(agentName)+'&select=data', {
     headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Cache-Control':'no-cache','Pragma':'no-cache'},
     signal:controller.signal
@@ -2770,10 +2770,12 @@ function afterLoginSync() {
   if (CLOUD_ENABLED && agentName) {
     document.getElementById('cloudStatus').style.display = 'flex';
     document.getElementById('lastSyncTime').textContent = getLastSyncTime();
-    setSyncStatus('syncing', '正在同步…');
+
+    // v3.10.14: 即刻標記綠色「已載入本地數據」——本地數據已經顯示緊，
+    // 唔使卡喺黃色「同步中」。雲端載完會轉「已同步」，失敗都係綠色（本地數據在）
+    setSyncStatus('ok', '已載入本地數據');
 
     // 背景載入雲端數據（完全唔阻塞 UI，同事即刻可以用）
-    var isFirstSession = !localStorage.getItem('insurance_has_synced_once_' + encodeURIComponent(agentName));
     loadFromCloud(function(ok){
       if (_syncTimeout) { clearTimeout(_syncTimeout); _syncTimeout = null; }
       localStorage.setItem('insurance_has_synced_once_' + encodeURIComponent(agentName), '1');
@@ -2782,7 +2784,7 @@ function afterLoginSync() {
         _cloudLoadedThisSession = true;
         // 雲端數據合併完成 → 靜默更新畫面（用家可能正在睇/改嘢，所以唔彈 toast）
         renderDashboard(); renderCurrentTab();
-        setSyncStatus('ok', '');
+        setSyncStatus('ok', '已同步');
         console.log('[afterLoginSync] ✅ 雲端同步完成');
 
         // 本地有數據就自動上傳到 Supabase（雙向同步）
@@ -2795,18 +2797,22 @@ function afterLoginSync() {
           }, 1500);
         }
       } else {
-        setSyncStatus('error', '使用本地數據');
+        // 雲端失敗 → 保持綠色「已載入本地數據」（唔用紅色 error 嚇人，本地數據一直顯示緊）
+        setSyncStatus('ok', '已載入本地數據');
         console.warn('[afterLoginSync] ⚠️ 雲端載入失敗，繼續用本地數據');
-        // 失敗都唔影響用家 — 本地數據一直顯示緊
       }
     });
 
-    // 硬性 timeout：如果雲端 20 秒都未回應，標記為 error（但仍然唔阻塞 UI）
+    // 硬性 timeout：如果雲端 20 秒都未回應，確保唔會卡喺黃色（本地數據已經顯示）
+    // 注意：只喺仲係「同步中」狀態先 override（避免覆蓋背景 sync 嘅正常狀態）
     _syncTimeout = setTimeout(function(){
-      if (_syncTimeout) { _syncTimeout = null; } // clear
-      // 只更新狀態指示器，唔彇任何遮擋
-      setSyncStatus('error', '雲端回應慢（使用本地數據）');
-      console.warn('[afterLoginSync] ⚠️ 雲端載入超過 20 秒，繼續用本地數據（背景仍等待）');
+      _syncTimeout = null;
+      var dot = document.getElementById('syncStatusDot');
+      // 只有仲係黃色（同步中）先轉返綠色，唔會干擾正常運作
+      if (dot && dot.style.background === 'var(--yellow500)') {
+        setSyncStatus('ok', '已載入本地數據');
+        console.warn('[afterLoginSync] ⚠️ 雲端載入超過 20 秒，保持本地數據顯示');
+      }
     }, 20000);
 
     // 啟動背景定期同步（每 10 秒）
@@ -2817,6 +2823,7 @@ function afterLoginSync() {
 // v3.10.12: 背景定期重新同步（每 5 分鐘靜静雞從 Supabase 拉最新數據）
 // 確保已開住嘅平台會自動收到其他平台嘅改動，用家完全唔使理
 var _bgSyncTimer = null;
+var _bgSyncing = false; // v3.10.14: 防並發 — 避免上一輪 fetch 未完就開新一輪，令黃點 keep 住
 function startBackgroundSync() {
   if (_bgSyncTimer) clearInterval(_bgSyncTimer); // 防重複
   if (!CLOUD_ENABLED || !SUPA_URL || !SUPA_KEY || !agentName) return;
@@ -2827,10 +2834,14 @@ function startBackgroundSync() {
     var ae = document.activeElement;
     var editing = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT' || ae.isContentEditable);
     if (editing) return; // 下次 tick 再試
+    // v3.10.14: 上一輪仲未完（fetch 緊），唔開新一輪 → 唔會疊加令黃點卡死
+    if (_bgSyncing) { console.log('[bgSync] 上一輪仲未完，跳過呢輪'); return; }
     console.log('[bgSync] 定期同步檢查...', new Date().toLocaleTimeString());
     setSyncStatus('syncing', '同步中…');
+    _bgSyncing = true;
     var snapshot = JSON.stringify(db || {});
     loadFromSupabase(function(ok){
+      _bgSyncing = false; // 無論成功失敗都解鎖
       if (ok) {
         var after = JSON.stringify(db || {});
         if (after !== snapshot) {
@@ -2845,7 +2856,8 @@ function startBackgroundSync() {
         if (el) el.textContent = getLastSyncTime();
       } else {
         console.warn('[bgSync] ⚠️ 背景同步失敗，下次再試');
-        setSyncStatus('error', '同步失敗');
+        // v3.10.14: 失敗都轉返綠色「已載入本地數據」（唔用紅色 error 嚇人，本地數據在）
+        setSyncStatus('ok', '已載入本地數據');
       }
     });
   }, 10000); // 10 秒
@@ -2867,7 +2879,7 @@ document.addEventListener('DOMContentLoaded',function(){
   }, 100);
 
   // v3.8.5: 手機介面改底部導航
-  var CURRENT_VER = 'v3.10.14';
+  var CURRENT_VER = 'v3.10.15';
   var cachedVer = localStorage.getItem('app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, clearing cache and reloading...');
