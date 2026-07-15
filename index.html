@@ -2,6 +2,17 @@
 <html lang="zh-HK">
 <head>
 <meta charset="UTF-8">
+<script>
+// 自動版本戳：每次部署 BUILD_ID 唔同 → URL 加 ?b=BUILD_ID → 瀏覽器/CDN 當新網址 → 一定去 server 攞最新（同事唔使清 cache）
+var BUILD_ID='20260715-121611';
+(function(){
+  if (/[?&]nosw=1/.test(location.search)) return;
+  var bm = location.search.match(/[?&]b=([^&]+)/);
+  if (bm && bm[1] === BUILD_ID) return;
+  var base = location.href.split('?')[0];
+  location.replace(base + '?b=' + BUILD_ID);
+})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>保經管家 - 保險經紀團隊協作系統</title>
 <meta property="og:title" content="保經管家 · 團隊協作系統" />
@@ -56,8 +67,8 @@ h1{font-size:26px;color:#0f172a;margin-bottom:6px;font-weight:700}
     <p class="subtitle">保險經紀團隊協作系統<br><small style="color:#94a3b8">手機 / 平板 / 電腦皆可使用 · 數據雲端同步</small></p>
 
     <div class="btn-row">
-      <a href="agent-app.html" class="btn btn-primary">📱 代理人版</a>
-      <a href="manager-dashboard.html" class="btn btn-dark">👔 經理版</a>
+      <a href="agent-app.html?b=20260715-121611" class="btn btn-primary">📱 代理人版</a>
+      <a href="manager-dashboard.html?b=20260715-121611" class="btn btn-dark">👔 經理版</a>
     </div>
 
     <div class="copy-row">
@@ -80,7 +91,7 @@ h1{font-size:26px;color:#0f172a;margin-bottom:6px;font-weight:700}
       </div>
     </div>
 
-    <p class="tip"><strong>提示：</strong> 微信用戶直接掃二維碼即可打開（無需手動輸入網址）。<br>如頁面顯示舊版，請在 URL 後面加上 <code>?v=new</code> 刷新。</p>
+    <p class="tip"><strong>提示：</strong> 微信用戶直接掃二維碼即可打開（無需手動輸入網址）。<br>網站每次更新都會自動載入最新版，同事<strong>唔使清瀏覽記錄或刪 cache</strong>。<br>若個別舊裝置卡住，可喺網址後加 <code>?nosw=1</code> 強制載入。</p>
 
     <p class="footer">© 2025–2026 保經管家 · 由 <a href="https://github.com/jacksonhui038/insurance-app" target="_blank">GitHub</a> 託管</p>
   </div>
@@ -89,7 +100,8 @@ h1{font-size:26px;color:#0f172a;margin-bottom:6px;font-weight:700}
 <script>
 var BASE = location.origin + location.pathname.replace(/\/$/, '');
 function cp(type) {
-  var url = type === 'agent' ? BASE + '/agent-app.html' : BASE + '/manager-dashboard.html';
+  // 複製嘅連結帶 ?b=BUILD_ID，同事開到嘅一定係最新版（唔使清 cache）
+  var url = type === 'agent' ? BASE + '/agent-app.html?b=' + BUILD_ID : BASE + '/manager-dashboard.html?b=' + BUILD_ID;
   copyText(url, function(ok) {
     var el = document.getElementById('cb-' + type);
     if (ok) {

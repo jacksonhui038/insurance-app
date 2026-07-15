@@ -1,6 +1,17 @@
 <!DOCTYPE html>
 <html lang="zh-HK">
 <head>
+<script>
+// 自動版本戳：每次部署 BUILD_ID 唔同 → URL 加 ?b=BUILD_ID → 瀏覽器/CDN 當新網址 → 一定去 server 攞最新（同事唔使清 cache）
+var BUILD_ID='20260715-121611';
+(function(){
+  if (/[?&]nosw=1/.test(location.search)) return; // 安全模式唔重定向
+  var bm = location.search.match(/[?&]b=([^&]+)/);
+  if (bm && bm[1] === BUILD_ID) return; // 已經有正確版本戳
+  var base = location.href.split('?')[0];
+  location.replace(base + '?b=' + BUILD_ID);
+})();
+</script>
 <script>// v3.9.5 強制破 cache + 強制解除舊 SW：sync script 喺一切之前執行
 var MGR_VER='v3.9.11',MGR_VER_KEY='mgr_app_version';
 (function(){
@@ -14,7 +25,7 @@ var MGR_VER='v3.9.11',MGR_VER_KEY='mgr_app_version';
       regs.forEach(function(r){r.unregister(); console.log('[SW] unregistered', r.scope);});
     }).catch(function(e){console.log('[SW] unregister error', e);});
   }
-  if(v&&v!==MGR_VER){location.replace(location.href.split('?')[0]+'?v='+Date.now());}
+  if(v&&v!==MGR_VER){var _sep=location.search?'&':'?';location.replace(location.href.split('?')[0]+location.search+_sep+'v='+Date.now());}
 })();
 </script>
 <meta charset="UTF-8">
@@ -2388,7 +2399,7 @@ initActivitySelectors();
 updateActivitySelectorVisibility();
 </script>
 <script>
-if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(function(r){console.log('[PWA] Service Worker 已註冊:',r.scope);}).catch(function(e){console.warn('[PWA] SW 註冊失敗:',e);});}
+if('serviceWorker' in navigator && !/[?&]nosw=1/.test(location.search)){navigator.serviceWorker.register('sw.js?b='+BUILD_ID).then(function(r){console.log('[PWA] Service Worker 已註冊:',r.scope);}).catch(function(e){console.warn('[PWA] SW 註冊失敗:',e);});}
 </script>
 
 <!-- MANAGER CLOUD SETUP MODAL -->
@@ -2502,7 +2513,7 @@ if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(
   var cachedVer = localStorage.getItem('mgr_app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     localStorage.setItem('mgr_app_version', CURRENT_VER);
-    location.replace(location.href.split('?')[0] + '?v=' + Date.now());
+    var _sep=location.search?'&':'?';location.replace(location.href.split('?')[0]+location.search+_sep+'v='+Date.now());
     return;
   }
   localStorage.setItem('mgr_app_version', CURRENT_VER);

@@ -6,6 +6,9 @@
 (function () {
   if (!('serviceWorker' in navigator)) return;
 
+  // 安全模式：?nosw=1 唔註冊 SW（iPad 卡死時救急用，直接載最新 HTML）
+  if (/[?&]nosw=1/.test(location.search)) return;
+
   function showUpdateBanner(onUpdate) {
     if (document.getElementById('sw-update-banner')) return;
     var b = document.createElement('div');
@@ -28,7 +31,9 @@
   }
 
   window.addEventListener('load', function () {
-    navigator.serviceWorker.register('./sw.js').then(function (reg) {
+    // 註冊帶 ?b=BUILD_ID 嘅 SW 網址：每次部署 BUILD_ID 改變 → 瀏覽器當新網址 → 一定去 server 攞最新 SW（唔使清 cache）
+    var swUrl = './sw.js' + (window.BUILD_ID ? '?b=' + window.BUILD_ID : '?b=' + Date.now());
+    navigator.serviceWorker.register(swUrl).then(function (reg) {
       console.log('[PWA] Service Worker 已註冊:', reg.scope);
       reg.addEventListener('updatefound', function () {
         var installing = reg.installing;
