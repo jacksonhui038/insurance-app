@@ -3,7 +3,7 @@
 <head>
 <script>
 // 自動版本戳：每次部署 BUILD_ID 唔同 → URL 加 ?b=BUILD_ID → 瀏覽器/CDN 當新網址 → 一定去 server 攞最新（同事唔使清 cache）
-var BUILD_ID='20260715-183913';
+var BUILD_ID='20260715-184236';
 (function(){
   if (/[?&]nosw=1/.test(location.search)) return; // 安全模式唔重定向
   var bm = location.search.match(/[?&]b=([^&]+)/);
@@ -20,19 +20,25 @@ var BUILD_ID='20260715-183913';
 })();
 </script>
 <script>// v3.9.5 強制破 cache + 強制解除舊 SW：sync script 喺一切之前執行
-var MGR_VER='v3.10.22',MGR_VER_KEY='mgr_app_version';
+var MGR_VER='v3.10.23',MGR_VER_KEY='mgr_app_version';
 (function(){
   var v=localStorage.getItem(MGR_VER_KEY)||'';
-  if(v&&v!==MGR_VER){console.log('[CacheBuster] '+v+'→'+MGR_VER);localStorage.setItem(MGR_VER_KEY,MGR_VER);}
-  // v3.9.0: 強制解除所有 Service Worker 並清除 cache（iOS PWA 舊 SW 會攔截 Supabase）
-  function finish(){localStorage.setItem(MGR_VER_KEY,MGR_VER);}
-  if('caches' in window){caches.keys().then(function(ns){return Promise.all(ns.map(function(n){return caches.delete(n);}));}).then(finish).catch(finish);}else{finish();}
-  if('serviceWorker' in navigator){
-    navigator.serviceWorker.getRegistrations().then(function(regs){
-      regs.forEach(function(r){r.unregister(); console.log('[SW] unregistered', r.scope);});
-    }).catch(function(e){console.log('[SW] unregister error', e);});
+  // v3.10.23: 只喺版本真正變更時先清 SW/cache，唔係每次 load 都清（會同 sw-register.js 衝突造成無限 reload）
+  var versionChanged = v && v !== MGR_VER;
+  if(versionChanged){console.log('[CacheBuster] '+v+'→'+MGR_VER);localStorage.setItem(MGR_VER_KEY,MGR_VER);}
+  else { localStorage.setItem(MGR_VER_KEY,MGR_VER); }
+  function finish(){/* done */}
+  if(versionChanged){
+    // 版本變更：清除舊 cache + 舊 SW
+    if('caches' in window){caches.keys().then(function(ns){return Promise.all(ns.map(function(n){return caches.delete(n);}));}).then(finish).catch(finish);}else{finish();}
+    if('serviceWorker' in navigator){
+      navigator.serviceWorker.getRegistrations().then(function(regs){
+        regs.forEach(function(r){r.unregister(); console.log('[SW] unregistered', r.scope);});
+      }).catch(function(e){console.log('[SW] unregister error', e);});
+    }
+    var _sep=location.search?'&':'?';
+    location.replace(location.href.split('?')[0]+location.search+_sep+'v='+Date.now());
   }
-  if(v&&v!==MGR_VER){var _sep=location.search?'&':'?';location.replace(location.href.split('?')[0]+location.search+_sep+'v='+Date.now());}
 })();
 </script>
 <meta charset="UTF-8">

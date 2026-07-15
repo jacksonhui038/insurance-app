@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <script>
 // 自動版本戳：每次部署 BUILD_ID 唔同 → URL 加 ?b=BUILD_ID → 瀏覽器/CDN 當新網址 → 一定去 server 攞最新（同事唔使清 cache）
-var BUILD_ID='20260715-183913';
+var BUILD_ID='20260715-184236';
 // v3.10.14: 即時版本檢查 — 頁面載入第一件事就係問 server 有冇新版
 // 就算瀏覽器/CDN 緩存咗舊 HTML，呢度都會偵測到並自動重載最新版
 (function(){
@@ -38,21 +38,8 @@ var BUILD_ID='20260715-183913';
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<!-- v3.10.8: 強制解除舊 Service Worker 同 caches，避免手機版載入舊數據 -->
-<script>
-(function(){
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations().then(function(regs) {
-      regs.forEach(function(r) { r.unregister(); console.log('[SW] 強制解除:', r.scope); });
-    });
-  }
-  if (window.caches) {
-    caches.keys().then(function(names) {
-      names.forEach(function(name) { caches.delete(name); console.log('[Cache] 強制清除:', name); });
-    });
-  }
-})();
-</script>
+<!-- v3.10.23: 唔再每次 load 都強制清除 SW/cache（會同 sw-register.js 衝突造成無限 reload 循環）。
+     舊版 cache 由 SW CACHE_NAME 每次部署自動更換來處理，呢度唔需要再清。 -->
 <title>SET理財規劃管家 - 代理人版</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#2563eb">
@@ -2916,7 +2903,7 @@ document.addEventListener('DOMContentLoaded',function(){
   }, 100);
 
   // v3.8.5: 手機介面改底部導航
-  var CURRENT_VER = 'v3.10.23'; // 背景同步安全網：25秒硬超時防止黃點卡死
+  var CURRENT_VER = 'v3.10.24'; // 修復無限 reload：移除每次 load 都清 SW/cache 的代碼
   var cachedVer = localStorage.getItem('app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, clearing cache and reloading...');
