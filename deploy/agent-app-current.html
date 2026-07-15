@@ -9,7 +9,7 @@
 <!-- v3.10.11: 強制解除舊 Service Worker + 自動偵測版本變化重載（多平台同步保證） -->
 <script>
 (function(){
-  var AGENT_VER='v3.10.16',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.17',AGENT_VER_KEY='agent_app_version';
   var stored=localStorage.getItem(AGENT_VER_KEY)||'';
   if(stored && stored!==AGENT_VER && !/v=new/.test(location.search)){
     console.log('[CacheBuster] agent '+stored+'→'+AGENT_VER+'，強制重載');
@@ -28,6 +28,18 @@
       names.forEach(function(name) { caches.delete(name); console.log('[Cache] 強制清除:', name); });
     });
   }
+})();
+/* v3.10.17: 動態偵測 iOS 瀏海/動態島，僅真正有 notch 的設備加 .has-notch */
+(function(){
+  try {
+    var el=document.createElement('div');
+    el.style.cssText='position:fixed;top:0;left:0;pointer-events:none;padding-top:env(safe-area-inset-top)';
+    document.documentElement.appendChild(el);
+    var sat=parseFloat(getComputedStyle(el).paddingTop)||0;
+    document.documentElement.removeChild(el);
+    if(sat>=40){ document.documentElement.classList.add('has-notch'); console.log('[Notch] safe-area-inset-top='+sat+'px → 已啟用避讓'); }
+    else{ console.log('[Notch] safe-area-inset-top='+sat+'px → 無需避讓（非 iPhone 瀏海/Island 設備）'); }
+  }catch(e){ console.warn('[Notch] 偵測失敗:', e); }
 })();
 </script>
 <title>SET理財規劃管家 - 代理人版</title>
@@ -186,12 +198,8 @@ tr:hover td{background:var(--blue50)}
   .topbar-right .btn{padding:6px 8px;font-size:10px;flex-shrink:0;white-space:nowrap}
   .topbar-right .agent-badge{flex-shrink:0;margin-right:4px}
   .agent-badge{white-space:nowrap}
-  /* iOS Safari 瀏海/動態島避讓（僅 iPhone，iPad 不適用） */
-  @media (max-width: 768px) and (pointer: coarse) {
-    @supports (-webkit-touch-callout: none){
-      .topbar{padding-top:60px !important}
-    }
-  }
+  /* iOS 瀏海/動態島避讓：由 JS 偵測實際 safe-area-inset-top，僅在有 notch 時加 .has-notch class */
+  .has-notch .topbar{padding-top:60px !important}
   /* 手機版：雲端狀態同同步掣獨立一行，避免被狀態欄遮住 */
   #cloudStatus{position:static !important;display:flex !important;width:100%;justify-content:space-between;align-items:center;padding:8px 14px;background:var(--gray50);border-bottom:1px solid var(--gray200);box-sizing:border-box}
   #cloudStatus button{padding:8px 14px !important;font-size:13px !important;border-radius:12px !important}
@@ -436,7 +444,7 @@ tr:hover td{background:var(--blue50)}
   <div class="sidebar-head">
     <h1>📊 SET理財規劃管家</h1>
     <div class="agent-info" id="sidebarAgentInfo">代理人版</div>
-    <div class="agent-ver" id="sidebarVer">v3.10.16</div>
+    <div class="agent-ver" id="sidebarVer">v3.10.17</div>
   </div>
   <nav class="sidebar-nav" id="sidebarNav">
     <button class="nav-btn" onclick="switchTab('dashboard',this)"><span class="nav-icon">📋</span> 總覽</button>
