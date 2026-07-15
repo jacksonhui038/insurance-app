@@ -9,7 +9,7 @@
 <!-- v3.10.11: 強制解除舊 Service Worker + 自動偵測版本變化重載（多平台同步保證） -->
 <script>
 (function(){
-  var AGENT_VER='v3.10.28',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.29',AGENT_VER_KEY='agent_app_version';
   var stored=localStorage.getItem(AGENT_VER_KEY)||'';
   if(stored && stored!==AGENT_VER && !/v=new/.test(location.search)){
     console.log('[CacheBuster] agent '+stored+'→'+AGENT_VER+'，強制重載');
@@ -1078,7 +1078,14 @@ function loadFromGoogleSheets(callback, retry) {
               DB[k].forEach(function(item) { localMap[item.id] = item; });
             }
             r.data[k].forEach(function(item) {
-              localMap[item.id] = item; // 雲端數據優先
+              var existing = localMap[item.id];
+              if (existing) {
+                // v3.10.29: 衝突解決 — 雲端較新（或相等）才覆蓋，否則保留本地剛改動
+                var ct = item.updatedAt || 0, lt = existing.updatedAt || 0;
+                if (ct >= lt) localMap[item.id] = item;
+              } else {
+                localMap[item.id] = item; // 本地冇就用雲端
+              }
             });
             DB[k] = Object.values(localMap);
           }
@@ -1292,7 +1299,14 @@ function loadFromSupabase(callback, retry) {
             DB[k].forEach(function(item) { localMap[item.id] = item; });
           }
           rows[0].data[k].forEach(function(item) {
-            localMap[item.id] = item; // 雲端數據優先
+            var existing = localMap[item.id];
+            if (existing) {
+              // v3.10.29: 衝突解決 — 雲端較新（或相等）才覆蓋，否則保留本地剛改動
+              var ct = item.updatedAt || 0, lt = existing.updatedAt || 0;
+              if (ct >= lt) localMap[item.id] = item;
+            } else {
+              localMap[item.id] = item; // 本地冇就用雲端
+            }
           });
           DB[k] = Object.values(localMap);
         }
@@ -2517,7 +2531,7 @@ function verifyAndRecoverFromDetails(name, pin) {
 function uid() { return _id++; }
 function money(n) { return 'HK$ '+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function pcMoney(n) { return 'PC '+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
-function dFmt(s) { if (!s) return ''; var t = String(s).trim(); if (t.indexOf('T') >= 0) t = t.slice(0,10); var d = new Date(t+'T00:00:00'); return isNaN(d) ? '' : d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function dFmt(s) { if (!s) return ''; var t = String(s).trim(); var d; if (t.indexOf('T') >= 0) { d = new Date(t); } else { d = new Date(t+'T00:00:00'); } return isNaN(d.getTime()) ? '' : d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function toast(msg, type) { type = type||'success'; var el = document.createElement('div'); el.className = 'toast toast-'+type; el.textContent = msg; document.getElementById('toastBox').appendChild(el); setTimeout(function(){ el.remove(); }, 2600); }
 function esc(s) { if (!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
@@ -3792,6 +3806,7 @@ function fClient(label, name, value) {
 function closeModal() { document.getElementById('modalBg').classList.remove('show'); }
 
 function saveTo(key, obj) {
+  obj.updatedAt = Date.now(); // v3.10.29: 標記最後修改時間，用於雲端合併衝突解決
   if (editId) { for (var i=0;i<DB[key].length;i++) if (DB[key][i].id===editId) { DB[key][i]=obj; return; } }
   DB[key].push(obj);
 }
