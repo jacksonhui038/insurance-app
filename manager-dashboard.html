@@ -3,7 +3,7 @@
 <head>
 <script>
 // 自動版本戳：每次部署 BUILD_ID 唔同 → URL 加 ?b=BUILD_ID → 瀏覽器/CDN 當新網址 → 一定去 server 攞最新（同事唔使清 cache）
-var BUILD_ID='20260715-182733';
+var BUILD_ID='20260715-183248';
 (function(){
   if (/[?&]nosw=1/.test(location.search)) return; // 安全模式唔重定向
   var bm = location.search.match(/[?&]b=([^&]+)/);
@@ -45,7 +45,7 @@ var MGR_VER='v3.10.22',MGR_VER_KEY='mgr_app_version';
 <meta name="theme-color" content="#2563eb">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="保經管家">
+<meta name="apple-mobile-web-app-title" content="SET理財規劃管家">
 <link rel="apple-touch-icon" href="icon-192.png">
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
@@ -276,7 +276,7 @@ tr:hover td{background:var(--blue50)}
   <div class="header">
     <div>
       <h1>📊 團隊總覽 <span style="font-size:11px;opacity:0.6;font-weight:400">v3.9.11</span></h1>
-      <div class="sub" id="mgrNameDisplay">保險經紀業務管理系統 · 經理視角</div>
+      <div class="sub" id="mgrNameDisplay">保險代理人業務管理系統 · 經理視角</div>
     </div>
     <div class="header-actions">
       <button class="btn btn-white" onclick="window.MGR_SHOW_ALL_AGENTS=false;mgrLoadFromCloud()" id="mgrCloudBtn">☁️ 載入團隊數據</button>
@@ -720,7 +720,7 @@ function mgrChangeName(){
   if(!newName){ errEl.textContent = '請輸入新姓名'; return; }
   localStorage.setItem(MGR_KEY, newName);
   var hdr = document.getElementById('mgrNameDisplay');
-  if(hdr) hdr.textContent = newName ? '經理：' + newName : '保險經紀業務管理系統 · 經理視角';
+  if(hdr) hdr.textContent = newName ? '經理：' + newName : '保險代理人業務管理系統 · 經理視角';
   toast('✅ 姓名已更新為「' + newName + '」');
   document.getElementById('acctCurName').value = newName;
   document.getElementById('acctNewName').value = '';
