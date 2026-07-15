@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <script>
 // 自動版本戳：每次部署 BUILD_ID 唔同 → URL 加 ?b=BUILD_ID → 瀏覽器/CDN 當新網址 → 一定去 server 攞最新（同事唔使清 cache）
-var BUILD_ID='20260715-155247';
+var BUILD_ID='20260715-160123';
 // v3.10.14: 即時版本檢查 — 頁面載入第一件事就係問 server 有冇新版
 // 就算瀏覽器/CDN 緩存咗舊 HTML，呢度都會偵測到並自動重載最新版
 (function(){
@@ -101,6 +101,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft JhengHei
 .charts-grid{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:24px}
 .charts-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px}
 .chart-card{background:var(--white);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow)}
+.goal-overview-card{background:var(--white);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);margin-bottom:16px}
+.goal-overview-card h3{font-size:16px;margin-bottom:14px}
+.goal-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.goal-row .goal-label{font-size:14px;font-weight:600;color:var(--gray700)}
+.goal-row .goal-vals{font-size:13px;color:var(--gray500);font-variant-numeric:tabular-nums}
+.goal-bar{height:10px;background:#eef2f7;border-radius:6px;overflow:hidden;margin-bottom:4px}
+.goal-bar>i{display:block;height:100%;border-radius:6px;transition:width .4s ease}
+.goal-diff{font-size:12px;margin-bottom:14px}
 .chart-card h3{font-size:14px;color:var(--gray600);margin-bottom:14px;font-weight:600}
 .chart-card canvas{max-height:260px}
 /* TABLES */
@@ -523,6 +531,7 @@ tr:hover td{background:var(--blue50)}
     <!-- DASHBOARD -->
     <div class="tab-panel active" id="panel-dashboard">
       <div class="cards-grid" id="dashCards"></div>
+      <div class="goal-overview-card" id="goalOverview"></div>
       <div class="charts-grid">
         <div class="chart-card"><h3>📊 佣金收入趨勢</h3><canvas id="chartCommission"></canvas></div>
         <div class="chart-card"><h3>🎯 月度目標達成率</h3><canvas id="chartGoal"></canvas></div>
@@ -2896,7 +2905,7 @@ document.addEventListener('DOMContentLoaded',function(){
   }, 100);
 
   // v3.8.5: 手機介面改底部導航
-  var CURRENT_VER = 'v3.10.17';
+  var CURRENT_VER = 'v3.10.18';
   var cachedVer = localStorage.getItem('app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, clearing cache and reloading...');
@@ -3038,6 +3047,58 @@ function renderDashboard() {
   else todos.forEach(function(t){ th+='<tr><td>'+t.txt+'</td><td>'+esc(t.client)+'</td><td><span class="badge '+(t.type==='行程'?'badge-blue':'badge-blue')+'">'+esc(t.type)+'</span></td><td>'+esc(dFmt(t.date))+'</td><td><span class="badge '+(t.status==='審核中'?'badge-yellow':t.status==='待跟進'?'badge-red':'badge-blue')+'">'+esc(t.status)+'</span></td></tr>'; });
   document.getElementById('todoTable').innerHTML = th;
   renderDashboardCharts();
+  renderGoalOverview();
+}
+
+// v3.10.18: 總覽目標概覽 — 顯示目標金額 + 達成率 + 進度條，等大家一眼睇清目標幾多
+function renderGoalOverview() {
+  var el = document.getElementById('goalOverview');
+  if (!el) return;
+  var now = new Date(), m = now.getMonth(), y = now.getFullYear();
+  var sum = function(arr, field){ return arr.reduce(function(s,it){return s+(Number(it[field])||0);},0); };
+  var monthTotal = sum(DB.commissions.filter(function(c){var d=new Date(c.date);return d.getMonth()===m&&d.getFullYear()===y;}), 'amount');
+  var monthPC = sum(DB.pcs.filter(function(pc){var d=new Date(pc.date);return d.getMonth()===m&&d.getFullYear()===y;}), 'amount');
+  var yearTotal = sum(DB.commissions.filter(function(c){var d=new Date(c.date);return d.getFullYear()===y;}), 'amount');
+  var yearPC = sum(DB.pcs.filter(function(pc){var d=new Date(pc.date);return d.getFullYear()===y;}), 'amount');
+  var qs = new Date(y, Math.floor(m/3)*3, 1), qe = new Date(y, Math.floor(m/3)*3+3, 1);
+  var qTotal = sum(DB.commissions.filter(function(c){var d=new Date(c.date);return d>=qs&&d<qe;}), 'amount');
+  var qPC = sum(DB.pcs.filter(function(pc){var d=new Date(pc.date);return d>=qs&&d<qe;}), 'amount');
+  function getGoal(period, type){
+    for (var i=0;i<DB.goals.length;i++){
+      var g = DB.goals[i];
+      if (g.period===period && g.type===type){
+        if (period==='monthly'){ if (g.year===y && g.month===m+1) return g; }
+        else if (period==='yearly'){ if (g.year===y) return g; }
+        else if (period==='quarterly'){ if (g.year===y && g.quarter===Math.floor(m/3)+1) return g; }
+      }
+    }
+    return null;
+  }
+  var rows = [
+    {label:'📅 本月佣金目標', g:getGoal('monthly','佣金'), actual:monthTotal, fmt:money},
+    {label:'📅 本月 PC 目標', g:getGoal('monthly','PC'), actual:monthPC, fmt:pcMoney},
+    {label:'🔶 本季佣金目標', g:getGoal('quarterly','佣金'), actual:qTotal, fmt:money},
+    {label:'🔶 本季 PC 目標', g:getGoal('quarterly','PC'), actual:qPC, fmt:pcMoney},
+    {label:'📆 本年佣金目標', g:getGoal('yearly','佣金'), actual:yearTotal, fmt:money},
+    {label:'📆 本年 PC 目標', g:getGoal('yearly','PC'), actual:yearPC, fmt:pcMoney}
+  ];
+  var html = '<h3>🎯 目標概覽</h3>';
+  var any = false;
+  rows.forEach(function(r){
+    if (!r.g) return;
+    any = true;
+    var target = Number(r.g.target)||0;
+    var pct = target>0 ? Math.min(100, Math.round(r.actual/target*100)) : 0;
+    var diff = r.actual - target;
+    var color = diff>=0 ? '#22c55e' : '#3b82f6';
+    var diffTxt = diff>=0 ? ('✅ 已達標（超額 '+r.fmt(diff)+'）') : ('還差 '+r.fmt(-diff));
+    html += '<div class="goal-row"><div class="goal-label">'+r.label+'</div>'+
+            '<div class="goal-vals">'+r.fmt(r.actual)+' / '+r.fmt(target)+'（'+pct+'%）</div></div>'+
+            '<div class="goal-bar"><i style="width:'+pct+'%;background:'+color+'"></i></div>'+
+            '<div class="goal-diff" style="color:'+(diff>=0?'var(--green500)':'var(--red500)')+'">'+diffTxt+'</div>';
+  });
+  if (!any) html += '<div class="empty">尚未設定目標，前往「🎯 目標管理」設定本月 / 本季 / 本年目標，方便追蹤進度</div>';
+  el.innerHTML = html;
 }
 
 function renderDashboardCharts() {
