@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <script>
 // 自動版本戳：每次部署 BUILD_ID 唔同 → URL 加 ?b=BUILD_ID → 瀏覽器/CDN 當新網址 → 一定去 server 攞最新（同事唔使清 cache）
-var BUILD_ID='20260715-133412';
+var BUILD_ID='20260715-133700';
 (function(){
   if (/[?&]nosw=1/.test(location.search)) return; // 安全模式唔重定向
   var bm = location.search.match(/[?&]b=([^&]+)/);
@@ -590,6 +590,7 @@ tr:hover td{background:var(--blue50)}
   <div style="font-size:15px;font-weight:600;color:var(--gray700)">正在從雲端載入最新數據...</div>
   <div id="syncOverlayHint" style="font-size:12px;color:var(--gray400);display:none">首次同步可能需要幾秒鐘</div>
   <button id="syncOverlayRetry" style="display:none;padding:8px 20px;border:1px solid var(--blue500);border-radius:8px;background:var(--white);color:var(--blue500);font-size:13px;font-weight:600;cursor:pointer" onclick="retryAfterLoginSync()">🔄 重新同步</button>
+  <button id="syncOverlaySkip" style="padding:6px 16px;border:1px solid var(--gray300);border-radius:8px;background:var(--gray50);color:var(--gray500);font-size:12px;cursor:pointer" onclick="forceSkipSyncSpinner()">⏭️ 跳過等待，先用本地數據</button>
 </div>
 <style>
 @keyframes syncSpin{to{transform:rotate(360deg)}}
@@ -2726,6 +2727,17 @@ function setSyncStatus(status, text) {
   }
 }
 var _pendingAfterLoginSync = null; // 保存 afterLoginSync callback，供重試用
+var _syncTimeout = null; // spinner 硬性 timeout，防止 loadFromCloud hang 導致卡死
+
+function forceSkipSyncSpinner() {
+  // 用家手動跳過：強制隱藏 spinner + 渲染本地數據
+  if (_syncTimeout) { clearTimeout(_syncTimeout); _syncTimeout = null; }
+  hideSyncSpinner();
+  renderDashboard(); renderCurrentTab();
+  toast('⏭️ 已跳過等待，目前顯示本地數據。雲端數據會喺背景繼續同步。', 'info', 5000);
+  // 唔設 has_synced_once — 下次登入仍然會試雲端（只係呢次跳過）
+}
+
 function retryAfterLoginSync() {
   if (_pendingAfterLoginSync) _pendingAfterLoginSync();
 }
@@ -2746,8 +2758,18 @@ function afterLoginSync() {
 
     // 儲存 callback 供重試
     _pendingAfterLoginSync = function doAfterLoginSyncInner() {
+      // v3.10.13: 硬性 timeout — 最多等 15 秒，過期強制解鎖（防止 Supabase hang 卡死 spinner）
+      if (_syncTimeout) clearTimeout(_syncTimeout);
+      _syncTimeout = setTimeout(function(){
+        console.warn('[afterLoginSync] ⚠️ 雲端載入超過 15 秒，強制解鎖 spinner');
+        forceSkipSyncSpinner();
+        setSyncStatus('error', '雲端載入超時（已用本地數據）');
+      }, 15000);
+
       // 1. 先從雲端下載（合併最新數據）
       loadFromCloud(function(ok){
+        // 無論成功失敗都要清除 timeout（防止重複觸發 forceSkip）
+        if (_syncTimeout) { clearTimeout(_syncTimeout); _syncTimeout = null; }
         hideSyncSpinner(); // 無論成功失敗都隱藏 spinner
         localStorage.setItem('insurance_has_synced_once_' + encodeURIComponent(agentName), '1');
 
