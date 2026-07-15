@@ -4,20 +4,34 @@
 <meta charset="UTF-8">
 <script>
 // 自動版本戳：每次部署 BUILD_ID 唔同 → URL 加 ?b=BUILD_ID → 瀏覽器/CDN 當新網址 → 一定去 server 攞最新（同事唔使清 cache）
-var BUILD_ID='20260715-133700';
+var BUILD_ID='20260715-140241';
+// v3.10.14: 即時版本檢查 — 頁面載入第一件事就係問 server 有冇新版
+// 就算瀏覽器/CDN 緩存咗舊 HTML，呢度都會偵測到並自動重載最新版
 (function(){
   if (/[?&]nosw=1/.test(location.search)) return; // 安全模式唔重定向
-  var bm = location.search.match(/[?&]b=([^&]+)/);
-  if (bm && bm[1] === BUILD_ID) return; // 已經有正確版本戳
-  // v3.9.12: 先問 server 攞最新版號，確保就算本頁係舊版都會跳去最新 URL
-  function go(target){
-    var b = location.href.split('?')[0];
-    location.replace(b + '?b=' + target);
+  var embedded = BUILD_ID;
+  function redirectToLatest(latest) {
+    var base = location.href.split('?')[0];
+    // 加 ?b=latest 確保 URL 唔同 → 瀏覽器/CDN 當新請求
+    location.replace(base + '?b=' + latest);
   }
+  // 永遠去 network 攞 version.json（cache:'no-store' 繞過所有緩存）
   fetch('./version.json?t=' + Date.now(), {cache:'no-store'})
-    .then(function(r){return r.json();})
-    .then(function(d){ go((d&&d.buildId)?d.buildId:BUILD_ID); })
-    .catch(function(){ go(BUILD_ID); });
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var latest = (d && d.buildId) ? d.buildId : null;
+      if (!latest) return; // 搵唔到版號，用當前版本繼續
+      if (latest !== embedded) {
+        // Server 版本唔同 = 當前 HTML 係舊緩存 → 即時跳去最新版
+        console.log('[VersionCheck] 偵測到新版 ' + latest + '（當前 ' + embedded + '），自動更新…');
+        redirectToLatest(latest);
+      }
+      // 版本相同 → 正常載入，唔使做任何嘢
+    })
+    .catch(function(){
+      // 離線或網絡失敗 → 用當前已載入嘅版本繼續（離線模式）
+      console.log('[VersionCheck] 無法連接版本伺服器，使用本地版本');
+    });
 })();
 </script>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -919,7 +933,7 @@ function buildUploadData() {
     base[k] = (DB[k] && Array.isArray(DB[k])) ? DB[k].slice() : []; // 本地優先，刪除即生效
   });
   // 補充雲端快照嘅 metadata 欄位（非陣列），本地有就用本地，冇就用雲端，避免清走 role/manager/team
-  var META_KEYS = ['role','manager','team','_pinHash','createdAt','registeredAt'];
+  var META_KEYS = ['role','manager','team','_pinHash','createdAt','registeredAt','email','phone'];
   if (_cloudDataSnapshot && typeof _cloudDataSnapshot === 'object') {
     META_KEYS.forEach(function(mk){
       if (base[mk] === undefined || base[mk] === null || base[mk] === '') {
@@ -929,6 +943,9 @@ function buildUploadData() {
   }
   // _pinHash：本地 PIN 優先，否則保留雲端
   base._pinHash = (agentPIN ? hashPin(agentPIN) : ((_cloudDataSnapshot && _cloudDataSnapshot._pinHash) || ''));
+  // v3.10.13: 雙重驗證聯絡方式（email/phone）一併序列化到雲端 data
+  base.email = (DB && DB.email) ? DB.email : ((_cloudDataSnapshot && _cloudDataSnapshot.email) || '');
+  base.phone = (DB && DB.phone) ? DB.phone : ((_cloudDataSnapshot && _cloudDataSnapshot.phone) || '');
   return base;
 }
 function saveToCloud(callback, retry) {
@@ -2747,57 +2764,53 @@ function afterLoginSync() {
   _cloudLoadedThisSession = false;
   _cloudDataSnapshot = null;
 
-  // v3.10.12: 如果有雲端，顯示 loading spinner 確保用家唔會見到舊數據
+  // v3.10.14: 非阻塞同步 — 唔再用 spinner 鎖住畫面
+  // doLogin() 已經 call 咗 renderDashboard()，本地數據已經顯示緊
+  // 呢度只係背景靜默載入雲端數據，載完自動更新畫面
   if (CLOUD_ENABLED && agentName) {
     document.getElementById('cloudStatus').style.display = 'flex';
     document.getElementById('lastSyncTime').textContent = getLastSyncTime();
+    setSyncStatus('syncing', '正在同步…');
 
-    // 顯示 spinner（首次同步顯示提示）
+    // 背景載入雲端數據（完全唔阻塞 UI，同事即刻可以用）
     var isFirstSession = !localStorage.getItem('insurance_has_synced_once_' + encodeURIComponent(agentName));
-    showSyncSpinner(isFirstSession ? '首次同步可能需要幾秒鐘' : '', false);
+    loadFromCloud(function(ok){
+      if (_syncTimeout) { clearTimeout(_syncTimeout); _syncTimeout = null; }
+      localStorage.setItem('insurance_has_synced_once_' + encodeURIComponent(agentName), '1');
 
-    // 儲存 callback 供重試
-    _pendingAfterLoginSync = function doAfterLoginSyncInner() {
-      // v3.10.13: 硬性 timeout — 最多等 15 秒，過期強制解鎖（防止 Supabase hang 卡死 spinner）
-      if (_syncTimeout) clearTimeout(_syncTimeout);
-      _syncTimeout = setTimeout(function(){
-        console.warn('[afterLoginSync] ⚠️ 雲端載入超過 15 秒，強制解鎖 spinner');
-        forceSkipSyncSpinner();
-        setSyncStatus('error', '雲端載入超時（已用本地數據）');
-      }, 15000);
-
-      // 1. 先從雲端下載（合併最新數據）
-      loadFromCloud(function(ok){
-        // 無論成功失敗都要清除 timeout（防止重複觸發 forceSkip）
-        if (_syncTimeout) { clearTimeout(_syncTimeout); _syncTimeout = null; }
-        hideSyncSpinner(); // 無論成功失敗都隱藏 spinner
-        localStorage.setItem('insurance_has_synced_once_' + encodeURIComponent(agentName), '1');
-
-        // v3.9.4: 下載完無論成功與否都重新渲染，確保 UI 反映雲端最新數據
+      if (ok) {
+        _cloudLoadedThisSession = true;
+        // 雲端數據合併完成 → 靜默更新畫面（用家可能正在睇/改嘢，所以唔彈 toast）
         renderDashboard(); renderCurrentTab();
-
-        if (!ok) {
-          setSyncStatus('error', '載入失敗');
-          toast('⚠️ 雲端同步失敗，目前顯示本地數據。點擊「🔄 同步」掣重試', 'error', 8000);
-          return;
-        }
-
-        // v3.10.12: 啟動背景定期同步（每 5 分鐘）
-        startBackgroundSync();
         setSyncStatus('ok', '');
+        console.log('[afterLoginSync] ✅ 雲端同步完成');
 
-        // 2. 下載完畢後，只有「本地有數據」先自動上傳到 Supabase
+        // 本地有數據就自動上傳到 Supabase（雙向同步）
         if (SUPA_URL && SUPA_KEY && !isDBEmpty()) {
-          setTimeout(function(){ saveToSupabase(function(ok2){
-            if (ok2) { setLastSyncTime(); document.getElementById('lastSyncTime').textContent = getLastSyncTime(); }
-            else { console.warn('[afterLoginSync] 上傳 Supabase 失敗，下次登入會自動重試'); }
-          }); }, 1500);
-        } else if (isDBEmpty()) {
-          console.warn('[afterLoginSync] 本地無數據，跳過自動上傳，避免清空白雲端');
+          setTimeout(function(){
+            saveToSupabase(function(ok2){
+              if (ok2) { setLastSyncTime(); document.getElementById('lastSyncTime').textContent = getLastSyncTime(); }
+              else { console.warn('[afterLoginSync] 上傳 Supabase 失敗，下次會自動重試'); }
+            });
+          }, 1500);
         }
-      });
-    };
-    _pendingAfterLoginSync();
+      } else {
+        setSyncStatus('error', '使用本地數據');
+        console.warn('[afterLoginSync] ⚠️ 雲端載入失敗，繼續用本地數據');
+        // 失敗都唔影響用家 — 本地數據一直顯示緊
+      }
+    });
+
+    // 硬性 timeout：如果雲端 20 秒都未回應，標記為 error（但仍然唔阻塞 UI）
+    _syncTimeout = setTimeout(function(){
+      if (_syncTimeout) { _syncTimeout = null; } // clear
+      // 只更新狀態指示器，唔彇任何遮擋
+      setSyncStatus('error', '雲端回應慢（使用本地數據）');
+      console.warn('[afterLoginSync] ⚠️ 雲端載入超過 20 秒，繼續用本地數據（背景仍等待）');
+    }, 20000);
+
+    // 啟動背景定期同步（每 10 秒）
+    startBackgroundSync();
   }
 }
 
@@ -2854,7 +2867,7 @@ document.addEventListener('DOMContentLoaded',function(){
   }, 100);
 
   // v3.8.5: 手機介面改底部導航
-  var CURRENT_VER = 'v3.10.13';
+  var CURRENT_VER = 'v3.10.14';
   var cachedVer = localStorage.getItem('app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, clearing cache and reloading...');

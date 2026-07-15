@@ -1,7 +1,6 @@
-/* 保經管家 · Service Worker 註冊 + 版本更新提示
+/* 保經管家 · Service Worker 註冊 + 版本自動更新
  * 用法：喺每個頁面 </body> 前加 <script src="./sw-register.js"></script>
- * 行為：註冊 sw.js；當偵測到新版本已經裝好，彈出「立即更新」橫幅，
- *       撳咗就跳過等待 → 重新載入 → 用到最新版。
+ * 行為：註冊 sw.js；當偵測到新版本已裝好 → 自動重載 → 用到最新版（完全零操作）
  */
 (function () {
   if (!('serviceWorker' in navigator)) return;
@@ -9,35 +8,42 @@
   // 安全模式：?nosw=1 唔註冊 SW（iPad 卡死時救急用，直接載最新 HTML）
   if (/[?&]nosw=1/.test(location.search)) return;
 
-  function showUpdateBanner(onUpdate) {
+  // v3.10.14: 新 SW 裝好後自動重載（唔使用家撳「立即更新」）
+  function autoReloadOnNewSW() {
     if (document.getElementById('sw-update-banner')) return;
     var b = document.createElement('div');
     b.id = 'sw-update-banner';
-    b.setAttribute('role', 'alert');
+    b.setAttribute('role', 'status');
     b.style.cssText = 'position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:99999;' +
-      'background:#2563eb;color:#fff;padding:10px 14px;border-radius:10px;font-size:13px;' +
-      'box-shadow:0 10px 30px rgba(0,0,0,.3);display:flex;align-items:center;gap:10px;' +
-      'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:92vw';
-    var span = document.createElement('span');
-    span.textContent = '🔄 有新版本可用';
-    var btn = document.createElement('button');
-    btn.textContent = '立即更新';
-    btn.style.cssText = 'background:#fff;color:#2563eb;border:none;border-radius:7px;' +
-      'padding:6px 12px;font-weight:600;cursor:pointer;font-size:13px';
-    btn.onclick = onUpdate;
-    b.appendChild(span);
-    b.appendChild(btn);
+      'background:#16a34a;color:#fff;padding:8px 16px;border-radius:10px;font-size:12px;' +
+      'box-shadow:0 4px 15px rgba(0,0,0,.2);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;' +
+      'opacity:0;transition:opacity 0.3s';
+    b.textContent = '✅ 已自動更新到最新版本，正在重新載入…';
     (document.body || document.documentElement).appendChild(b);
+    // fade in briefly then reload
+    requestAnimationFrame(function(){ b.style.opacity = '1'; });
+    setTimeout(function(){
+      var installing = (navigator.serviceWorker && navigator.serviceWorker.controller) ? null : null;
+      // Tell new SW to skip waiting → triggers controllerchange → auto reload
+      if (navigator.serviceWorker && navigator.serviceWorker.controller === null) {
+        // SW not yet controlling, wait for it
+      }
+      // Force skipWaiting via postMessage to any installing SW
+      navigator.serviceWorker.getRegistration().then(function(reg){
+        if (reg && reg.installing) {
+          reg.installing.postMessage({ type: 'SKIP_WAITING' });
+        } else if (reg && reg.waiting) {
+          reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+        }
+      });
+    }, 1200);
   }
 
   window.addEventListener('load', function () {
-    // v3.9.12: 先去 network 攞最新 buildId（唔用嵌入嘅），避免舊 HTML 永遠註冊舊 SW URL → 永遠唔更新
-    // 就算頁面係舊版，都會用最新版號註冊 SW → 新 SW 裝好 → 自動接手 → 用到最新 HTML
     fetch('./version.json?t=' + Date.now(), { cache: 'no-store' })
       .then(function (r) { return r.json(); })
       .then(function (data) {
         var latest = (data && data.buildId) ? data.buildId : (window.BUILD_ID || '');
-        // 註冊帶 ?b=最新版號 嘅 SW 網址：每次部署版號改變 → 瀏覽器當新網址 → 一定去 server 攞最新 SW
         var swUrl = './sw.js' + (latest ? '?b=' + latest : '?b=' + Date.now());
         return navigator.serviceWorker.register(swUrl);
       })
@@ -47,10 +53,10 @@
           var installing = reg.installing;
           if (!installing) return;
           installing.addEventListener('statechange', function () {
+            // 新 SW 已安裝完成且舊 SW 仍在控制頁面 → 自動觸發更新
             if (installing.state === 'installed' && navigator.serviceWorker.controller) {
-              showUpdateBanner(function () {
-                installing.postMessage({ type: 'SKIP_WAITING' });
-              });
+              console.log('[PWA] 新版 SW 已就緒，自動更新中…');
+              autoReloadOnNewSW();
             }
           });
         });
@@ -60,7 +66,7 @@
       });
   });
 
-  // 新 SW 接手後自動重載，確保頁面用到新版本
+  // 新 SW 接手後自動重載
   var reloading = false;
   navigator.serviceWorker.addEventListener('controllerchange', function () {
     if (reloading) return;
@@ -91,7 +97,7 @@
       })
       .catch(function () { /* 離線或失敗，下次再試 */ });
   }
-  // 開頁即刻檢查一次，之後每 60 秒檢查（唔會太頻繁）
+  // 開頁即刻檢查一次，之後每 20 秒檢查（快速偵測新版本）
   checkVersion();
-  setInterval(checkVersion, 60000);
+  setInterval(checkVersion, 20000);
 })();
