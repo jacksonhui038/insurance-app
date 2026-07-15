@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <script>
 // 自動版本戳：每次部署 BUILD_ID 唔同 → URL 加 ?b=BUILD_ID → 瀏覽器/CDN 當新網址 → 一定去 server 攞最新（同事唔使清 cache）
-var BUILD_ID='20260715-183248';
+var BUILD_ID='20260715-183657';
 // v3.10.14: 即時版本檢查 — 頁面載入第一件事就係問 server 有冇新版
 // 就算瀏覽器/CDN 緩存咗舊 HTML，呢度都會偵測到並自動重載最新版
 (function(){
@@ -2869,8 +2869,15 @@ function startBackgroundSync() {
     console.log('[bgSync] 定期同步檢查...', new Date().toLocaleTimeString());
     setSyncStatus('syncing', '同步中…');
     _bgSyncing = true;
+    // v3.10.23: 安全網 — 即使 callback 冇被 call（內部異常/retry hang），25 秒後強制轉返綠色
+    var _bgSafetyTimer = setTimeout(function(){
+      _bgSyncing = false; // 解鎖，下次 tick 可以再試
+      setSyncStatus('ok', '已載入本地數據');
+      console.warn('[bgSync] ⚠️ 背景同步超過 25 秒無回應，強制恢復綠色');
+    }, 25000);
     var snapshot = JSON.stringify(db || {});
     loadFromSupabase(function(ok){
+      clearTimeout(_bgSafetyTimer);
       _bgSyncing = false; // 無論成功失敗都解鎖
       if (ok) {
         var after = JSON.stringify(db || {});
@@ -2909,7 +2916,7 @@ document.addEventListener('DOMContentLoaded',function(){
   }, 100);
 
   // v3.8.5: 手機介面改底部導航
-  var CURRENT_VER = 'v3.10.21'; // 自訂目標提前 30 日預覽「即將開始」
+  var CURRENT_VER = 'v3.10.23'; // 背景同步安全網：25秒硬超時防止黃點卡死
   var cachedVer = localStorage.getItem('app_version') || '';
   if (cachedVer && cachedVer !== CURRENT_VER) {
     console.log('[Cache] Version mismatch, clearing cache and reloading...');
