@@ -3,22 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <script>
-// 自動版本戳：每次部署 BUILD_ID 唔同 → URL 加 ?b=BUILD_ID → 瀏覽器/CDN 當新網址 → 一定去 server 攞最新（同事唔使清 cache）
-var BUILD_ID='20260715-184619';
-(function(){
-  if (/[?&]nosw=1/.test(location.search)) return;
-  var bm = location.search.match(/[?&]b=([^&]+)/);
-  if (bm && bm[1] === BUILD_ID) return;
-  // v3.9.12: 先問 server 攞最新版號，確保就算本頁係舊版都會跳去最新 URL
-  function go(target){
-    var b = location.href.split('?')[0];
-    location.replace(b + '?b=' + target);
-  }
-  fetch('./version.json?t=' + Date.now(), {cache:'no-store'})
-    .then(function(r){return r.json();})
-    .then(function(d){ go((d&&d.buildId)?d.buildId:BUILD_ID); })
-    .catch(function(){ go(BUILD_ID); });
-})();
+// 版本戳（只作調試用途）。自動更新交由 Service Worker 處理，唔用 location.replace 避免無限 reload。
+var BUILD_ID='20260715-185425';
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SET理財規劃管家 - 保險代理人團隊協作系統</title>
@@ -75,8 +61,8 @@ h1{font-size:26px;color:#0f172a;margin-bottom:6px;font-weight:700}
     <p class="subtitle">保險代理人團隊協作系統<br><small style="color:#94a3b8">手機 / 平板 / 電腦皆可使用 · 數據雲端同步</small></p>
 
     <div class="btn-row">
-      <a href="agent-app.html?b=20260715-184619" class="btn btn-primary">📱 代理人版</a>
-      <a href="manager-dashboard.html?b=20260715-184619" class="btn btn-dark">👔 經理版</a>
+      <a href="agent-app.html?b=20260715-185425" class="btn btn-primary">📱 代理人版</a>
+      <a href="manager-dashboard.html?b=20260715-185425" class="btn btn-dark">👔 經理版</a>
     </div>
 
     <div class="copy-row">

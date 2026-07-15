@@ -3,36 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <script>
-// 自動版本戳：每次部署 BUILD_ID 唔同 → URL 加 ?b=BUILD_ID → 瀏覽器/CDN 當新網址 → 一定去 server 攞最新（同事唔使清 cache）
-var BUILD_ID='20260715-184619';
-// v3.10.14: 即時版本檢查 — 頁面載入第一件事就係問 server 有冇新版
-// 就算瀏覽器/CDN 緩存咗舊 HTML，呢度都會偵測到並自動重載最新版
-(function(){
-  if (/[?&]nosw=1/.test(location.search)) return; // 安全模式唔重定向
-  var embedded = BUILD_ID;
-  function redirectToLatest(latest) {
-    var base = location.href.split('?')[0];
-    // 加 ?b=latest 確保 URL 唔同 → 瀏覽器/CDN 當新請求
-    location.replace(base + '?b=' + latest);
-  }
-  // 永遠去 network 攞 version.json（cache:'no-store' 繞過所有緩存）
-  fetch('./version.json?t=' + Date.now(), {cache:'no-store'})
-    .then(function(r){ return r.json(); })
-    .then(function(d){
-      var latest = (d && d.buildId) ? d.buildId : null;
-      if (!latest) return; // 搵唔到版號，用當前版本繼續
-      if (latest !== embedded) {
-        // Server 版本唔同 = 當前 HTML 係舊緩存 → 即時跳去最新版
-        console.log('[VersionCheck] 偵測到新版 ' + latest + '（當前 ' + embedded + '），自動更新…');
-        redirectToLatest(latest);
-      }
-      // 版本相同 → 正常載入，唔使做任何嘢
-    })
-    .catch(function(){
-      // 離線或網絡失敗 → 用當前已載入嘅版本繼續（離線模式）
-      console.log('[VersionCheck] 無法連接版本伺服器，使用本地版本');
-    });
-})();
+// 版本戳（只作調試用途）。自動更新交由 Service Worker 處理，
+// 唔再用 location.replace / 定時輪詢 redirect（避免無限 reload 循環）。
+var BUILD_ID='20260715-185425';
 </script>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
@@ -4185,9 +4158,6 @@ setInterval(function(){
   }
 }, 30000);
 </script>
-<script>
-// v3.10.8: 暫停註冊 Service Worker，避免舊 cache 導致手機版載入舊數據
-// if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(function(r){console.log('[PWA] Service Worker 已註冊:',r.scope);}).catch(function(e){console.warn('[PWA] SW 註冊失敗:',e);});}
-</script>
+<script src="./sw-register.js"></script>
 </body>
 </html>
