@@ -9,7 +9,7 @@
 <!-- v3.10.11: 強制解除舊 Service Worker + 自動偵測版本變化重載（多平台同步保證） -->
 <script>
 (function(){
-  var AGENT_VER='v3.10.27',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.28',AGENT_VER_KEY='agent_app_version';
   var stored=localStorage.getItem(AGENT_VER_KEY)||'';
   if(stored && stored!==AGENT_VER && !/v=new/.test(location.search)){
     console.log('[CacheBuster] agent '+stored+'→'+AGENT_VER+'，強制重載');
@@ -3343,7 +3343,7 @@ function renderSchedules() {
     sorted.forEach(function(s){
       var sc = s.status==='已完成'?'badge-green':s.status==='已確認'?'badge-blue':s.status==='已取消'?'badge-red':'badge-yellow';
       var hasNotes = (s.meetingNotes && s.meetingNotes.trim()) || (s.followUp && s.followUp.trim());
-      var notesBtn = hasNotes ? '<button class="btn btn-sm btn-outline" style="border-color:var(--blue500);color:var(--blue500)" onclick="event.stopPropagation();showMeetingNotes('+s.id+')">📝 查看</button>' : '<span style="color:var(--gray300);font-size:11px">—</span>';
+      var notesBtn = hasNotes ? '<button class="btn btn-sm btn-outline" style="border-color:var(--blue500);color:var(--blue500)" onclick="event.stopPropagation();showMeetingNotes(\''+esc(String(s.id))+'\')">📝 查看</button>' : '<span style="color:var(--gray300);font-size:11px">—</span>';
       h += '<tr><td>'+esc(dFmt(s.date))+'</td><td>'+normalizeTime(s.startTime)+'-'+normalizeTime(s.endTime)+'</td><td><a style="color:var(--blue500);cursor:pointer;text-decoration:underline" onclick="showQuickView(\''+esc(s.clientName||'')+'\')">'+esc(s.clientName||'—')+'</a></td><td>'+fmtPurposes(s.purpose||'—')+'</td><td>'+esc(s.location||'—')+'</td><td><span class="badge '+sc+'">'+esc(s.status)+'</span></td><td>'+notesBtn+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'schedule\',\''+esc(String(s.id))+'\')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'schedules\',\''+esc(String(s.id))+'\')">刪除</button></td></tr>';
     });
   }
@@ -3459,7 +3459,7 @@ function showMeetingNotes(scheduleId) {
   if (!((s.meetingNotes&&s.meetingNotes.trim())||(s.followUp&&s.followUp.trim())||(s.notes&&s.notes.trim()))) {
     html += '<div class="empty">此行程尚無筆記</div>';
   }
-  html += '<div style="margin-top:10px"><button class="btn btn-sm btn-primary" onclick="hideQuickView();openForm(\'schedule\','+s.id+')">✏️ 編輯筆記</button></div>';
+  html += '<div style="margin-top:10px"><button class="btn btn-sm btn-primary" onclick="hideQuickView();openForm(\'schedule\',\''+esc(String(s.id))+'\')">✏️ 編輯筆記</button></div>';
   content.innerHTML = html;
   qv.style.display = 'block';
   qv.scrollIntoView({behavior:'smooth'});
@@ -3906,21 +3906,22 @@ function doDelClient(id) {
 
 function del(key, id) {
   if (!confirm('確定刪除？')) return;
-  DB[key] = DB[key].filter(function(x){ return x.id!==id; });
+  var sid = String(id);
+  DB[key] = DB[key].filter(function(x){ return String(x.id)!==sid; });
   // 雙向同步：刪除 incomes 時清理 commissions/expenses；刪除 expenses 時清理 incomes
   if (key === 'incomes') {
-    DB.commissions = DB.commissions.filter(function(x){ return x.id!==id; });
-    DB.expenses = DB.expenses.filter(function(x){ return x.id!==id; });
+    DB.commissions = DB.commissions.filter(function(x){ return String(x.id)!==sid; });
+    DB.expenses = DB.expenses.filter(function(x){ return String(x.id)!==sid; });
   }
   if (key === 'expenses') {
-    DB.incomes = DB.incomes.filter(function(x){ return x.id!==id; });
+    DB.incomes = DB.incomes.filter(function(x){ return String(x.id)!==sid; });
   }
   saveDB(); toast('已刪除','error');
   if (CLOUD_ENABLED && agentName) saveDBAutoSync();
   renderCurrentTab();
 }
 
-function findById(key, id) { for (var i=0;i<DB[key].length;i++) if (DB[key][i].id===id) return DB[key][i]; return {}; }
+function findById(key, id) { var sid=String(id); for (var i=0;i<DB[key].length;i++) if (String(DB[key][i].id)===sid) return DB[key][i]; return {}; }
 function val(id) { return (document.getElementById(id)||{}).value||''; }
 
 // ===================================================================
