@@ -51,48 +51,43 @@ function done(){
 
 function step1_unregisterSW(){
   log('🔧 步驟 1/3：移除舊 Service Worker…');
-  if (!navigator.serviceWorker) { step2_clearCaches(); return; }
+  if (!navigator.serviceWorker) { return step2_clearCaches(); }
 
   navigator.serviceWorker.getRegistrations()
     .then(function(regs){
       if (!regs || regs.length === 0) {
-        log('✅ 沒有找到 Service Worker');
-        step2_clearCaches();
-        return;
+        return step2_clearCaches();
       }
-      var names = regs.map(function(r){ return r.scope; });
       log('🔧 找到 ' + regs.length + ' 個 Service Worker，正在移除…');
       return Promise.all(regs.map(function(r){ return r.unregister(); }))
         .then(function(){
           log('✅ 已移除 ' + regs.length + ' 個 Service Worker');
-          step2_clearCaches();
+          return step2_clearCaches();
         });
     })
     .catch(function(e){
       fail('移除 SW 失敗：' + e.message);
-      step2_clearCaches();
+      return step2_clearCaches();
     });
 }
 
 function step2_clearCaches(){
   log('🔧 步驟 2/3：清除瀏覽器緩存…');
-  if (!('caches' in window)) { step3_go(); return; }
+  if (!('caches' in window)) { return step3_go(); }
 
-  caches.keys().then(function(names){
+  return caches.keys().then(function(names){
     if (!names || names.length === 0) {
-      log('✅ 沒有找到緩存');
-      step3_go();
-      return;
+      return step3_go();
     }
     log('🔧 找到 ' + names.length + ' 個緩存，正在清除…');
     return Promise.all(names.map(function(n){ return caches.delete(n); }))
       .then(function(){
         log('✅ 已清除 ' + names.length + ' 個緩存');
-        step3_go();
+        return step3_go();
       });
   }).catch(function(e){
     fail('清除緩存失敗：' + e.message);
-    step3_go();
+    return step3_go();
   });
 }
 
