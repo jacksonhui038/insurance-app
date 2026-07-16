@@ -1,42 +1,38 @@
 <!DOCTYPE html>
 <html lang="zh-HK">
 <head>
-<script>// v3.9.18: 修正自動更新 — 移除舊版「強制 unregister SW + 清除 caches」(此舉係自動更新元兇)，改為註冊 SW (network-first) + version.json 雲端自檢
-var MGR_VER='v3.9.24',MGR_VER_KEY='mgr_app_version';
+<script>// v3.9.25: 根治「自動更新」— 標準做法：開頁永遠最新版
+var MGR_VER='v3.9.25',MGR_VER_KEY='mgr_app_version';
 (function(){
-  var stored=localStorage.getItem(MGR_VER_KEY)||'';
-  if(stored && stored!==MGR_VER && !/v=new/.test(location.search)){
-    console.log('[CacheBuster] mgr '+stored+'→'+MGR_VER+'，強制重載');
-    try{ if(typeof saveDrillState==='function')saveDrillState(); }catch(e){}
-    localStorage.setItem(MGR_VER_KEY,MGR_VER);
-    location.replace(location.href.split('?')[0]+'?v='+Date.now());
-    return;
-  }
-  localStorage.setItem(MGR_VER_KEY,MGR_VER);
-  if('serviceWorker' in navigator){
-    window.addEventListener('load', function(){
-      navigator.serviceWorker.register('sw.js').catch(function(e){ console.warn('[SW] register failed', e); });
-    });
-  }
-})();
-/* v3.9.18: 雲端版本自檢 — 根治「同事開舊 bookmark 一直跑舊版」 */
-(function(){
+  try { localStorage.setItem(MGR_VER_KEY, MGR_VER); } catch(e){}
+  function reloadCnt(){ try { return parseInt(sessionStorage.getItem('mgr_reload_cnt')||'0',10)||0; } catch(e){ return 0; } }
   function doReload(){
-    try{ /* v3.9.21: reload 前保存下鑽狀態 */ if(typeof saveDrillState==='function')saveDrillState(); localStorage.setItem(MGR_VER_KEY, MGR_VER); location.replace(location.href.split('?')[0] + '?v=' + Date.now()); }
+    if (reloadCnt() >= 3) return;
+    try { sessionStorage.setItem('mgr_reload_cnt', String(reloadCnt()+1)); } catch(e){}
+    try { if(typeof saveDrillState==='function')saveDrillState(); localStorage.setItem(MGR_VER_KEY, MGR_VER); location.replace(location.href.split('?')[0] + '?v=' + Date.now()); }
     catch(e){ location.reload(true); }
   }
-  if (/[?&]v=/.test(location.search)) return;
   try {
     fetch('version.json?t=' + Date.now(), {cache:'no-store'})
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(d){
         if (d && d.mgr && d.mgr !== MGR_VER) {
-          console.log('[CacheBuster] 雲端版本 '+d.mgr+' > 本地 '+MGR_VER+'，自動升級');
+          console.log('[AutoUpdate] 雲端版本 '+d.mgr+' > 本地 '+MGR_VER+'，自動升級');
           doReload();
+        } else {
+          try { sessionStorage.removeItem('mgr_reload_cnt'); } catch(e){}
         }
       })
-      .catch(function(e){ /* 網絡失敗唔阻擋頁面渲染 */ });
+      .catch(function(e){ /* 網絡失敗唔阻擋 */ });
   } catch(e){}
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function(){
+      navigator.serviceWorker.register('sw.js').catch(function(e){ console.warn('[SW] register failed', e); });
+    });
+    navigator.serviceWorker.addEventListener('message', function(ev){
+      if (ev.data && ev.data.type === 'SW_UPDATED') { location.reload(); }
+    });
+  }
 })();
 </script>
 <meta charset="UTF-8">
