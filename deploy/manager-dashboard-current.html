@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="zh-HK">
 <head>
-<script>// v3.9.15: 修正自動更新 — 移除舊版「強制 unregister SW + 清除 caches」(此舉係自動更新元兇)，改為註冊 SW (network-first) + version.json 雲端自檢
-var MGR_VER='v3.9.15',MGR_VER_KEY='mgr_app_version';
+<script>// v3.9.17: 修正自動更新 — 移除舊版「強制 unregister SW + 清除 caches」(此舉係自動更新元兇)，改為註冊 SW (network-first) + version.json 雲端自檢
+var MGR_VER='v3.9.17',MGR_VER_KEY='mgr_app_version';
 (function(){
   var stored=localStorage.getItem(MGR_VER_KEY)||'';
   if(stored && stored!==MGR_VER && !/v=new/.test(location.search)){
@@ -18,7 +18,7 @@ var MGR_VER='v3.9.15',MGR_VER_KEY='mgr_app_version';
     });
   }
 })();
-/* v3.9.15: 雲端版本自檢 — 根治「同事開舊 bookmark 一直跑舊版」 */
+/* v3.9.17: 雲端版本自檢 — 根治「同事開舊 bookmark 一直跑舊版」 */
 (function(){
   function doReload(){
     try{ localStorage.setItem(MGR_VER_KEY, MGR_VER); location.replace(location.href.split('?')[0] + '?v=' + Date.now()); }
@@ -486,7 +486,7 @@ tr:hover td{background:var(--blue50)}
     <div style="margin-bottom:14px">
       <label style="font-size:12px;color:var(--gray500);font-weight:500;display:block;margin-bottom:4px">所屬經理 <span id="fixRoleSupStar" style="color:var(--red500)">*</span></label>
       <input type="text" id="fixRoleSupervisor" list="fixRoleSupList" placeholder="輸入上司姓名（SDD 可留空）" style="width:100%;padding:9px 12px;border-radius:6px;border:1px solid var(--gray300);font-size:13px">
-      <datalist id="fixRoleSupList"><option value="CHAN CHI HANG"><option value="PAU CHI FUNG"><option value="NG MAN LOK"><option value="WONG WAI KIT"></datalist>
+      <datalist id="fixRoleSupList"><option value="CHAN CHI HANG"><option value="PAU CHI FUNG"><option value="NG MAN LOK"><option value="WONG WAI KIT"><option value="TSANG OI TING"><option value="CHENG CHEUK MAN"><option value="LUNG CHI SUM"><option value="CHONG YIU TUNG"></datalist>
     </div>
     <div id="fixRoleStatus" style="border-radius:8px;padding:12px;margin-bottom:14px;font-size:12px;display:none"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end">
@@ -1263,7 +1263,7 @@ function getTree(root){
   rec(root, {});
   return result;
 }
-// v3.9.15: 只返回直接下層（唔遞歸）— 用於表格逐層下鑽顯示
+// v3.9.17: 只返回直接下層（唔遞歸）— 用於表格逐層下鑽顯示
 function getDirectChildren(root){
   if(!root || !TEAM[root]) return Object.keys(TEAM);
   var map = buildTeamMgrMap();
@@ -1316,7 +1316,7 @@ function drillToRoot(name){
 // RENDER
 // ============================================================
 function render(){
-  // v3.9.15: 摘要用 getTree（聚合整個子樹），表格用 getDirectChildren（逐層下鑽）
+  // v3.9.17: 摘要用 getTree（聚合整個子樹），表格用 getDirectChildren（逐層下鑽）
   var allTreeAgents = getTree(currentRoot);
   var tableAgents = getDirectChildren(currentRoot);
   if(allTreeAgents.length===0)return;
@@ -1340,7 +1340,7 @@ function render(){
     '<div class="stat-card" style="border-left-color:#eab308"><div class="label">累計佣金</div><div class="value">'+money(totalComm)+'</div><div class="sub">開支: '+money(totalExp)+' | PC: '+money(totalPC)+'</div></div>'+
     '<div class="stat-card" style="border-left-color:#ef4444"><div class="label">人均月佣</div><div class="value">'+money(allTreeAgents.length>0?Math.round(monthComm/allTreeAgents.length):0)+'</div><div class="sub">人均客戶: '+Math.round(totalClients/allTreeAgents.length)+'</div></div>';
 
-  // Agent ranking — v3.9.15: 用直接下層（逐層展開，唔一次顯示全 tree）
+  // Agent ranking — v3.9.17: 用直接下層（逐層展開，唔一次顯示全 tree）
   // v3.9.8: 頂層（未下鑽）過濾 — 有經理跟緊嘅純 Agent 唔喺頂層顯示，只可透過 🔽 下鑼直屬經理見到
   var isTopLevel = (rootStack.length === 0);
   var mgrMap = buildTeamMgrMap();
@@ -1402,7 +1402,7 @@ function render(){
   }
 
   // Ranking chart
-  if(chartLib)renderCharts(ranks,maxComm,agentNames,y,m);
+  if(chartLib)renderCharts(ranks,maxComm,allTreeAgents,y,m);
 
   // Detail panel
   if(selectedAgent)renderDetail();
@@ -2122,8 +2122,9 @@ function doFixRole() {
           var currentData = rows[0].data || {};
           currentData.role = role;
           currentData.supervisor = supervisor || '';
+          currentData.manager = supervisor || '';  // v3.9.17: 同步更新 data.manager（直屬經理）
           currentData.hierarchyPath = hPath;
-          // PATCH — v3.9.0: 同時更新 manager 欄位（唔只 data JSON）
+          // PATCH — 同時更新 manager 欄位（唔只 data JSON）
           var patchBody = { data: currentData };
           if (supervisor) { patchBody.manager = supervisor; }
           var controller2 = new AbortController();
@@ -2176,6 +2177,8 @@ function doFixRole() {
           TEAM[name]._agentData.role = role;
           TEAM[name]._agentData.supervisor = supervisor || '';
           TEAM[name]._agentData.hierarchyPath = hPath;
+          // v3.9.17: 同步更新 managerName（tree 結構用呢個欄位）
+          if (supervisor) { TEAM[name].managerName = supervisor; }
         }
         hideFixRoleModal();
         toast('已補填「'+name+'」嘅職級：'+role+(supervisor?(' | 經理：'+supervisor):''));
@@ -2420,7 +2423,7 @@ initActivitySelectors();
 updateActivitySelectorVisibility();
 </script>
 <script>
-// v3.9.15: 開啟自動 pull 雲端（經理版跨裝置 sync）
+// v3.9.17: 開啟自動 pull 雲端（經理版跨裝置 sync）
 (function(){
   var pullTimer=null;
   function doAutoPull(){
