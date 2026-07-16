@@ -69,7 +69,7 @@ h1{font-size:26px;color:#0f172a;margin-bottom:6px;font-weight:700}
     <p class="subtitle">保險代理人團隊協作系統<br><small style="color:#94a3b8">手機 / 平板 / 電腦皆可使用 · 數據雲端同步</small></p>
 
     <div class="btn-row">
-      <a href="agent-app.html" class="btn btn-primary">📱 代理人版</a>
+      <a href="app.html" class="btn btn-primary">📱 代理人版</a>
       <a href="manager-dashboard.html" class="btn btn-dark">👔 經理版</a>
     </div>
 
@@ -102,7 +102,7 @@ h1{font-size:26px;color:#0f172a;margin-bottom:6px;font-weight:700}
 <script>
 var BASE = location.origin + location.pathname.replace(/\/$/, '');
 function cp(type) {
-  var url = type === 'agent' ? BASE + '/latest.html' : BASE + '/manager-dashboard.html';
+  var url = type === 'agent' ? BASE + '/app.html' : BASE + '/manager-dashboard.html';
   navigator.clipboard.writeText(url).then(function() {
     var el = document.getElementById('cb-' + type);
     el.textContent = '✅ 已複製！';
