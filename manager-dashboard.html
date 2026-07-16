@@ -1,13 +1,21 @@
 <!DOCTYPE html>
 <html lang="zh-HK">
 <head>
-<script>// v3.9.25: 根治「自動更新」— 標準做法：開頁永遠最新版
-var MGR_VER='v3.9.28',MGR_VER_KEY='mgr_app_version';
+<script>// v3.9.29: 移除 Service Worker（回復正常靜態站行為）+ 雲端自檢自動更新
+var MGR_VER='v3.9.29',MGR_VER_KEY='mgr_app_version';
 (function(){
   try { localStorage.setItem(MGR_VER_KEY, MGR_VER); } catch(e){}
+  // ★ 開頁立即移除任何舊 SW（自毀 SW 會 unregister 自己，呢度係雙重保障）
+  try {
+    if ('serviceWorker' in navigator && navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+      navigator.serviceWorker.getRegistrations().then(function(regs){
+        regs.forEach(function(r){ try { r.unregister(); } catch(e){} });
+      }).catch(function(){});
+    }
+  } catch(e){}
   function reloadCnt(){ try { return parseInt(sessionStorage.getItem('mgr_reload_cnt')||'0',10)||0; } catch(e){ return 0; } }
   function doReload(){
-    if (reloadCnt() >= 3) return;
+    if (reloadCnt() >= 5) return; // 安全掣：CDN 仲未更新時避免死 loop
     try { sessionStorage.setItem('mgr_reload_cnt', String(reloadCnt()+1)); } catch(e){}
     try { if(typeof saveDrillState==='function')saveDrillState(); localStorage.setItem(MGR_VER_KEY, MGR_VER); var _b = location.href.split('?')[0]; location.replace(_b + '?_cv=' + Date.now() + (location.hash||'')); }
     catch(e){ location.reload(true); }
@@ -25,14 +33,6 @@ var MGR_VER='v3.9.28',MGR_VER_KEY='mgr_app_version';
       })
       .catch(function(e){ /* 網絡失敗唔阻擋 */ });
   } catch(e){}
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', function(){
-      navigator.serviceWorker.register('sw.js').catch(function(e){ console.warn('[SW] register failed', e); });
-    });
-    navigator.serviceWorker.addEventListener('message', function(ev){
-      if (ev.data && ev.data.type === 'SW_UPDATED') { location.reload(true); }
-    });
-  }
   // 每 60 秒定時複檢（防初始網絡抖動跳過，確保一定會升到最新）
   setInterval(function(){
     try {
