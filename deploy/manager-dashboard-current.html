@@ -2,7 +2,7 @@
 <html lang="zh-HK">
 <head>
 <script>// v3.9.25: 根治「自動更新」— 標準做法：開頁永遠最新版
-var MGR_VER='v3.9.25',MGR_VER_KEY='mgr_app_version';
+var MGR_VER='v3.9.26',MGR_VER_KEY='mgr_app_version';
 (function(){
   try { localStorage.setItem(MGR_VER_KEY, MGR_VER); } catch(e){}
   function reloadCnt(){ try { return parseInt(sessionStorage.getItem('mgr_reload_cnt')||'0',10)||0; } catch(e){ return 0; } }
@@ -1431,13 +1431,16 @@ function render(){
     ranks.push({name:a.name,depth:a.depth,role:d.role||'Agent',clients:d.clients.length,policies:d.policies.length,monthComm:mc,yearComm:yc,monthPC:mpc,yearPC:ypc,expenses:me,goalRate:Math.min(goalRate,999),net:mc-me,supervisor:d.supervisor||''});
   });
   var roleOrder={'SDD':1,'DD':2,'SDM':3,'DM':4,'SASM':5,'ASM':6,'Agent':7};
-  // v3.9.23: 頂層按職級+月佣排序；已下鑽保留 tree(DFS) 順序令 Agent 跟住自己經理
+  // v3.9.26: 頂層保留 getTree() DFS 樹狀順序（Agent 自然收埋喺各自經理下面）；
+  // 已下鑽時都保留 tree 順序。唔再用 roleOrder 全局排序，否則 Agent 全部被踢去底部。
+  // 同職級內按月佣降序（只影響同層經理之間嘅排列，唔破壞樹結構）
   if(rootStack.length === 0){
     ranks.sort(function(a,b){
+      if(a.depth!==b.depth)return a.depth-b.depth;  // 先按深度（上層經理先）
       var ra=roleOrder[a.role]||99;
       var rb=roleOrder[b.role]||99;
-      if(ra!==rb)return ra-rb;
-      return b.monthComm-a.monthComm;
+      if(ra!==rb)return ra-rb;  // 同深度先按職級
+      return b.monthComm-a.monthComm;  // 同職級按佣金
     });
   }
   var maxComm=ranks.length>0?ranks[0].monthComm:1;
