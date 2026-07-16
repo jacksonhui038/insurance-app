@@ -15,7 +15,7 @@
  * 效果：開頁即最新，同事零動作、零 special URL。
  */
 (function(){
-  var AGENT_VER='v3.10.41',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.42',AGENT_VER_KEY='agent_app_version';
   try { localStorage.setItem(AGENT_VER_KEY, AGENT_VER); } catch(e){}
   // ★ 開頁立即移除任何舊 SW（自毀 SW 會 unregister 自己，呢度係雙重保障）
   try {
