@@ -6,10 +6,10 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<!-- v3.10.34: 版本 cache-buster（保留）+ 重新註冊 Service Worker 根治「自動更新」（移除舊版強制 unregister SW 的阻礙） -->
+<!-- v3.10.35: 版本 cache-buster（保留）+ 重新註冊 Service Worker 根治「自動更新」（移除舊版強制 unregister SW 的阻礙） -->
 <script>
 (function(){
-  var AGENT_VER='v3.10.34',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.35',AGENT_VER_KEY='agent_app_version';
   var stored=localStorage.getItem(AGENT_VER_KEY)||'';
   if(stored && stored!==AGENT_VER && !/v=new/.test(location.search)){
     console.log('[CacheBuster] agent '+stored+'→'+AGENT_VER+'，強制重載');
@@ -18,7 +18,7 @@
     return;
   }
   localStorage.setItem(AGENT_VER_KEY,AGENT_VER);
-  /* v3.10.34: 註冊 Service Worker（network-first）—— 以後每次開頁都自動攞最新版，發布新版本零通知自動生效 */
+  /* v3.10.35: 註冊 Service Worker（network-first）—— 以後每次開頁都自動攞最新版，發布新版本零通知自動生效 */
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function(){
       navigator.serviceWorker.register('sw.js').catch(function(e){ console.warn('[SW] register failed', e); });
@@ -27,7 +27,7 @@
 })();
 /* v3.10.32: 雲端版本自檢 — 根治「同事開舊 bookmark 一直跑舊版」：每次開都向 version.json 查最新版，有更新即自動帶 cache-buster 重載 */
 (function(){
-  var AGENT_VER='v3.10.34',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.35',AGENT_VER_KEY='agent_app_version';
   function doReload(){
     try{ localStorage.setItem(AGENT_VER_KEY, AGENT_VER); location.replace(location.href.split('?')[0] + '?v=' + Date.now()); }
     catch(e){ location.reload(true); }
@@ -464,7 +464,7 @@ tr:hover td{background:var(--blue50)}
   <div class="sidebar-head">
     <h1>📊 SET理財規劃管家</h1>
     <div class="agent-info" id="sidebarAgentInfo">代理人版</div>
-    <div class="agent-ver" id="sidebarVer">v3.10.34</div>
+    <div class="agent-ver" id="sidebarVer">v3.10.35</div>
   </div>
   <nav class="sidebar-nav" id="sidebarNav">
     <button class="nav-btn" onclick="switchTab('dashboard',this)"><span class="nav-icon">📋</span> 總覽</button>
@@ -953,8 +953,12 @@ function buildUploadData() {
   });
   // 補充雲端快照嘅 metadata 欄位（非陣列），本地有就用本地，冇就用雲端，避免清走 role/manager/team
   var META_KEYS = ['role','manager','team','_pinHash','createdAt','registeredAt'];
+  // v3.10.35: manager 優先用本地 assignedManager（唔用雲端快照舊值，否則改完經理會被自動同步倒寫番）
+  var localMgr = (typeof assignedManager !== 'undefined' && assignedManager) || (typeof agentName !== 'undefined' && agentName ? localStorage.getItem('insurance_mgr_'+encodeURIComponent(agentName)) : '') || '';
+  if (localMgr) base.manager = localMgr;
   if (_cloudDataSnapshot && typeof _cloudDataSnapshot === 'object') {
     META_KEYS.forEach(function(mk){
+      if (mk === 'manager' && localMgr) return; // 已用本地值，唔使補雲端舊值
       if (base[mk] === undefined || base[mk] === null || base[mk] === '') {
         if (_cloudDataSnapshot[mk] !== undefined) base[mk] = _cloudDataSnapshot[mk];
       }
@@ -1032,8 +1036,9 @@ function saveToSupabase(callback) {
     var mgr = assignedManager || localStorage.getItem('insurance_mgr_'+encodeURIComponent(agentName)) || '';
     var team = assignedTeam || localStorage.getItem('insurance_team_'+encodeURIComponent(agentName)) || '';
     // v3.9.9: 修正 top-level manager column 被 localStorage 舊值覆蓋 — 優先使用 uploadData.manager（雲端 data.manager），再 fallback 去 localStorage
+    // v3.10.35: 只當本地 mgr 為空時先用雲端值；唔可以雲端舊快照覆蓋本地已設定嘅經理（否則改完經理會被自動同步倒寫番）
     var uploadData = buildUploadData();
-    if (uploadData && uploadData.manager && (!mgr || mgr !== uploadData.manager)) {
+    if (uploadData && uploadData.manager && !mgr) {
       mgr = uploadData.manager;
       localStorage.setItem('insurance_mgr_'+encodeURIComponent(agentName), mgr);
     }
@@ -2242,7 +2247,7 @@ function verifyAndRecoverFromDetails(name, pin) {
       localStorage.setItem(AGENT_PIN_KEY, pin);
       localStorage.setItem('insurance_agent_name_locked', 'true');
       if (ad.data) {
-        // v3.10.34: 唔再用雲端整個替換 DB —— 否則「set 左目標但 push 未成功就切帳號/刷新」會令本地新增被雲端舊值清走
+        // v3.10.35: 唔再用雲端整個替換 DB —— 否則「set 左目標但 push 未成功就切帳號/刷新」會令本地新增被雲端舊值清走
         // 先從 localStorage 讀回本地 DB 作基底（保留未 push 嘅新增），再用雲端按 id 合併（雲端較新才覆蓋）
         var _sk = getStoreKey();
         var _local = null;
