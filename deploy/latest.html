@@ -7,6 +7,10 @@
 <meta http-equiv="Expires" content="0">
 <title>保經管家 — 載入中…</title>
 <script>
+  // v3.10.33: 先註冊 Service Worker（network-first），確保以後自動最新；再跳轉 agent-app
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(function(e){ console.warn('[SW] register failed', e); });
+  }
   // v3.10.31: 升級入口 — 每次開都帶全新 timestamp，強制 CDN 攞最新 agent-app.html，繞過所有 HTTP/瀏覽器 cache
   // 用戶請將 bookmark 改為此網址，以後永遠自動保持最新版，唔使再手動硬刷。
   (function(){

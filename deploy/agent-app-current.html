@@ -6,10 +6,10 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<!-- v3.10.11: 強制解除舊 Service Worker + 自動偵測版本變化重載（多平台同步保證） -->
+<!-- v3.10.33: 版本 cache-buster（保留）+ 重新註冊 Service Worker 根治「自動更新」（移除舊版強制 unregister SW 的阻礙） -->
 <script>
 (function(){
-  var AGENT_VER='v3.10.32',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.33',AGENT_VER_KEY='agent_app_version';
   var stored=localStorage.getItem(AGENT_VER_KEY)||'';
   if(stored && stored!==AGENT_VER && !/v=new/.test(location.search)){
     console.log('[CacheBuster] agent '+stored+'→'+AGENT_VER+'，強制重載');
@@ -18,20 +18,16 @@
     return;
   }
   localStorage.setItem(AGENT_VER_KEY,AGENT_VER);
+  /* v3.10.33: 註冊 Service Worker（network-first）—— 以後每次開頁都自動攞最新版，發布新版本零通知自動生效 */
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations().then(function(regs) {
-      regs.forEach(function(r) { r.unregister(); console.log('[SW] 強制解除:', r.scope); });
-    });
-  }
-  if (window.caches) {
-    caches.keys().then(function(names) {
-      names.forEach(function(name) { caches.delete(name); console.log('[Cache] 強制清除:', name); });
+    window.addEventListener('load', function(){
+      navigator.serviceWorker.register('sw.js').catch(function(e){ console.warn('[SW] register failed', e); });
     });
   }
 })();
 /* v3.10.32: 雲端版本自檢 — 根治「同事開舊 bookmark 一直跑舊版」：每次開都向 version.json 查最新版，有更新即自動帶 cache-buster 重載 */
 (function(){
-  var AGENT_VER='v3.10.32',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.33',AGENT_VER_KEY='agent_app_version';
   function doReload(){
     try{ localStorage.setItem(AGENT_VER_KEY, AGENT_VER); location.replace(location.href.split('?')[0] + '?v=' + Date.now()); }
     catch(e){ location.reload(true); }
@@ -468,7 +464,7 @@ tr:hover td{background:var(--blue50)}
   <div class="sidebar-head">
     <h1>📊 SET理財規劃管家</h1>
     <div class="agent-info" id="sidebarAgentInfo">代理人版</div>
-    <div class="agent-ver" id="sidebarVer">v3.10.32</div>
+    <div class="agent-ver" id="sidebarVer">v3.10.33</div>
   </div>
   <nav class="sidebar-nav" id="sidebarNav">
     <button class="nav-btn" onclick="switchTab('dashboard',this)"><span class="nav-icon">📋</span> 總覽</button>

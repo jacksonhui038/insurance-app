@@ -50,6 +50,14 @@ h1{font-size:26px;color:#0f172a;margin-bottom:6px;font-weight:700}
   .card{padding:28px 20px 24px}
 }
 </style>
+<script>
+/* v3.10.33: 首頁也註冊 Service Worker，確保從首頁進入的同事一樣自動保持最新版 */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('sw.js').catch(function(e){ console.warn('[SW] register failed', e); });
+  });
+}
+</script>
 </head>
 <body>
 <div class="container">
