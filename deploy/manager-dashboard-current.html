@@ -2,14 +2,14 @@
 <html lang="zh-HK">
 <head>
 <script>// v3.9.25: 根治「自動更新」— 標準做法：開頁永遠最新版
-var MGR_VER='v3.9.27',MGR_VER_KEY='mgr_app_version';
+var MGR_VER='v3.9.28',MGR_VER_KEY='mgr_app_version';
 (function(){
   try { localStorage.setItem(MGR_VER_KEY, MGR_VER); } catch(e){}
   function reloadCnt(){ try { return parseInt(sessionStorage.getItem('mgr_reload_cnt')||'0',10)||0; } catch(e){ return 0; } }
   function doReload(){
     if (reloadCnt() >= 3) return;
     try { sessionStorage.setItem('mgr_reload_cnt', String(reloadCnt()+1)); } catch(e){}
-    try { if(typeof saveDrillState==='function')saveDrillState(); localStorage.setItem(MGR_VER_KEY, MGR_VER); location.replace(location.href.split('?')[0] + '?v=' + Date.now()); }
+    try { if(typeof saveDrillState==='function')saveDrillState(); localStorage.setItem(MGR_VER_KEY, MGR_VER); var _b = location.href.split('?')[0]; location.replace(_b + '?_cv=' + Date.now() + (location.hash||'')); }
     catch(e){ location.reload(true); }
   }
   try {
@@ -30,9 +30,22 @@ var MGR_VER='v3.9.27',MGR_VER_KEY='mgr_app_version';
       navigator.serviceWorker.register('sw.js').catch(function(e){ console.warn('[SW] register failed', e); });
     });
     navigator.serviceWorker.addEventListener('message', function(ev){
-      if (ev.data && ev.data.type === 'SW_UPDATED') { location.reload(); }
+      if (ev.data && ev.data.type === 'SW_UPDATED') { location.reload(true); }
     });
   }
+  // 每 60 秒定時複檢（防初始網絡抖動跳過，確保一定會升到最新）
+  setInterval(function(){
+    try {
+      fetch('version.json?t=' + Date.now(), {cache:'no-store'})
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(d){
+          if (d && d.mgr && d.mgr !== MGR_VER) {
+            console.log('[AutoUpdate] 定時檢查發現新版本 '+d.mgr+'，自動升級');
+            doReload();
+          }
+        }).catch(function(){});
+    } catch(e){}
+  }, 60000);
 })();
 </script>
 <meta charset="UTF-8">
