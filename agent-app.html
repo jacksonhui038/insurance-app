@@ -6,24 +6,33 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<!-- v3.10.38: 根治「自動更新」— 標準做法：開頁永遠最新版 -->
+<!-- v3.10.41: 移除 Service Worker（回復正常靜態站行為）+ 雲端自檢自動更新 -->
 <script>
-/* v3.10.38: 自動更新三重保障（同出面大站做法）
- * 1) 雲端版本自檢：永遠跑，有新版就 reload（移除舊版 ?v= 永久停用嘅 bug；加安全掣防死 loop）
- * 2) Service Worker（network-first + no-store）：每次導航去網絡攞最新 HTML，絕對唔食舊 cache
- * 3) SW 更新時 sendMessage → 頁面自動 reload，用戶零點擊、零手動刷新
+/* v3.10.41: 自動更新（同出面大站做法，唔用 SW）
+ * 1) 雲端版本自檢：永遠跑，有新版就 reload（安全掣防死 loop）
+ * 2) 開頁立即移除任何舊 SW + 清除 caches（雙重保障，舊版爛 SW 永遠唔會再控制頁面）
+ * 3) GitHub Pages _headers 設 Cache-Control: no-cache → 瀏覽器/CDN 永遠攞最新
+ * 效果：開頁即最新，同事零動作、零 special URL。
  */
 (function(){
-  var AGENT_VER='v3.10.40',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.41',AGENT_VER_KEY='agent_app_version';
   try { localStorage.setItem(AGENT_VER_KEY, AGENT_VER); } catch(e){}
+  // ★ 開頁立即移除任何舊 SW（自毀 SW 會 unregister 自己，呢度係雙重保障）
+  try {
+    if ('serviceWorker' in navigator && navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+      navigator.serviceWorker.getRegistrations().then(function(regs){
+        regs.forEach(function(r){ try { r.unregister(); } catch(e){} });
+      }).catch(function(){});
+    }
+  } catch(e){}
   function reloadCnt(){ try { return parseInt(sessionStorage.getItem('agent_reload_cnt')||'0',10)||0; } catch(e){ return 0; } }
   function doReload(){
-    if (reloadCnt() >= 3) return; // 安全掣：CDN 仲未更新時避免死 loop
+    if (reloadCnt() >= 5) return; // 安全掣：CDN 仲未更新時避免死 loop
     try { sessionStorage.setItem('agent_reload_cnt', String(reloadCnt()+1)); } catch(e){}
     try { localStorage.setItem(AGENT_VER_KEY, AGENT_VER); var _b = location.href.split('?')[0]; location.replace(_b + '?_cv=' + Date.now() + (location.hash||'')); }
     catch(e){ location.reload(true); }
   }
-  // 雲端自檢永遠跑（唔會因為 URL 有 ?v= 就停用）
+  // 雲端自檢永遠跑
   try {
     fetch('version.json?t=' + Date.now(), {cache:'no-store'})
       .then(function(r){ return r.ok ? r.json() : null; })
@@ -37,16 +46,6 @@
       })
       .catch(function(e){ /* 網絡失敗唔阻擋 */ });
   } catch(e){}
-  // 註冊 SW（network-first + no-store）→ 開頁永遠最新
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', function(){
-      navigator.serviceWorker.register('sw.js').catch(function(e){ console.warn('[SW] register failed', e); });
-    });
-    // SW 更新完成 → 自動 reload 頁面（零手動刷新）
-    navigator.serviceWorker.addEventListener('message', function(ev){
-      if (ev.data && ev.data.type === 'SW_UPDATED') { location.reload(true); }
-    });
-  }
   // 每 60 秒定時複檢（防初始網絡抖動跳過，確保一定會升到最新）
   setInterval(function(){
     try {
