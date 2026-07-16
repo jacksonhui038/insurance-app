@@ -2,7 +2,7 @@
 <html lang="zh-HK">
 <head>
 <script>// v3.9.18: 修正自動更新 — 移除舊版「強制 unregister SW + 清除 caches」(此舉係自動更新元兇)，改為註冊 SW (network-first) + version.json 雲端自檢
-var MGR_VER='v3.9.22',MGR_VER_KEY='mgr_app_version';
+var MGR_VER='v3.9.23',MGR_VER_KEY='mgr_app_version';
 (function(){
   var stored=localStorage.getItem(MGR_VER_KEY)||'';
   if(stored && stored!==MGR_VER && !/v=new/.test(location.search)){
@@ -1296,26 +1296,40 @@ function getTopLevelManagers(){
 }
 // v3.9.18: 決定表格要顯示邊啲成員
 function getTableAgentsForView(){
+  // v3.9.23: 返回 {name, depth} 物件陣列（depth = 由 currentRoot 計起嘅層級，用於縮排）
   if (rootStack.length === 0) {
     // 頂層：顯示全 team 經理；如果完全無經理（異常），fallback 顯示所有成員
     var mgrs = getTopLevelManagers();
-    if (mgrs.length > 0) return mgrs;
-    return Object.keys(TEAM);
+    var list = mgrs.length > 0 ? mgrs : Object.keys(TEAM);
+    return list.map(function(n){ return {name:n, depth:0}; });
   }
-  // v3.9.22: 已下鑽 — 顯示該 DD/經理下面所有**經理層級**成員（Agent 收埋喺各自經理度，唔獨立成行）
+  // v3.9.23: 已下鑽 — 顯示該 DD/經理下面**成個 subtree**（包括 Agent），Agent 用縮排收埋喺各自經理下面
   var treeList = getTree(currentRoot);
-  // v3.9.22: 過濾掉 Agent — 佢哋嘅數據已聚合喺上級經理，平列出嚟太亂
-  treeList = treeList.filter(function(n){ return (TEAM[n].role||'Agent') !== 'Agent'; });
-  // 排序：root 永遠排最頭，其餘按職級→有下屬排先
-  var roleOrder={'SDD':1,'DD':2,'SDM':3,'DM':4,'SASM':5,'ASM':6,'Agent':7};
-  treeList.sort(function(a,b){
-    if(a===currentRoot) return -1;
-    if(b===currentRoot) return 1;
-    var am = hasDownline(a)?0:1, bm = hasDownline(b)?0:1;
-    if (am !== bm) return am - bm;
-    return (roleOrder[TEAM[a].role]||99)-(roleOrder[TEAM[b].role]||99);
+  // v3.9.23: 用 tree (DFS) 順序 + depth 縮排，令 Agent 自然跟住自己經理，唔會平列出嚟太亂
+  var result = treeList.map(function(n){
+    return {name:n, depth:getDepth(n, currentRoot)};
   });
-  return treeList;
+  // root 永遠排最頭（getTree 已經係，保險起見）
+  result.sort(function(a,b){
+    if(a.name===currentRoot) return -1;
+    if(b.name===currentRoot) return 1;
+    return 0; // 保留 tree DFS 順序
+  });
+  return result;
+}
+// v3.9.23: 計算某人由 root 計起嘅層級深度（向上行 manager 鏈直到 root）
+function getDepth(name, root){
+  if(!name || name===root) return 0;
+  var depth=0, cur=name, visited={};
+  while(cur && cur!==root && depth<20){
+    if(visited[cur]) break;
+    visited[cur]=true;
+    var mgr=(TEAM[cur].managerName||'').trim();
+    if(!mgr || mgr===cur) break;
+    cur=mgr;
+    depth++;
+  }
+  return depth;
 }
 function hasDownline(name){
   var map = buildTeamMgrMap();
@@ -1394,25 +1408,28 @@ function render(){
     '<div class="stat-card" style="border-left-color:#eab308"><div class="label">累計佣金</div><div class="value">'+money(totalComm)+'</div><div class="sub">開支: '+money(totalExp)+' | PC: '+money(totalPC)+'</div></div>'+
     '<div class="stat-card" style="border-left-color:#ef4444"><div class="label">人均月佣</div><div class="value">'+money(allTreeAgents.length>0?Math.round(monthComm/allTreeAgents.length):0)+'</div><div class="sub">人均客戶: '+Math.round(totalClients/allTreeAgents.length)+'</div></div>';
 
-  // Agent ranking — 表格成員由 getTableAgentsForView() 決定（頂層顯示全 team 經理，下鑼層顯示直屬並經理排先）
+  // Agent ranking — 表格成員由 getTableAgentsForView() 決定（頂層顯示全 team 經理，下鑼層顯示 subtree）
   var ranks=[];
   tableAgents.forEach(function(a){
-    var d=TEAM[a];
+    var d=TEAM[a.name];
     var mc=0,yc=0;
     d.commissions.forEach(function(c){var dt=new Date(c.date);if(dt.getMonth()===m&&dt.getFullYear()===y)mc+=Number(c.amount)||0;if(dt.getFullYear()===y)yc+=Number(c.amount)||0;});
     var mpc=0,ypc=0;
     if(d.pcs) d.pcs.forEach(function(pc){var dt=new Date(pc.date);if(dt.getMonth()===m&&dt.getFullYear()===y)mpc+=Number(pc.amount)||0;if(dt.getFullYear()===y)ypc+=Number(pc.amount)||0;});
     var me=0;d.expenses.forEach(function(e){var dt=new Date(e.date);if(dt.getMonth()===m&&dt.getFullYear()===y)me+=Number(e.amount)||0;});
     var goalRate=0;(d.goals||[]).forEach(function(g){if(g.period==='monthly'&&g.year===y&&g.month===m+1&&g.target>0)goalRate=Math.round(mc/g.target*100);});
-    ranks.push({name:a,role:d.role||'Agent',clients:d.clients.length,policies:d.policies.length,monthComm:mc,yearComm:yc,monthPC:mpc,yearPC:ypc,expenses:me,goalRate:Math.min(goalRate,999),net:mc-me,supervisor:d.supervisor||''});
+    ranks.push({name:a.name,depth:a.depth,role:d.role||'Agent',clients:d.clients.length,policies:d.policies.length,monthComm:mc,yearComm:yc,monthPC:mpc,yearPC:ypc,expenses:me,goalRate:Math.min(goalRate,999),net:mc-me,supervisor:d.supervisor||''});
   });
   var roleOrder={'SDD':1,'DD':2,'SDM':3,'DM':4,'SASM':5,'ASM':6,'Agent':7};
-  ranks.sort(function(a,b){
-    var ra=roleOrder[a.role]||99;
-    var rb=roleOrder[b.role]||99;
-    if(ra!==rb)return ra-rb;
-    return b.monthComm-a.monthComm;
-  });
+  // v3.9.23: 頂層按職級+月佣排序；已下鑽保留 tree(DFS) 順序令 Agent 跟住自己經理
+  if(rootStack.length === 0){
+    ranks.sort(function(a,b){
+      var ra=roleOrder[a.role]||99;
+      var rb=roleOrder[b.role]||99;
+      if(ra!==rb)return ra-rb;
+      return b.monthComm-a.monthComm;
+    });
+  }
   var maxComm=ranks.length>0?ranks[0].monthComm:1;
   var roleColors={'SDD':'#1e40af','DD':'#2563eb','SDM':'#3b82f6','DM':'#60a5fa','SASM':'#93c5fd','ASM':'#bfdbfe','Agent':'#e5e7eb'};
   var tableHtml='';
@@ -1423,7 +1440,12 @@ function render(){
     if(hasDownline(r.name) && r.name !== currentRoot){
       drillIcon=' <span onclick="event.stopPropagation();drillDown(\''+esc(r.name)+'\')" title="下鑽查看 '+esc(r.name)+' 嘅下屬" style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:var(--blue100);color:var(--blue600);font-size:11px;margin-left:4px">🔽</span>';
     }
-    tableHtml+='<tr class="agent-row'+(selectedAgent===r.name?' selected':'')+(r.name===currentRoot?' mgr-self':'')+'" onclick="selectAgent(\''+esc(r.name)+'\',this)"><td>'+(i+1)+'</td><td>'+esc(r.name)+' '+roleBadge+drillIcon+'</td><td>'+r.clients+'</td><td>'+r.policies.length+'</td><td class="amt-pos">'+money(r.monthComm)+'</td><td>'+money(r.yearComm)+'</td><td>'+money(r.monthPC)+'</td><td><span class="badge '+(r.goalRate>=100?'badge-green':r.goalRate>=70?'badge-blue':'badge-yellow')+'">'+(r.goalRate===0?'未設定':r.goalRate+'%')+'</span></td><td>'+money(r.net)+'</td></tr>';
+    // v3.9.23: Agent 行縮排 + 淡化，收埋喺各自經理下面；depth 由 getDepth() 計
+    var indent = (r.depth||0)*22;
+    var isAgent = (r.role==='Agent');
+    var nameCellStyle = 'padding-left:'+(indent+10)+'px'+(isAgent?';color:#6b7280;font-weight:400':'');
+    var agentDot = isAgent ? '<span style="color:#cbd5e1;margin-right:4px;font-size:10px">└</span>' : '';
+    tableHtml+='<tr class="agent-row'+(selectedAgent===r.name?' selected':'')+(r.name===currentRoot?' mgr-self':'')+(isAgent?' agent-sub':'')+'" onclick="selectAgent(\''+esc(r.name)+'\',this)"><td>'+(i+1)+'</td><td style="'+nameCellStyle+'">'+agentDot+esc(r.name)+' '+roleBadge+drillIcon+'</td><td>'+r.clients+'</td><td>'+r.policies.length+'</td><td class="amt-pos">'+money(r.monthComm)+'</td><td>'+money(r.yearComm)+'</td><td>'+money(r.monthPC)+'</td><td><span class="badge '+(r.goalRate>=100?'badge-green':r.goalRate>=70?'badge-blue':'badge-yellow')+'">'+(r.goalRate===0?'未設定':r.goalRate+'%')+'</span></td><td>'+money(r.net)+'</td></tr>';
   });
   if(tableHtml === ''){
     tableHtml='<tr><td colspan="9" style="text-align:center;padding:24px;color:#6b7280">📭 '+esc(currentRoot||'此人')+' 暫無直屬下屬（可按「返回」上一層）</td></tr>';
@@ -1445,8 +1467,10 @@ function render(){
     drillPath.innerHTML = pathHtml;
   }
 
-  // Ranking chart
-  if(chartLib)renderCharts(ranks,maxComm,allTreeAgents,y,m);
+  // Ranking chart — v3.9.23: 鑽入時圖表用月佣排序副本（表格保留 tree 順序）
+  var chartRanks = (rootStack.length === 0) ? ranks : ranks.slice().sort(function(a,b){return b.monthComm-a.monthComm;});
+  var chartMax = chartRanks.length>0?chartRanks[0].monthComm:1;
+  if(chartLib)renderCharts(chartRanks,chartMax,allTreeAgents,y,m);
 
   // Detail panel
   if(selectedAgent)renderDetail();
