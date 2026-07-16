@@ -9,7 +9,7 @@
 <!-- v3.10.35: 版本 cache-buster（保留）+ 重新註冊 Service Worker 根治「自動更新」（移除舊版強制 unregister SW 的阻礙） -->
 <script>
 (function(){
-  var AGENT_VER='v3.10.36',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.37',AGENT_VER_KEY='agent_app_version';
   var stored=localStorage.getItem(AGENT_VER_KEY)||'';
   if(stored && stored!==AGENT_VER && !/v=new/.test(location.search)){
     console.log('[CacheBuster] agent '+stored+'→'+AGENT_VER+'，強制重載');
@@ -27,7 +27,7 @@
 })();
 /* v3.10.32: 雲端版本自檢 — 根治「同事開舊 bookmark 一直跑舊版」：每次開都向 version.json 查最新版，有更新即自動帶 cache-buster 重載 */
 (function(){
-  var AGENT_VER='v3.10.36',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.37',AGENT_VER_KEY='agent_app_version';
   function doReload(){
     try{ localStorage.setItem(AGENT_VER_KEY, AGENT_VER); location.replace(location.href.split('?')[0] + '?v=' + Date.now()); }
     catch(e){ location.reload(true); }
@@ -1361,14 +1361,19 @@ function onRoleChange() {
   }
 }
 
-// v3.9.2: 揀團隊 → 自動填對應 DD 全名（預設值，可手動改為實際直屬經理）
+// v3.10.37: 揀團隊 → 自動填對應 DD 全名（預設值），但唔可以覆蓋用戶手動輸入嘅直屬經理
+var lastDefaultSup = '';
 function onTeamChange() {
   var teamSel = document.getElementById('teamInput');
   var supInput = document.getElementById('supervisorInput');
   var selected = teamSel.options[teamSel.selectedIndex];
   var mgrName = selected.getAttribute('data-mgr') || '';
-  // v3.10.36: 只設預設值，唔鎖死 —— Agent 嘅直屬經理未必係 DD，可能係 ASM/SDM
-  supInput.value = mgrName;
+  // 只有當欄位仲係空、或者仲係上次自動填嘅預設值時，先自動填新預設；
+  // 如果用戶已經自己改咗個名（例如填咗真正直屬經理 ASM/SDM），就唔好覆蓋，避免同事要重複輸入
+  if (supInput.value.trim() === '' || supInput.value.trim() === lastDefaultSup) {
+    supInput.value = mgrName;
+  }
+  lastDefaultSup = mgrName;
   // 永遠唔 readOnly，用戶可以改成自己真正嘅直屬經理
   supInput.readOnly = false;
   supInput.style.background = 'var(--white)';
