@@ -1,20 +1,41 @@
 <!DOCTYPE html>
 <html lang="zh-HK">
 <head>
-<script>// v3.9.12 強制破 cache + 強制解除舊 SW：sync script 喺一切之前執行
-var MGR_VER='v3.9.14',MGR_VER_KEY='mgr_app_version';
+<script>// v3.9.15: 修正自動更新 — 移除舊版「強制 unregister SW + 清除 caches」(此舉係自動更新元兇)，改為註冊 SW (network-first) + version.json 雲端自檢
+var MGR_VER='v3.9.15',MGR_VER_KEY='mgr_app_version';
 (function(){
-  var v=localStorage.getItem(MGR_VER_KEY)||'';
-  if(v&&v!==MGR_VER){console.log('[CacheBuster] '+v+'→'+MGR_VER);localStorage.setItem(MGR_VER_KEY,MGR_VER);}
-  // v3.9.0: 強制解除所有 Service Worker 並清除 cache（iOS PWA 舊 SW 會攔截 Supabase）
-  function finish(){localStorage.setItem(MGR_VER_KEY,MGR_VER);}
-  if('caches' in window){caches.keys().then(function(ns){return Promise.all(ns.map(function(n){return caches.delete(n);}));}).then(finish).catch(finish);}else{finish();}
-  if('serviceWorker' in navigator){
-    navigator.serviceWorker.getRegistrations().then(function(regs){
-      regs.forEach(function(r){r.unregister(); console.log('[SW] unregistered', r.scope);});
-    }).catch(function(e){console.log('[SW] unregister error', e);});
+  var stored=localStorage.getItem(MGR_VER_KEY)||'';
+  if(stored && stored!==MGR_VER && !/v=new/.test(location.search)){
+    console.log('[CacheBuster] mgr '+stored+'→'+MGR_VER+'，強制重載');
+    localStorage.setItem(MGR_VER_KEY,MGR_VER);
+    location.replace(location.href.split('?')[0]+'?v='+Date.now());
+    return;
   }
-  if(v&&v!==MGR_VER){location.replace(location.href.split('?')[0]+'?v='+Date.now());}
+  localStorage.setItem(MGR_VER_KEY,MGR_VER);
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', function(){
+      navigator.serviceWorker.register('sw.js').catch(function(e){ console.warn('[SW] register failed', e); });
+    });
+  }
+})();
+/* v3.9.15: 雲端版本自檢 — 根治「同事開舊 bookmark 一直跑舊版」 */
+(function(){
+  function doReload(){
+    try{ localStorage.setItem(MGR_VER_KEY, MGR_VER); location.replace(location.href.split('?')[0] + '?v=' + Date.now()); }
+    catch(e){ location.reload(true); }
+  }
+  if (/[?&]v=/.test(location.search)) return;
+  try {
+    fetch('version.json?t=' + Date.now(), {cache:'no-store'})
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(d){
+        if (d && d.mgr && d.mgr !== MGR_VER) {
+          console.log('[CacheBuster] 雲端版本 '+d.mgr+' > 本地 '+MGR_VER+'，自動升級');
+          doReload();
+        }
+      })
+      .catch(function(e){ /* 網絡失敗唔阻擋頁面渲染 */ });
+  } catch(e){}
 })();
 </script>
 <meta charset="UTF-8">
@@ -2388,10 +2409,7 @@ initActivitySelectors();
 updateActivitySelectorVisibility();
 </script>
 <script>
-if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(function(r){console.log('[PWA] Service Worker 已註冊:',r.scope);}).catch(function(e){console.warn('[PWA] SW 註冊失敗:',e);});}
-</script>
-<script>
-// v3.9.14: 開啟自動 pull 雲端（經理版跨裝置 sync）
+// v3.9.15: 開啟自動 pull 雲端（經理版跨裝置 sync）
 (function(){
   var pullTimer=null;
   function doAutoPull(){
