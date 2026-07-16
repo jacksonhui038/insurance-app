@@ -14,7 +14,7 @@
  * 3) SW 更新時 sendMessage → 頁面自動 reload，用戶零點擊、零手動刷新
  */
 (function(){
-  var AGENT_VER='v3.10.38',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.39',AGENT_VER_KEY='agent_app_version';
   try { localStorage.setItem(AGENT_VER_KEY, AGENT_VER); } catch(e){}
   function reloadCnt(){ try { return parseInt(sessionStorage.getItem('agent_reload_cnt')||'0',10)||0; } catch(e){ return 0; } }
   function doReload(){
@@ -1815,13 +1815,13 @@ function initAgent() {
 }
 
 function switchAgent() {
+  // v3.10.39: 免密碼直接切換——代理人共用部機時快速換帳戶，唔使每次輸入 PIN
   ['choiceMode','loginMode','registerMode','unlockMode','switchMode'].forEach(function(id) {
     var el = document.getElementById(id); if (el) el.style.display = 'none';
   });
-  document.getElementById('switchMode').style.display = 'block';
-  document.getElementById('switchAgentName').textContent = agentName;
+  document.getElementById('choiceMode').style.display = 'block';
   document.getElementById('nameModalBg').classList.add('show');
-  document.getElementById('switchPin').focus();
+  agentName = ''; agentPIN = '';
 }
 
 function confirmSwitch() {
