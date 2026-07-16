@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="zh-HK">
 <head>
-<script>// v3.9.17: 修正自動更新 — 移除舊版「強制 unregister SW + 清除 caches」(此舉係自動更新元兇)，改為註冊 SW (network-first) + version.json 雲端自檢
-var MGR_VER='v3.9.17',MGR_VER_KEY='mgr_app_version';
+<script>// v3.9.18: 修正自動更新 — 移除舊版「強制 unregister SW + 清除 caches」(此舉係自動更新元兇)，改為註冊 SW (network-first) + version.json 雲端自檢
+var MGR_VER='v3.9.18',MGR_VER_KEY='mgr_app_version';
 (function(){
   var stored=localStorage.getItem(MGR_VER_KEY)||'';
   if(stored && stored!==MGR_VER && !/v=new/.test(location.search)){
@@ -18,7 +18,7 @@ var MGR_VER='v3.9.17',MGR_VER_KEY='mgr_app_version';
     });
   }
 })();
-/* v3.9.17: 雲端版本自檢 — 根治「同事開舊 bookmark 一直跑舊版」 */
+/* v3.9.18: 雲端版本自檢 — 根治「同事開舊 bookmark 一直跑舊版」 */
 (function(){
   function doReload(){
     try{ localStorage.setItem(MGR_VER_KEY, MGR_VER); location.replace(location.href.split('?')[0] + '?v=' + Date.now()); }
@@ -1263,11 +1263,46 @@ function getTree(root){
   rec(root, {});
   return result;
 }
-// v3.9.17: 只返回直接下層（唔遞歸）— 用於表格逐層下鑽顯示
+// v3.9.18: 只返回直接下層（唔遞歸）— 用於表格逐層下鑽顯示
 function getDirectChildren(root){
   if(!root || !TEAM[root]) return Object.keys(TEAM);
   var map = buildTeamMgrMap();
   return map[root] || [];
+}
+// v3.9.18: 頂層（SDD / 登入者）檢視 — 顯示全 team 所有「經理」（有下屬 或 職級高於 Agent），
+// 解決扁平/深層數據下 getDirectChildren(登入者) 為空、頂層表格變「暫無直屬下屬」嘅問題
+function getTopLevelManagers(){
+  var mgrs = Object.keys(TEAM).filter(function(n){
+    var role = (TEAM[n].role || 'Agent');
+    var isMgrRole = ['SDD','DD','SDM','DM','SASM','ASM'].indexOf(role) >= 0;
+    return isMgrRole || hasDownline(n);
+  });
+  var roleOrder={'SDD':1,'DD':2,'SDM':3,'DM':4,'SASM':5,'ASM':6,'Agent':7};
+  mgrs.sort(function(a,b){ return (roleOrder[TEAM[a].role]||99)-(roleOrder[TEAM[b].role]||99); });
+  // 確保登入者(自己)排最前
+  if (currentRoot && TEAM[currentRoot] && mgrs.indexOf(currentRoot) > 0) {
+    mgrs.splice(mgrs.indexOf(currentRoot),1);
+    mgrs.unshift(currentRoot);
+  }
+  return mgrs;
+}
+// v3.9.18: 決定表格要顯示邊啲成員
+function getTableAgentsForView(){
+  if (rootStack.length === 0) {
+    // 頂層：顯示全 team 經理；如果完全無經理（異常），fallback 顯示所有成員
+    var mgrs = getTopLevelManagers();
+    if (mgrs.length > 0) return mgrs;
+    return Object.keys(TEAM);
+  }
+  // 已下鑽：顯示直屬，經理(有下屬)排先，Agent 排後
+  var direct = getDirectChildren(currentRoot).slice();
+  var roleOrder={'SDD':1,'DD':2,'SDM':3,'DM':4,'SASM':5,'ASM':6,'Agent':7};
+  direct.sort(function(a,b){
+    var am = hasDownline(a)?0:1, bm = hasDownline(b)?0:1;
+    if (am !== bm) return am - bm;
+    return (roleOrder[TEAM[a].role]||99)-(roleOrder[TEAM[b].role]||99);
+  });
+  return direct;
 }
 function hasDownline(name){
   var map = buildTeamMgrMap();
@@ -1316,9 +1351,9 @@ function drillToRoot(name){
 // RENDER
 // ============================================================
 function render(){
-  // v3.9.17: 摘要用 getTree（聚合整個子樹），表格用 getDirectChildren（逐層下鑽）
+  // v3.9.18: 摘要用 getTree（聚合整個子樹）；表格成員由 getTableAgentsForView() 決定（v3.9.18 頂層顯示全 team 經理）
   var allTreeAgents = getTree(currentRoot);
-  var tableAgents = getDirectChildren(currentRoot);
+  var tableAgents = getTableAgentsForView();
   if(allTreeAgents.length===0)return;
   var rootName = currentRoot || '全團隊';
 
@@ -1340,20 +1375,10 @@ function render(){
     '<div class="stat-card" style="border-left-color:#eab308"><div class="label">累計佣金</div><div class="value">'+money(totalComm)+'</div><div class="sub">開支: '+money(totalExp)+' | PC: '+money(totalPC)+'</div></div>'+
     '<div class="stat-card" style="border-left-color:#ef4444"><div class="label">人均月佣</div><div class="value">'+money(allTreeAgents.length>0?Math.round(monthComm/allTreeAgents.length):0)+'</div><div class="sub">人均客戶: '+Math.round(totalClients/allTreeAgents.length)+'</div></div>';
 
-  // Agent ranking — v3.9.17: 用直接下層（逐層展開，唔一次顯示全 tree）
-  // v3.9.8: 頂層（未下鑽）過濾 — 有經理跟緊嘅純 Agent 唔喺頂層顯示，只可透過 🔽 下鑼直屬經理見到
-  var isTopLevel = (rootStack.length === 0);
-  var mgrMap = buildTeamMgrMap();
+  // Agent ranking — 表格成員由 getTableAgentsForView() 決定（頂層顯示全 team 經理，下鑼層顯示直屬並經理排先）
   var ranks=[];
   tableAgents.forEach(function(a){
     var d=TEAM[a];
-    // 頂層時：有經理 + 冇下屬 + 純 Agent → 隱藏；有職級 title 嘅照顯示
-    if (isTopLevel) {
-      var hasMgr = Object.keys(mgrMap).some(function(k){ return (mgrMap[k]||[]).indexOf(a) >= 0; });
-      var hasSubs = (mgrMap[a] || []).length > 0;
-      if (hasMgr && !hasSubs && (d.role === 'Agent' || !d.role)) return;
-    }
-    
     var mc=0,yc=0;
     d.commissions.forEach(function(c){var dt=new Date(c.date);if(dt.getMonth()===m&&dt.getFullYear()===y)mc+=Number(c.amount)||0;if(dt.getFullYear()===y)yc+=Number(c.amount)||0;});
     var mpc=0,ypc=0;
@@ -2122,7 +2147,7 @@ function doFixRole() {
           var currentData = rows[0].data || {};
           currentData.role = role;
           currentData.supervisor = supervisor || '';
-          currentData.manager = supervisor || '';  // v3.9.17: 同步更新 data.manager（直屬經理）
+          currentData.manager = supervisor || '';  // v3.9.18: 同步更新 data.manager（直屬經理）
           currentData.hierarchyPath = hPath;
           // PATCH — 同時更新 manager 欄位（唔只 data JSON）
           var patchBody = { data: currentData };
@@ -2177,7 +2202,7 @@ function doFixRole() {
           TEAM[name]._agentData.role = role;
           TEAM[name]._agentData.supervisor = supervisor || '';
           TEAM[name]._agentData.hierarchyPath = hPath;
-          // v3.9.17: 同步更新 managerName（tree 結構用呢個欄位）
+          // v3.9.18: 同步更新 managerName（tree 結構用呢個欄位）
           if (supervisor) { TEAM[name].managerName = supervisor; }
         }
         hideFixRoleModal();
@@ -2423,7 +2448,7 @@ initActivitySelectors();
 updateActivitySelectorVisibility();
 </script>
 <script>
-// v3.9.17: 開啟自動 pull 雲端（經理版跨裝置 sync）
+// v3.9.18: 開啟自動 pull 雲端（經理版跨裝置 sync）
 (function(){
   var pullTimer=null;
   function doAutoPull(){
