@@ -8,12 +8,14 @@
 <title>正在清除舊版緩存…</title>
 <style>
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#0f172a;color:#e2e8f0}
-.box{text-align:center;padding:40px;max-width:400px}
+.box{text-align:center;padding:40px;max-width:440px}
 .spinner{width:40px;height:40px;border:4px solid #334155;border-top-color:#2563eb;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 20px}
 @keyframes spin{to{transform:rotate(360deg)}}
 h1{font-size:18px;margin-bottom:10px}
 p{font-size:14px;color:#94a3b8;line-height:1.6}
 .err{color:#f87171;margin-top:12px;font-size:13px}
+.btn{display:inline-block;margin-top:18px;padding:10px 18px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;text-decoration:none}
+.btn:active{background:#1d4ed8}
 </style>
 </head>
 <body>
@@ -22,88 +24,60 @@ p{font-size:14px;color:#94a3b8;line-height:1.6}
 <h1>正在清除舊版緩存</h1>
 <p id="msg">請稍候，系統正在自動清理舊的 Service Worker 與緩存數據…</p>
 <div id="err" class="err" style="display:none"></div>
+<a id="manual" class="btn" href="#" style="display:none">仍然有問題？按此手動跳轉最新版</a>
 </div>
 <script>
-/* ===== 核清頁面（Nuclear Cache Clear） ===== *
- * 用途：一次性清除所有舊 Service Worker + 所有 Caches，
- *       解決「Ctrl+Shift+R 都無法更新」的死結。
- * 原理：此檔案使用全新檔名（fresh.html），舊 SW 的 cache 中
- *       沒有此 URL，所以瀏覽器一定能從網絡載到此頁。
- *       載入後強制 unregister SW + delete caches，再跳轉主程式。
+/* ===== 核清頁面（Nuclear Cache Clear）v3.10.44 ===== *
+ * 用途：一次性清除所有舊 Service Worker + 所有 Caches。
+ * 原理：此檔使用全新檔名（fresh.html），舊 SW 嘅 cache 中無此 URL，
+ *       所以瀏覽器一定從網絡載到呢頁 → 跑 unregister → 舊 SW 永遠消失。
  */
-var log = function(s){
-  var el=document.getElementById('msg');
-  if(el) el.textContent=s;
-};
-var fail = function(s){
-  var el=document.getElementById('err');
-  if(el){el.style.display='block';el.textContent='⚠️ '+s;}
-};
+var log = function(s){ var el=document.getElementById('msg'); if(el) el.textContent=s; };
+var fail = function(s){ var el=document.getElementById('err'); if(el){el.style.display='block';el.textContent='⚠️ '+s;} };
 
 var BASE = location.pathname.replace(/\/[^\/]*$/,'');
+var goApp = function(){
+  // 支援 ?mgr 跳經理版，否則代理人版
+  var isMgr = /[?&]mgr/.test(location.search);
+  var target = BASE + '/' + (isMgr ? 'manager-dashboard' : 'agent-app') + '.html?_fresh=' + Date.now();
+  location.href = target;
+};
 
-function done(){
-  log('✅ 清理完成！即將跳轉至最新版本…');
-  setTimeout(function(){
-    location.href = BASE + '/agent-app.html?_fresh=' + Date.now();
-  }, 800);
-}
-
-function step1_unregisterSW(){
+async function clearAll(){
   log('🔧 步驟 1/3：移除舊 Service Worker…');
-  if (!navigator.serviceWorker) { return step2_clearCaches(); }
+  if (navigator.serviceWorker){
+    try {
+      var regs = await navigator.serviceWorker.getRegistrations();
+      for (var i=0;i<regs.length;i++){ try { await regs[i].unregister(); } catch(e){} }
+      log('✅ 已移除 ' + regs.length + ' 個 Service Worker');
+    } catch(e){ fail('移除 SW 失敗：' + e.message); }
+  } else {
+    log('✅ 本機無 Service Worker');
+  }
 
-  navigator.serviceWorker.getRegistrations()
-    .then(function(regs){
-      if (!regs || regs.length === 0) {
-        return step2_clearCaches();
-      }
-      log('🔧 找到 ' + regs.length + ' 個 Service Worker，正在移除…');
-      return Promise.all(regs.map(function(r){ return r.unregister(); }))
-        .then(function(){
-          log('✅ 已移除 ' + regs.length + ' 個 Service Worker');
-          return step2_clearCaches();
-        });
-    })
-    .catch(function(e){
-      fail('移除 SW 失敗：' + e.message);
-      return step2_clearCaches();
-    });
-}
-
-function step2_clearCaches(){
   log('🔧 步驟 2/3：清除瀏覽器緩存…');
-  if (!('caches' in window)) { return step3_go(); }
+  if ('caches' in window){
+    try {
+      var names = await caches.keys();
+      for (var j=0;j<names.length;j++){ try { await caches.delete(names[j]); } catch(e){} }
+      log('✅ 已清除 ' + names.length + ' 個緩存');
+    } catch(e){ fail('清除緩存失敗：' + e.message); }
+  } else {
+    log('✅ 本機無 Cache 可清除');
+  }
 
-  return caches.keys().then(function(names){
-    if (!names || names.length === 0) {
-      return step3_go();
-    }
-    log('🔧 找到 ' + names.length + ' 個緩存，正在清除…');
-    return Promise.all(names.map(function(n){ return caches.delete(n); }))
-      .then(function(){
-        log('✅ 已清除 ' + names.length + ' 個緩存');
-        return step3_go();
-      });
-  }).catch(function(e){
-    fail('清除緩存失敗：' + e.message);
-    return step3_go();
-  });
-}
-
-function step3_go(){
   log('🔧 步驟 3/3：跳轉至最新版本…');
-  done();
+  setTimeout(goApp, 700);
 }
 
-// 啟動
-step1_unregisterSW();
-
-// 安全掣：如果 15 秒內未完成，強制跳轉
-setTimeout(function(){
-  fail('超時，強制跳轉…');
-  location.href = BASE + '/agent-app.html?_fresh=' + Date.now();
-}, 15000);
+clearAll().catch(function(e){
+  fail('自動清理失敗：' + (e && e.message ? e.message : e));
+  // 顯示手動按鈕
+  var b=document.getElementById('manual');
+  if(b){ b.style.display='inline-block'; b.href = goApp.toString().replace(/^function.*return |;?\}$/g,''); b.setAttribute('onclick',"goApp();return false;"); }
+  // 15 秒安全掣：強制跳轉
+  setTimeout(goApp, 15000);
+});
 </script>
 </body>
 </html>
