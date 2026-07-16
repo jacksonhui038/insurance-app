@@ -2,7 +2,7 @@
 <html lang="zh-HK">
 <head>
 <script>// v3.9.25: 根治「自動更新」— 標準做法：開頁永遠最新版
-var MGR_VER='v3.9.26',MGR_VER_KEY='mgr_app_version';
+var MGR_VER='v3.9.27',MGR_VER_KEY='mgr_app_version';
 (function(){
   try { localStorage.setItem(MGR_VER_KEY, MGR_VER); } catch(e){}
   function reloadCnt(){ try { return parseInt(sessionStorage.getItem('mgr_reload_cnt')||'0',10)||0; } catch(e){ return 0; } }
@@ -1290,32 +1290,38 @@ function getTopLevelManagers(){
   }
   return mgrs;
 }
-// v3.9.18: 決定表格要顯示邊啲成員
+// v3.9.27: 決定表格要顯示邊啲成員
 function getTableAgentsForView(){
-  // v3.9.23: 返回 {name, depth} 物件陣列（depth = 由 currentRoot 計起嘅層級，用於縮排）
+  // v3.9.27: 返回 {name, depth} 物件陣列（depth = 由 currentRoot 計起嘅層級，用於縮排）
   if (rootStack.length === 0) {
-    // v3.9.24: 頂層（登入者自己）— 如果登入者係 manager（有下屬 / 職級高於 Agent），
-    // 直接顯示成個 subtree（自己 + 所有下屬，包括 Agent），令 sub-manager 一登入就見到自己嘅 Agent 下屬。
-    // 修復：之前頂層只 call getTopLevelManagers()（只顯經理層級），而且 currentRoot 嗰行冇 🔽 唔能 drill 入自己，
-    // 導致 HUI YUEN SHU 登入後 CHAN MEI KING 喺 TEAM 入面但永遠見唔到。
+    // 頂層（SDD / 經理登入）：只顯示經理層級，過濾掉 Agent
+    // Concept：SDD 一眼睇晒成個團隊嘅經理架構，Agent 收埋喺各自經理下面（要 drill 先見到）
     if (currentRoot && TEAM[currentRoot] && (hasDownline(currentRoot) || (TEAM[currentRoot].role||'Agent') !== 'Agent')) {
       var rootTree = getTree(currentRoot);
-      var rootResult = rootTree.map(function(n){ return {name:n, depth:getDepth(n, currentRoot)}; });
-      rootResult.sort(function(a,b){
+      // 只保留經理（職級唔係 Agent）
+      var mgrsOnly = rootTree.filter(function(n){
+        return (TEAM[n].role||'Agent') !== 'Agent';
+      });
+      var roleOrder={'SDD':1,'DD':2,'SDM':3,'DM':4,'SASM':5,'ASM':6,'Agent':7};
+      var result = mgrsOnly.map(function(n){ return {name:n, depth:0}; });
+      result.sort(function(a,b){
         if(a.name===currentRoot) return -1;
         if(b.name===currentRoot) return 1;
-        return 0; // 保留 tree DFS 順序
+        var ra=roleOrder[TEAM[a.name].role]||99;
+        var rb=roleOrder[TEAM[b.name].role]||99;
+        if(ra!==rb) return ra-rb;
+        return b.monthComm-a.monthComm;
       });
-      return rootResult;
+      return result;
     }
     // 純 Agent 登入 或 異常：fallback 顯示所有成員
     var mgrs = getTopLevelManagers();
     var list = mgrs.length > 0 ? mgrs : Object.keys(TEAM);
     return list.map(function(n){ return {name:n, depth:0}; });
   }
-  // v3.9.23: 已下鑽 — 顯示該 DD/經理下面**成個 subtree**（包括 Agent），Agent 用縮排收埋喺各自經理下面
+  // 已下鑽 — 顯示該 DD/經理下面**成個 subtree**（包括 Agent），Agent 用縮排收埋喺各自經理下面
+  // 用 DFS 順序令 Agent 自然跟住自己經理，唔會平列出嚟太亂
   var treeList = getTree(currentRoot);
-  // v3.9.23: 用 tree (DFS) 順序 + depth 縮排，令 Agent 自然跟住自己經理，唔會平列出嚟太亂
   var result = treeList.map(function(n){
     return {name:n, depth:getDepth(n, currentRoot)};
   });
@@ -1431,16 +1437,16 @@ function render(){
     ranks.push({name:a.name,depth:a.depth,role:d.role||'Agent',clients:d.clients.length,policies:d.policies.length,monthComm:mc,yearComm:yc,monthPC:mpc,yearPC:ypc,expenses:me,goalRate:Math.min(goalRate,999),net:mc-me,supervisor:d.supervisor||''});
   });
   var roleOrder={'SDD':1,'DD':2,'SDM':3,'DM':4,'SASM':5,'ASM':6,'Agent':7};
-  // v3.9.26: 頂層保留 getTree() DFS 樹狀順序（Agent 自然收埋喺各自經理下面）；
-  // 已下鑽時都保留 tree 順序。唔再用 roleOrder 全局排序，否則 Agent 全部被踢去底部。
-  // 同職級內按月佣降序（只影響同層經理之間嘅排列，唔破壞樹結構）
+  // v3.9.27: 頂層只顯示經理（getTableAgentsForView 已過濾 Agent），按職級+月佣排序（SDD>DD>SDM>DM>SASM>ASM）
+  // 已下鑽保留 getTableAgentsForView 返回嘅 DFS 樹狀順序，唔再重排（令 Agent 跟住自己經理）
   if(rootStack.length === 0){
     ranks.sort(function(a,b){
-      if(a.depth!==b.depth)return a.depth-b.depth;  // 先按深度（上層經理先）
+      if(a.name===currentRoot) return -1;
+      if(b.name===currentRoot) return 1;
       var ra=roleOrder[a.role]||99;
       var rb=roleOrder[b.role]||99;
-      if(ra!==rb)return ra-rb;  // 同深度先按職級
-      return b.monthComm-a.monthComm;  // 同職級按佣金
+      if(ra!==rb)return ra-rb;
+      return b.monthComm-a.monthComm;
     });
   }
   var maxComm=ranks.length>0?ranks[0].monthComm:1;
