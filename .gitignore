@@ -1,0 +1,2 @@
+# Windows device-name artifact (cannot be deleted via Win32, ignore it)
+/nul
