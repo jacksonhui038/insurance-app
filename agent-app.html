@@ -6,7 +6,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<!-- v3.10.41: 移除 Service Worker（回復正常靜態站行為）+ 雲端自檢自動更新 -->
+<!-- v3.10.43: 確認無 SW + 雲端自檢自動更新（SW 已徹底刪除，瀏覽器見 404 自動 unregister 舊 SW） -->
 <script>
 /* v3.10.41: 自動更新（同出面大站做法，唔用 SW）
  * 1) 雲端版本自檢：永遠跑，有新版就 reload（安全掣防死 loop）
@@ -15,7 +15,7 @@
  * 效果：開頁即最新，同事零動作、零 special URL。
  */
 (function(){
-  var AGENT_VER='v3.10.42',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.43',AGENT_VER_KEY='agent_app_version';
   try { localStorage.setItem(AGENT_VER_KEY, AGENT_VER); } catch(e){}
   // ★ 開頁立即移除任何舊 SW（自毀 SW 會 unregister 自己，呢度係雙重保障）
   try {
