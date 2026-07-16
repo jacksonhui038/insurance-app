@@ -6,10 +6,10 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<!-- v3.10.33: 版本 cache-buster（保留）+ 重新註冊 Service Worker 根治「自動更新」（移除舊版強制 unregister SW 的阻礙） -->
+<!-- v3.10.34: 版本 cache-buster（保留）+ 重新註冊 Service Worker 根治「自動更新」（移除舊版強制 unregister SW 的阻礙） -->
 <script>
 (function(){
-  var AGENT_VER='v3.10.33',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.34',AGENT_VER_KEY='agent_app_version';
   var stored=localStorage.getItem(AGENT_VER_KEY)||'';
   if(stored && stored!==AGENT_VER && !/v=new/.test(location.search)){
     console.log('[CacheBuster] agent '+stored+'→'+AGENT_VER+'，強制重載');
@@ -18,7 +18,7 @@
     return;
   }
   localStorage.setItem(AGENT_VER_KEY,AGENT_VER);
-  /* v3.10.33: 註冊 Service Worker（network-first）—— 以後每次開頁都自動攞最新版，發布新版本零通知自動生效 */
+  /* v3.10.34: 註冊 Service Worker（network-first）—— 以後每次開頁都自動攞最新版，發布新版本零通知自動生效 */
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function(){
       navigator.serviceWorker.register('sw.js').catch(function(e){ console.warn('[SW] register failed', e); });
@@ -27,7 +27,7 @@
 })();
 /* v3.10.32: 雲端版本自檢 — 根治「同事開舊 bookmark 一直跑舊版」：每次開都向 version.json 查最新版，有更新即自動帶 cache-buster 重載 */
 (function(){
-  var AGENT_VER='v3.10.33',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.34',AGENT_VER_KEY='agent_app_version';
   function doReload(){
     try{ localStorage.setItem(AGENT_VER_KEY, AGENT_VER); location.replace(location.href.split('?')[0] + '?v=' + Date.now()); }
     catch(e){ location.reload(true); }
@@ -464,7 +464,7 @@ tr:hover td{background:var(--blue50)}
   <div class="sidebar-head">
     <h1>📊 SET理財規劃管家</h1>
     <div class="agent-info" id="sidebarAgentInfo">代理人版</div>
-    <div class="agent-ver" id="sidebarVer">v3.10.33</div>
+    <div class="agent-ver" id="sidebarVer">v3.10.34</div>
   </div>
   <nav class="sidebar-nav" id="sidebarNav">
     <button class="nav-btn" onclick="switchTab('dashboard',this)"><span class="nav-icon">📋</span> 總覽</button>
@@ -2242,8 +2242,38 @@ function verifyAndRecoverFromDetails(name, pin) {
       localStorage.setItem(AGENT_PIN_KEY, pin);
       localStorage.setItem('insurance_agent_name_locked', 'true');
       if (ad.data) {
-        DB = {clients:[],policies:[],commissions:[],expenses:[],goals:[],schedules:[],pcs:[],incomes:[]};
-        ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k) { if (ad.data[k]) DB[k] = ad.data[k]; });
+        // v3.10.34: 唔再用雲端整個替換 DB —— 否則「set 左目標但 push 未成功就切帳號/刷新」會令本地新增被雲端舊值清走
+        // 先從 localStorage 讀回本地 DB 作基底（保留未 push 嘅新增），再用雲端按 id 合併（雲端較新才覆蓋）
+        var _sk = getStoreKey();
+        var _local = null;
+        try { _local = JSON.parse(localStorage.getItem(_sk) || 'null'); } catch(e) {}
+        if (_local && typeof _local === 'object') {
+          DB = {clients:[],policies:[],commissions:[],expenses:[],goals:[],schedules:[],pcs:[],incomes:[]};
+          ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k){
+            DB[k] = (_local[k] && Array.isArray(_local[k])) ? _local[k].slice() : [];
+          });
+          // 雲端合併：本地有+雲端冇→保留本地；本地有+雲端有→雲端較新才覆蓋；本地冇+雲端有→用雲端
+          ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k){
+            if (ad.data[k] && Array.isArray(ad.data[k]) && ad.data[k].length > 0) {
+              var _map = {};
+              DB[k].forEach(function(it){ _map[it.id] = it; });
+              ad.data[k].forEach(function(it){
+                var _ex = _map[it.id];
+                if (_ex) {
+                  var _ct = it.updatedAt || 0, _lt = _ex.updatedAt || 0;
+                  if (_ct >= _lt) _map[it.id] = it;
+                } else {
+                  _map[it.id] = it;
+                }
+              });
+              DB[k] = Object.values(_map);
+            }
+          });
+        } else {
+          // 本地完全冇數據，直接用雲端
+          DB = {clients:[],policies:[],commissions:[],expenses:[],goals:[],schedules:[],pcs:[],incomes:[]};
+          ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k) { if (ad.data[k]) DB[k] = ad.data[k]; });
+        }
         saveDB();
       }
       document.getElementById('nameModalBg').classList.remove('show');
