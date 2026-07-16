@@ -12,10 +12,10 @@
  * 開完一次後可改用 agent-app.html（正常 URL）
  */
 (function(){
-  var AGENT_VER='v3.10.47',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.48',AGENT_VER_KEY='agent_app_version';
   try { localStorage.setItem(AGENT_VER_KEY, AGENT_VER); } catch(e){}
   // v3.10.46: 早期獨立同步側欄版本 badge —— 免受下方 DOMContentLoaded 大函數任何錯誤影響，永不再顯示過期硬編碼版本
-  try { document.addEventListener('DOMContentLoaded',function(){ try{ var _sv=document.getElementById('sidebarVer'); if(_sv) _sv.textContent=AGENT_VER; }catch(e){} }); } catch(e){}
+  try { document.addEventListener('DOMContentLoaded',function(){ try{ var _sv=document.getElementById('sidebarVer'); if(_sv) _sv.textContent=AGENT_VER; var _tv=document.getElementById('topbarVer'); if(_tv) _tv.textContent=AGENT_VER; var _lv=document.getElementById('loginVer'); if(_lv) _lv.textContent=AGENT_VER; }catch(e){} }); } catch(e){}
   // ★ 開頁立即移除任何舊 SW（自毀 SW 會 unregister 自己，呢度係雙重保障）
   try {
     if ('serviceWorker' in navigator && navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
@@ -221,12 +221,15 @@ tr:hover td{background:var(--blue50)}
 .sync-btn:hover{background:#16a34a}
 .bottom-nav{display:none}
 .mobile-sync-bar{display:none}
+/* v3.10.48: 版本標籤——桌面版由側欄顯示，呢個 topbar 標籤只喺手機版顯示（側欄隱藏時） */
+.ver-badge{display:none;font-size:11px;font-weight:600;color:var(--blue600);background:var(--blue50);border:1px solid var(--blue100);padding:2px 10px;border-radius:10px;letter-spacing:0.3px;line-height:1.6;white-space:nowrap}
 /* v3.10.23: iPad / Tablet — Safari 地址欄遮住 topbar，適量推開（105px太多改50px） */
 @media (min-width:769px) and (max-width:1200px){
   body{padding-top:50px;height:calc(100vh - 50px)}
 }
 @media(max-width:768px){
   .sidebar{display:none}
+  .ver-badge{display:inline-block}
   .bottom-nav{position:fixed;bottom:0;left:0;right:0;display:flex;justify-content:space-around;align-items:center;background:var(--white);border-top:1px solid var(--gray200);padding:6px 0 8px;padding-bottom:calc(8px + env(safe-area-inset-bottom));z-index:1000}
   .bottom-nav-btn{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:6px 2px;border:none;background:none;color:var(--gray500);font-size:10px;cursor:pointer;transition:all .15s}
   .bottom-nav-btn.active{color:var(--blue600)}
@@ -277,7 +280,7 @@ tr:hover td{background:var(--blue50)}
       </div>
       <hr style="border:none;border-top:1px solid var(--gray200);margin:14px 0">
       <button class="btn btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="padding:10px;font-size:13px;width:100%">🔄 切換到經理版</button>
-      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center">v3.10.11</p>
+      <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center" id="loginVer">v3.10.48</p>
     </div>
     <!-- LOGIN MODE -->
     <div id="loginMode" style="display:none">
@@ -478,7 +481,7 @@ tr:hover td{background:var(--blue50)}
   <div class="sidebar-head">
     <h1>📊 SET理財規劃管家</h1>
     <div class="agent-info" id="sidebarAgentInfo">代理人版</div>
-    <div class="agent-ver" id="sidebarVer">v3.10.47</div>
+    <div class="agent-ver" id="sidebarVer">v3.10.48</div>
   </div>
   <nav class="sidebar-nav" id="sidebarNav">
     <button class="nav-btn" onclick="switchTab('dashboard',this)"><span class="nav-icon">📋</span> 總覽</button>
@@ -513,7 +516,10 @@ tr:hover td{background:var(--blue50)}
 <!-- MAIN -->
 <main class="main">
   <div class="topbar">
-    <h2 id="pageTitle">總覽</h2>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <h2 id="pageTitle">總覽</h2>
+      <span class="ver-badge" id="topbarVer">v3.10.48</span>
+    </div>
     <div class="topbar-right">
       <div class="agent-badge" id="agentBadgeBtn" title="切換代理人">
         <span class="dot"></span> <span id="agentNameDisplay">—</span>
@@ -2570,6 +2576,9 @@ document.addEventListener('DOMContentLoaded',function(){
   localStorage.setItem('app_version', CURRENT_VER);
   // v3.10.11: 動態更新 sidebar 版本 badge
   var sv = document.getElementById('sidebarVer'); if (sv) sv.textContent = CURRENT_VER;
+  // v3.10.48: 手機版 topbar + 登入畫面版本標籤
+  var tv = document.getElementById('topbarVer'); if (tv) tv.textContent = CURRENT_VER;
+  var lv = document.getElementById('loginVer'); if (lv) lv.textContent = CURRENT_VER;
 
   var mgrSel = document.getElementById('managerSelect');
   if (mgrSel) {
