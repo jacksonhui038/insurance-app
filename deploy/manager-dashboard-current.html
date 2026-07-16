@@ -2,7 +2,7 @@
 <html lang="zh-HK">
 <head>
 <script>// v3.9.18: 修正自動更新 — 移除舊版「強制 unregister SW + 清除 caches」(此舉係自動更新元兇)，改為註冊 SW (network-first) + version.json 雲端自檢
-var MGR_VER='v3.9.21',MGR_VER_KEY='mgr_app_version';
+var MGR_VER='v3.9.22',MGR_VER_KEY='mgr_app_version';
 (function(){
   var stored=localStorage.getItem(MGR_VER_KEY)||'';
   if(stored && stored!==MGR_VER && !/v=new/.test(location.search)){
@@ -1302,8 +1302,10 @@ function getTableAgentsForView(){
     if (mgrs.length > 0) return mgrs;
     return Object.keys(TEAM);
   }
-  // v3.9.21: 已下鑽 — 顯示成個 subtree（該經理自己 + 所有下屬），因為 DD 下面仲有多層經理都要見到
+  // v3.9.22: 已下鑽 — 顯示該 DD/經理下面所有**經理層級**成員（Agent 收埋喺各自經理度，唔獨立成行）
   var treeList = getTree(currentRoot);
+  // v3.9.22: 過濾掉 Agent — 佢哋嘅數據已聚合喺上級經理，平列出嚟太亂
+  treeList = treeList.filter(function(n){ return (TEAM[n].role||'Agent') !== 'Agent'; });
   // 排序：root 永遠排最頭，其餘按職級→有下屬排先
   var roleOrder={'SDD':1,'DD':2,'SDM':3,'DM':4,'SASM':5,'ASM':6,'Agent':7};
   treeList.sort(function(a,b){
