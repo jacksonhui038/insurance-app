@@ -1263,6 +1263,12 @@ function getTree(root){
   rec(root, {});
   return result;
 }
+// v3.9.15: 只返回直接下層（唔遞歸）— 用於表格逐層下鑽顯示
+function getDirectChildren(root){
+  if(!root || !TEAM[root]) return Object.keys(TEAM);
+  var map = buildTeamMgrMap();
+  return map[root] || [];
+}
 function hasDownline(name){
   var map = buildTeamMgrMap();
   return (map[name] || []).length > 0;
@@ -1310,15 +1316,17 @@ function drillToRoot(name){
 // RENDER
 // ============================================================
 function render(){
-  var agentNames = getTree(currentRoot);
-  if(agentNames.length===0)return;
+  // v3.9.15: 摘要用 getTree（聚合整個子樹），表格用 getDirectChildren（逐層下鑽）
+  var allTreeAgents = getTree(currentRoot);
+  var tableAgents = getDirectChildren(currentRoot);
+  if(allTreeAgents.length===0)return;
   var rootName = currentRoot || '全團隊';
 
-  // Summary
+  // Summary — 用全部子樹成員聚合
   var totalClients=0, totalPolicies=0, totalComm=0, totalExp=0, totalPC=0, totalGoals=0;
   var now=new Date(),m=now.getMonth(),y=now.getFullYear();
   var monthComm=0, monthPC=0;
-  agentNames.forEach(function(a){
+  allTreeAgents.forEach(function(a){
     var d=TEAM[a];
     totalClients+=d.clients.length;totalPolicies+=d.policies.length;totalGoals+=(d.goals||[]).length;
     d.commissions.forEach(function(c){totalComm+=Number(c.amount)||0;var dt=new Date(c.date);if(dt.getMonth()===m&&dt.getFullYear()===y)monthComm+=Number(c.amount)||0;});
@@ -1326,18 +1334,18 @@ function render(){
     if(d.pcs) d.pcs.forEach(function(pc){totalPC+=Number(pc.amount)||0;var dt=new Date(pc.date);if(dt.getMonth()===m&&dt.getFullYear()===y)monthPC+=Number(pc.amount)||0;});
   });
   document.getElementById('summaryCards').innerHTML=
-    '<div class="stat-card" style="border-left-color:#3b82f6"><div class="label">總人數</div><div class="value">'+agentNames.length+'</div><div class="sub">'+esc(rootName)+' 線內成員</div></div>'+
+    '<div class="stat-card" style="border-left-color:#3b82f6"><div class="label">總人數</div><div class="value">'+allTreeAgents.length+'</div><div class="sub">'+esc(rootName)+' 線內成員</div></div>'+
     '<div class="stat-card" style="border-left-color:#22c55e"><div class="label">本月佣金</div><div class="value">'+money(monthComm)+'</div><div class="sub">'+esc(rootName)+' 線</div></div>'+
     '<div class="stat-card" style="border-left-color:#a855f7"><div class="label">總客戶數</div><div class="value">'+totalClients+'</div><div class="sub">保單總數: '+totalPolicies+'</div></div>'+
     '<div class="stat-card" style="border-left-color:#eab308"><div class="label">累計佣金</div><div class="value">'+money(totalComm)+'</div><div class="sub">開支: '+money(totalExp)+' | PC: '+money(totalPC)+'</div></div>'+
-    '<div class="stat-card" style="border-left-color:#ef4444"><div class="label">人均月佣</div><div class="value">'+money(agentNames.length>0?Math.round(monthComm/agentNames.length):0)+'</div><div class="sub">人均客戶: '+Math.round(totalClients/agentNames.length)+'</div></div>';
+    '<div class="stat-card" style="border-left-color:#ef4444"><div class="label">人均月佣</div><div class="value">'+money(allTreeAgents.length>0?Math.round(monthComm/allTreeAgents.length):0)+'</div><div class="sub">人均客戶: '+Math.round(totalClients/allTreeAgents.length)+'</div></div>';
 
-  // Agent ranking
+  // Agent ranking — v3.9.15: 用直接下層（逐層展開，唔一次顯示全 tree）
   // v3.9.8: 頂層（未下鑽）過濾 — 有經理跟緊嘅純 Agent 唔喺頂層顯示，只可透過 🔽 下鑼直屬經理見到
   var isTopLevel = (rootStack.length === 0);
   var mgrMap = buildTeamMgrMap();
   var ranks=[];
-  agentNames.forEach(function(a){
+  tableAgents.forEach(function(a){
     var d=TEAM[a];
     // 頂層時：有經理 + 冇下屬 + 純 Agent → 隱藏；有職級 title 嘅照顯示
     if (isTopLevel) {
@@ -1371,8 +1379,11 @@ function render(){
     if(hasDownline(r.name)){
       drillIcon=' <span onclick="event.stopPropagation();drillDown(\''+esc(r.name)+'\')" title="下鑽查看 '+esc(r.name)+' 嘅下屬" style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:var(--blue100);color:var(--blue600);font-size:11px;margin-left:4px">🔽</span>';
     }
-    tableHtml+='<tr class="agent-row'+(selectedAgent===r.name?' selected':'')+'" onclick="selectAgent(\''+esc(r.name)+'\',this)"><td>'+(i+1)+'</td><td>'+esc(r.name)+' '+roleBadge+drillIcon+'</td><td>'+r.clients+'</td><td>'+r.policies+'</td><td class="amt-pos">'+money(r.monthComm)+'</td><td>'+money(r.yearComm)+'</td><td>'+money(r.monthPC)+'</td><td><span class="badge '+(r.goalRate>=100?'badge-green':r.goalRate>=70?'badge-blue':'badge-yellow')+'">'+(r.goalRate===0?'未設定':r.goalRate+'%')+'</span></td><td>'+money(r.net)+'</td></tr>';
+    tableHtml+='<tr class="agent-row'+(selectedAgent===r.name?' selected':'')+'" onclick="selectAgent(\''+esc(r.name)+'\',this)"><td>'+(i+1)+'</td><td>'+esc(r.name)+' '+roleBadge+drillIcon+'</td><td>'+r.clients+'</td><td>'+r.policies.length+'</td><td class="amt-pos">'+money(r.monthComm)+'</td><td>'+money(r.yearComm)+'</td><td>'+money(r.monthPC)+'</td><td><span class="badge '+(r.goalRate>=100?'badge-green':r.goalRate>=70?'badge-blue':'badge-yellow')+'">'+(r.goalRate===0?'未設定':r.goalRate+'%')+'</span></td><td>'+money(r.net)+'</td></tr>';
   });
+  if(tableHtml === ''){
+    tableHtml='<tr><td colspan="9" style="text-align:center;padding:24px;color:#6b7280">📭 '+esc(currentRoot||'此人')+' 暫無直屬下屬（可按「返回」上一層）</td></tr>';
+  }
   document.getElementById('agentRankingTable').innerHTML=tableHtml;
 
   // Drill-down breadcrumb
