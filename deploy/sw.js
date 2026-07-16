@@ -1,13 +1,14 @@
-/* SET 保經管家 Service Worker — v3.10.33
- * 策略：
- *  - 導航 / HTML 頁請求：network-first（永遠去網絡攞最新，失敗才用 cache）
+/* SET 保經管家 Service Worker — v3.10.40
+ * 標準「靜態站自動更新」做法（同出面大站）：
+ *  - 導航 / HTML 頁 / version.json：network-first + cache:'no-store'
+ *    → 永遠去網絡攞最新，絕對唔食瀏覽器/CDN 舊 cache，一開頁即最新
  *  - 其他靜態資源：stale-while-revalidate（先用 cache，背景更新）
  *  - install → skipWaiting；activate → clients.claim + 清除舊 cache
- * 效果：一旦註冊，以後每次開頁都自動拿到最新 HTML。
- *       發布新版本時，用戶零通知、零手動刷新，自動生效。
- *       這正是一般網站（如外面大站）做到「靜態站自動更新」的標準做法。
+ *  - ★ 激活時 FORCE navigate 所有已開頁面去全新 URL（?_cv=）：
+ *    就算用戶部機困住舊版（舊頁面冇聽 SW_UPDATED message、自檢又被 ?v= 停用），
+ *    新 SW 激活後都會直接「拉」個頁面去最新版，用戶零動作自動解困。
  */
-const CACHE = 'set-app-v1';
+const CACHE = 'set-app-v3';
 const PRECACHE = [
   'agent-app.html',
   'latest.html',
@@ -34,6 +35,24 @@ self.addEventListener('activate', function (e) {
       }));
     }).then(function () {
       return self.clients.claim();
+    }).then(function () {
+      return self.clients.matchAll({ includeUncontrolled: true, type: 'window' });
+    }).then(function (cls) {
+      var navs = [];
+      cls.forEach(function (c) {
+        // 通知有聽 message 嘅新頁面（雙重保障）
+        try { c.postMessage({ type: 'SW_UPDATED' }); } catch (e2) {}
+        // ★ 強制 navigate：繞過舊頁面嘅 bug，直接拉去最新版
+        try {
+          var u = new URL(c.url);
+          if (u.searchParams.has('_cv')) return; // 已強制過，避免 loop
+          u.searchParams.set('_cv', String(Date.now()));
+          navs.push(c.navigate(u.toString()));
+        } catch (err) {
+          /* 舊瀏覽器唔支援 navigate，靠上面 postMessage + 頁面 self-check */
+        }
+      });
+      return Promise.all(navs);
     })
   );
 });
@@ -44,10 +63,10 @@ self.addEventListener('fetch', function (e) {
   var url = new URL(req.url);
   if (url.origin !== self.location.origin) return; // 只處理同源
 
-  // 導航 或 HTML 頁：network-first（永遠最新）
-  if (req.mode === 'navigate' || url.pathname.endsWith('.html') || url.pathname.endsWith('/')) {
+  // 導航 / HTML 頁 / version.json：network-first + no-store（永遠最新）
+  if (req.mode === 'navigate' || url.pathname.endsWith('.html') || url.pathname.endsWith('/') || url.pathname.endsWith('version.json')) {
     e.respondWith(
-      fetch(req).then(function (res) {
+      fetch(req, { cache: 'no-store' }).then(function (res) {
         var copy = res.clone();
         caches.open(CACHE).then(function (c) { c.put(req, copy); });
         return res;
