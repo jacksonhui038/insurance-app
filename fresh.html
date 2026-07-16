@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>正在清除舊版緩存…</title>
+<style>
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#0f172a;color:#e2e8f0}
+.box{text-align:center;padding:40px;max-width:400px}
+.spinner{width:40px;height:40px;border:4px solid #334155;border-top-color:#2563eb;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 20px}
+@keyframes spin{to{transform:rotate(360deg)}}
+h1{font-size:18px;margin-bottom:10px}
+p{font-size:14px;color:#94a3b8;line-height:1.6}
+.err{color:#f87171;margin-top:12px;font-size:13px}
+</style>
+</head>
+<body>
+<div class="box">
+<div class="spinner"></div>
+<h1>正在清除舊版緩存</h1>
+<p id="msg">請稍候，系統正在自動清理舊的 Service Worker 與緩存數據…</p>
+<div id="err" class="err" style="display:none"></div>
+</div>
+<script>
+/* ===== 核清頁面（Nuclear Cache Clear） ===== *
+ * 用途：一次性清除所有舊 Service Worker + 所有 Caches，
+ *       解決「Ctrl+Shift+R 都無法更新」的死結。
+ * 原理：此檔案使用全新檔名（fresh.html），舊 SW 的 cache 中
+ *       沒有此 URL，所以瀏覽器一定能從網絡載到此頁。
+ *       載入後強制 unregister SW + delete caches，再跳轉主程式。
+ */
+var log = function(s){
+  var el=document.getElementById('msg');
+  if(el) el.textContent=s;
+};
+var fail = function(s){
+  var el=document.getElementById('err');
+  if(el){el.style.display='block';el.textContent='⚠️ '+s;}
+};
+
+var BASE = location.pathname.replace(/\/[^\/]*$/,'');
+
+function done(){
+  log('✅ 清理完成！即將跳轉至最新版本…');
+  setTimeout(function(){
+    location.href = BASE + '/agent-app.html?_fresh=' + Date.now();
+  }, 800);
+}
+
+function step1_unregisterSW(){
+  log('🔧 步驟 1/3：移除舊 Service Worker…');
+  if (!navigator.serviceWorker) { step2_clearCaches(); return; }
+
+  navigator.serviceWorker.getRegistrations()
+    .then(function(regs){
+      if (!regs || regs.length === 0) {
+        log('✅ 沒有找到 Service Worker');
+        step2_clearCaches();
+        return;
+      }
+      var names = regs.map(function(r){ return r.scope; });
+      log('🔧 找到 ' + regs.length + ' 個 Service Worker，正在移除…');
+      return Promise.all(regs.map(function(r){ return r.unregister(); }))
+        .then(function(){
+          log('✅ 已移除 ' + regs.length + ' 個 Service Worker');
+          step2_clearCaches();
+        });
+    })
+    .catch(function(e){
+      fail('移除 SW 失敗：' + e.message);
+      step2_clearCaches();
+    });
+}
+
+function step2_clearCaches(){
+  log('🔧 步驟 2/3：清除瀏覽器緩存…');
+  if (!('caches' in window)) { step3_go(); return; }
+
+  caches.keys().then(function(names){
+    if (!names || names.length === 0) {
+      log('✅ 沒有找到緩存');
+      step3_go();
+      return;
+    }
+    log('🔧 找到 ' + names.length + ' 個緩存，正在清除…');
+    return Promise.all(names.map(function(n){ return caches.delete(n); }))
+      .then(function(){
+        log('✅ 已清除 ' + names.length + ' 個緩存');
+        step3_go();
+      });
+  }).catch(function(e){
+    fail('清除緩存失敗：' + e.message);
+    step3_go();
+  });
+}
+
+function step3_go(){
+  log('🔧 步驟 3/3：跳轉至最新版本…');
+  done();
+}
+
+// 啟動
+step1_unregisterSW();
+
+// 安全掣：如果 15 秒內未完成，強制跳轉
+setTimeout(function(){
+  fail('超時，強制跳轉…');
+  location.href = BASE + '/agent-app.html?_fresh=' + Date.now();
+}, 15000);
+</script>
+</body>
+</html>
