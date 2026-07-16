@@ -2,7 +2,7 @@
 <html lang="zh-HK">
 <head>
 <script>// v3.9.18: 修正自動更新 — 移除舊版「強制 unregister SW + 清除 caches」(此舉係自動更新元兇)，改為註冊 SW (network-first) + version.json 雲端自檢
-var MGR_VER='v3.9.19',MGR_VER_KEY='mgr_app_version';
+var MGR_VER='v3.9.20',MGR_VER_KEY='mgr_app_version';
 (function(){
   var stored=localStorage.getItem(MGR_VER_KEY)||'';
   if(stored && stored!==MGR_VER && !/v=new/.test(location.search)){
@@ -110,6 +110,9 @@ tr:hover td{background:var(--blue50)}
 .agent-row{cursor:pointer;transition:background .15s}
 .agent-row:hover td{background:var(--blue50)!important}
 .agent-row.selected td{background:var(--blue50)!important;font-weight:600}
+/* v3.9.20: 下鑽時高亮「當前視圖經理（DD/SDD/經理自己）」嗰行，令佢嘅存在一目了然 */
+.agent-row.mgr-self td{background:linear-gradient(90deg,#dbeafe,#eff6ff)!important;font-weight:700;box-shadow:inset 3px 0 0 var(--blue600)}
+.agent-row.mgr-self td:first-child{color:var(--blue700)}
 /* DETAIL PANEL */
 .detail-panel{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;margin-bottom:24px}
 .detail-panel h3{font-size:18px;font-weight:700;margin-bottom:6px}
@@ -1409,7 +1412,7 @@ function render(){
     if(hasDownline(r.name) && r.name !== currentRoot){
       drillIcon=' <span onclick="event.stopPropagation();drillDown(\''+esc(r.name)+'\')" title="下鑽查看 '+esc(r.name)+' 嘅下屬" style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:var(--blue100);color:var(--blue600);font-size:11px;margin-left:4px">🔽</span>';
     }
-    tableHtml+='<tr class="agent-row'+(selectedAgent===r.name?' selected':'')+'" onclick="selectAgent(\''+esc(r.name)+'\',this)"><td>'+(i+1)+'</td><td>'+esc(r.name)+' '+roleBadge+drillIcon+'</td><td>'+r.clients+'</td><td>'+r.policies.length+'</td><td class="amt-pos">'+money(r.monthComm)+'</td><td>'+money(r.yearComm)+'</td><td>'+money(r.monthPC)+'</td><td><span class="badge '+(r.goalRate>=100?'badge-green':r.goalRate>=70?'badge-blue':'badge-yellow')+'">'+(r.goalRate===0?'未設定':r.goalRate+'%')+'</span></td><td>'+money(r.net)+'</td></tr>';
+    tableHtml+='<tr class="agent-row'+(selectedAgent===r.name?' selected':'')+(r.name===currentRoot?' mgr-self':'')+'" onclick="selectAgent(\''+esc(r.name)+'\',this)"><td>'+(i+1)+'</td><td>'+esc(r.name)+' '+roleBadge+drillIcon+'</td><td>'+r.clients+'</td><td>'+r.policies.length+'</td><td class="amt-pos">'+money(r.monthComm)+'</td><td>'+money(r.yearComm)+'</td><td>'+money(r.monthPC)+'</td><td><span class="badge '+(r.goalRate>=100?'badge-green':r.goalRate>=70?'badge-blue':'badge-yellow')+'">'+(r.goalRate===0?'未設定':r.goalRate+'%')+'</span></td><td>'+money(r.net)+'</td></tr>';
   });
   if(tableHtml === ''){
     tableHtml='<tr><td colspan="9" style="text-align:center;padding:24px;color:#6b7280">📭 '+esc(currentRoot||'此人')+' 暫無直屬下屬（可按「返回」上一層）</td></tr>';
