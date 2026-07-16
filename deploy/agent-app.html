@@ -9,7 +9,7 @@
 <!-- v3.10.11: 強制解除舊 Service Worker + 自動偵測版本變化重載（多平台同步保證） -->
 <script>
 (function(){
-  var AGENT_VER='v3.10.31',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.32',AGENT_VER_KEY='agent_app_version';
   var stored=localStorage.getItem(AGENT_VER_KEY)||'';
   if(stored && stored!==AGENT_VER && !/v=new/.test(location.search)){
     console.log('[CacheBuster] agent '+stored+'→'+AGENT_VER+'，強制重載');
@@ -29,6 +29,27 @@
     });
   }
 })();
+/* v3.10.32: 雲端版本自檢 — 根治「同事開舊 bookmark 一直跑舊版」：每次開都向 version.json 查最新版，有更新即自動帶 cache-buster 重載 */
+(function(){
+  var AGENT_VER='v3.10.32',AGENT_VER_KEY='agent_app_version';
+  function doReload(){
+    try{ localStorage.setItem(AGENT_VER_KEY, AGENT_VER); location.replace(location.href.split('?')[0] + '?v=' + Date.now()); }
+    catch(e){ location.reload(true); }
+  }
+  if (/[?&]v=/.test(location.search)) return; // 已由 latest.html / 上一次自檢跳轉過嚟，信任本地
+  try {
+    fetch('version.json?t=' + Date.now(), {cache:'no-store'})
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(d){
+        if (d && d.version && d.version !== AGENT_VER) {
+          console.log('[CacheBuster] 雲端版本 '+d.version+' > 本地 '+AGENT_VER+'，自動升級');
+          doReload();
+        }
+      })
+      .catch(function(e){ /* 網絡失敗唔阻擋頁面渲染 */ });
+  } catch(e){}
+})();
+
 /* v3.10.20: 動態偵測 iOS 瀏海/動態島，僅真正有 notch 的設備才啟用 viewport-fit=cover + .has-notch */
 (function(){
   try {
@@ -447,7 +468,7 @@ tr:hover td{background:var(--blue50)}
   <div class="sidebar-head">
     <h1>📊 SET理財規劃管家</h1>
     <div class="agent-info" id="sidebarAgentInfo">代理人版</div>
-    <div class="agent-ver" id="sidebarVer">v3.10.31</div>
+    <div class="agent-ver" id="sidebarVer">v3.10.32</div>
   </div>
   <nav class="sidebar-nav" id="sidebarNav">
     <button class="nav-btn" onclick="switchTab('dashboard',this)"><span class="nav-icon">📋</span> 總覽</button>

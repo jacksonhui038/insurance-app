@@ -92,7 +92,7 @@ h1{font-size:26px;color:#0f172a;margin-bottom:6px;font-weight:700}
 <script>
 var BASE = location.origin + location.pathname.replace(/\/$/, '');
 function cp(type) {
-  var url = type === 'agent' ? BASE + '/agent-app.html' : BASE + '/manager-dashboard.html';
+  var url = type === 'agent' ? BASE + '/latest.html' : BASE + '/manager-dashboard.html';
   navigator.clipboard.writeText(url).then(function() {
     var el = document.getElementById('cb-' + type);
     el.textContent = '✅ 已複製！';
