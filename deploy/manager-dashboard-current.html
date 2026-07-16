@@ -2,7 +2,7 @@
 <html lang="zh-HK">
 <head>
 <script>// v3.9.18: 修正自動更新 — 移除舊版「強制 unregister SW + 清除 caches」(此舉係自動更新元兇)，改為註冊 SW (network-first) + version.json 雲端自檢
-var MGR_VER='v3.9.18',MGR_VER_KEY='mgr_app_version';
+var MGR_VER='v3.9.19',MGR_VER_KEY='mgr_app_version';
 (function(){
   var stored=localStorage.getItem(MGR_VER_KEY)||'';
   if(stored && stored!==MGR_VER && !/v=new/.test(location.search)){
@@ -274,7 +274,7 @@ tr:hover td{background:var(--blue50)}
   <!-- HEADER -->
   <div class="header">
     <div>
-      <h1>📊 團隊總覽 <span id="mgrVerBadge" style="display:inline-block;background:var(--blue500);color:#fff;font-size:11px;font-weight:600;padding:2px 10px;border-radius:8px;margin-left:6px;letter-spacing:0.5px;vertical-align:middle">v3.9.12</span></h1>
+      <h1>📊 團隊總覽 <span id="mgrVerBadge" style="display:inline-block;background:var(--blue500);color:#fff;font-size:11px;font-weight:600;padding:2px 10px;border-radius:8px;margin-left:6px;letter-spacing:0.5px;vertical-align:middle">v3.9.19</span></h1>
       <div class="sub" id="mgrNameDisplay">保險代理人團隊協作系統 · 經理視角</div>
     </div>
     <div class="header-actions">
@@ -1294,15 +1294,18 @@ function getTableAgentsForView(){
     if (mgrs.length > 0) return mgrs;
     return Object.keys(TEAM);
   }
-  // 已下鑽：顯示直屬，經理(有下屬)排先，Agent 排後
+  // v3.9.19: 已下鑽 — 必須包括該經理/DD/SDD 自己（佢地一樣跑數，係團隊跑業績一員），排最頭，再加直屬
   var direct = getDirectChildren(currentRoot).slice();
+  var list = [currentRoot].concat(direct);
   var roleOrder={'SDD':1,'DD':2,'SDM':3,'DM':4,'SASM':5,'ASM':6,'Agent':7};
-  direct.sort(function(a,b){
+  list.sort(function(a,b){
+    if(a===currentRoot) return -1;       // 該經理自己永遠排最前
+    if(b===currentRoot) return 1;
     var am = hasDownline(a)?0:1, bm = hasDownline(b)?0:1;
     if (am !== bm) return am - bm;
     return (roleOrder[TEAM[a].role]||99)-(roleOrder[TEAM[b].role]||99);
   });
-  return direct;
+  return list;
 }
 function hasDownline(name){
   var map = buildTeamMgrMap();
@@ -1351,6 +1354,8 @@ function drillToRoot(name){
 // RENDER
 // ============================================================
 function render(){
+  // v3.9.19: 動態對齊 version badge，避免寫死舊號
+  if(document.getElementById('mgrVerBadge')) document.getElementById('mgrVerBadge').textContent = MGR_VER;
   // v3.9.18: 摘要用 getTree（聚合整個子樹）；表格成員由 getTableAgentsForView() 決定（v3.9.18 頂層顯示全 team 經理）
   var allTreeAgents = getTree(currentRoot);
   var tableAgents = getTableAgentsForView();
@@ -1401,7 +1406,7 @@ function render(){
     var rc=roleColors[r.role]||'#e5e7eb';
     var roleBadge='<span style="background:'+rc+';color:'+(r.role==='Agent'?'#374151':'#fff')+';padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600">'+esc(r.role)+'</span>';
     var drillIcon='';
-    if(hasDownline(r.name)){
+    if(hasDownline(r.name) && r.name !== currentRoot){
       drillIcon=' <span onclick="event.stopPropagation();drillDown(\''+esc(r.name)+'\')" title="下鑽查看 '+esc(r.name)+' 嘅下屬" style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:var(--blue100);color:var(--blue600);font-size:11px;margin-left:4px">🔽</span>';
     }
     tableHtml+='<tr class="agent-row'+(selectedAgent===r.name?' selected':'')+'" onclick="selectAgent(\''+esc(r.name)+'\',this)"><td>'+(i+1)+'</td><td>'+esc(r.name)+' '+roleBadge+drillIcon+'</td><td>'+r.clients+'</td><td>'+r.policies.length+'</td><td class="amt-pos">'+money(r.monthComm)+'</td><td>'+money(r.yearComm)+'</td><td>'+money(r.monthPC)+'</td><td><span class="badge '+(r.goalRate>=100?'badge-green':r.goalRate>=70?'badge-blue':'badge-yellow')+'">'+(r.goalRate===0?'未設定':r.goalRate+'%')+'</span></td><td>'+money(r.net)+'</td></tr>';
