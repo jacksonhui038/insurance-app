@@ -12,7 +12,7 @@
  * 開完一次後可改用 agent-app.html（正常 URL）
  */
 (function(){
-  var AGENT_VER='v3.10.46',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.47',AGENT_VER_KEY='agent_app_version';
   try { localStorage.setItem(AGENT_VER_KEY, AGENT_VER); } catch(e){}
   // v3.10.46: 早期獨立同步側欄版本 badge —— 免受下方 DOMContentLoaded 大函數任何錯誤影響，永不再顯示過期硬編碼版本
   try { document.addEventListener('DOMContentLoaded',function(){ try{ var _sv=document.getElementById('sidebarVer'); if(_sv) _sv.textContent=AGENT_VER; }catch(e){} }); } catch(e){}
@@ -478,7 +478,7 @@ tr:hover td{background:var(--blue50)}
   <div class="sidebar-head">
     <h1>📊 SET理財規劃管家</h1>
     <div class="agent-info" id="sidebarAgentInfo">代理人版</div>
-    <div class="agent-ver" id="sidebarVer">v3.10.46</div>
+    <div class="agent-ver" id="sidebarVer">v3.10.47</div>
   </div>
   <nav class="sidebar-nav" id="sidebarNav">
     <button class="nav-btn" onclick="switchTab('dashboard',this)"><span class="nav-icon">📋</span> 總覽</button>
@@ -1233,9 +1233,9 @@ function loadFromSupabase(callback, retry) {
       if (callback) callback(true);
       else { toast('☁️ 已從 Supabase 合併數據'); renderDashboard(); renderCurrentTab(); }
     } else {
-      // v3.9.4: 第一次失敗自動重試一次（應對瞬間網絡抖動）
+      // v3.10.47: 雲端無記錄（新用戶）視為正常，避免彈紅色錯誤 toast；重試一次後仍空則視為已載入
       if (!retry) { setTimeout(function(){ loadFromSupabase(callback, true); }, 2000); }
-      else { if (callback) callback(false); }
+      else { _cloudLoadedThisSession = true; if (callback) callback(true); }
     }
   })
   .catch(function(e){ clearTimeout(timeoutId); console.error('[loadFromSupabase]',e);
@@ -1693,9 +1693,11 @@ function saveName() {
       document.getElementById('agentNameDisplay').textContent = n;
       document.getElementById('sidebarAgentInfo').textContent = n+' | '+role+(supervisor?' | 經理：'+supervisor:'');
       loadDB(); loadSample(); renderDashboard();
-      afterLoginSync();
-      // Register to cloud with pinHash + role + hierarchyPath
-      registerToCloudWithPin(n, supervisor, team, hashPin(pin), role, hPath);
+      // v3.10.47: 先寫入雲端，成功後先同步。避免新用戶雲端未建立記錄就下載，導致「無法從雲端下載資料」紅色錯誤。
+      registerToCloudWithPin(n, supervisor, team, hashPin(pin), role, hPath, function(ok){
+        if (ok) afterLoginSync();
+        else toast('⚠️ 雲端註冊未完成，請檢查網絡後手動同步', 'error');
+      });
       btn.textContent = '註冊'; btn.disabled = false;
     });
   });
@@ -1749,7 +1751,7 @@ function checkAgentExists(name, callback) {
 }
 
 
-function registerToCloudWithPin(name, manager, team, pinH, role, hPath) {
+function registerToCloudWithPin(name, manager, team, pinH, role, hPath, callback) {
   if (SUPA_URL && SUPA_KEY) {
     var dwp = Object.assign({}, DB, {_pinHash: pinH, role: role||'Agent', hierarchyPath: hPath||name, supervisor: manager||''});
     var controller = new AbortController();
@@ -1770,10 +1772,12 @@ function registerToCloudWithPin(name, manager, team, pinH, role, hPath) {
       if (res.ok) {
         console.log('[supa-reg] ✅ 註冊成功保存到 Supabase', name);
         toast('✅ 帳戶已同步到雲端', 'success');
+        if (callback) callback(true);
       } else {
         res.text().then(function(t){
           console.error('[supa-reg] ❌ HTTP', res.status, t.substring(0,300));
           toast('⚠️ 雲端同步失敗（' + res.status + '），請檢查網絡後手動同步', 'error');
+          if (callback) callback(false);
         });
       }
     })
@@ -1785,7 +1789,10 @@ function registerToCloudWithPin(name, manager, team, pinH, role, hPath) {
       } else {
         toast('⚠️ 雲端同步失敗：' + e.message + '，請稍後手動同步', 'error');
       }
+      if (callback) callback(false);
     });
+  } else {
+    if (callback) callback(false);
   }
 }
 
