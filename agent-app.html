@@ -14,13 +14,13 @@
  * 3) SW 更新時 sendMessage → 頁面自動 reload，用戶零點擊、零手動刷新
  */
 (function(){
-  var AGENT_VER='v3.10.39',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.40',AGENT_VER_KEY='agent_app_version';
   try { localStorage.setItem(AGENT_VER_KEY, AGENT_VER); } catch(e){}
   function reloadCnt(){ try { return parseInt(sessionStorage.getItem('agent_reload_cnt')||'0',10)||0; } catch(e){ return 0; } }
   function doReload(){
     if (reloadCnt() >= 3) return; // 安全掣：CDN 仲未更新時避免死 loop
     try { sessionStorage.setItem('agent_reload_cnt', String(reloadCnt()+1)); } catch(e){}
-    try { localStorage.setItem(AGENT_VER_KEY, AGENT_VER); location.replace(location.href.split('?')[0] + '?v=' + Date.now()); }
+    try { localStorage.setItem(AGENT_VER_KEY, AGENT_VER); var _b = location.href.split('?')[0]; location.replace(_b + '?_cv=' + Date.now() + (location.hash||'')); }
     catch(e){ location.reload(true); }
   }
   // 雲端自檢永遠跑（唔會因為 URL 有 ?v= 就停用）
@@ -44,9 +44,22 @@
     });
     // SW 更新完成 → 自動 reload 頁面（零手動刷新）
     navigator.serviceWorker.addEventListener('message', function(ev){
-      if (ev.data && ev.data.type === 'SW_UPDATED') { location.reload(); }
+      if (ev.data && ev.data.type === 'SW_UPDATED') { location.reload(true); }
     });
   }
+  // 每 60 秒定時複檢（防初始網絡抖動跳過，確保一定會升到最新）
+  setInterval(function(){
+    try {
+      fetch('version.json?t=' + Date.now(), {cache:'no-store'})
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(d){
+          if (d && d.version && d.version !== AGENT_VER) {
+            console.log('[AutoUpdate] 定時檢查發現新版本 '+d.version+'，自動升級');
+            doReload();
+          }
+        }).catch(function(){});
+    } catch(e){}
+  }, 60000);
 })();
 
 /* v3.10.20: 動態偵測 iOS 瀏海/動態島，僅真正有 notch 的設備才啟用 viewport-fit=cover + .has-notch */
