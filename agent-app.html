@@ -6,44 +6,47 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<!-- v3.10.35: 版本 cache-buster（保留）+ 重新註冊 Service Worker 根治「自動更新」（移除舊版強制 unregister SW 的阻礙） -->
+<!-- v3.10.38: 根治「自動更新」— 標準做法：開頁永遠最新版 -->
 <script>
+/* v3.10.38: 自動更新三重保障（同出面大站做法）
+ * 1) 雲端版本自檢：永遠跑，有新版就 reload（移除舊版 ?v= 永久停用嘅 bug；加安全掣防死 loop）
+ * 2) Service Worker（network-first + no-store）：每次導航去網絡攞最新 HTML，絕對唔食舊 cache
+ * 3) SW 更新時 sendMessage → 頁面自動 reload，用戶零點擊、零手動刷新
+ */
 (function(){
-  var AGENT_VER='v3.10.37',AGENT_VER_KEY='agent_app_version';
-  var stored=localStorage.getItem(AGENT_VER_KEY)||'';
-  if(stored && stored!==AGENT_VER && !/v=new/.test(location.search)){
-    console.log('[CacheBuster] agent '+stored+'→'+AGENT_VER+'，強制重載');
-    localStorage.setItem(AGENT_VER_KEY,AGENT_VER);
-    location.replace(location.href.split('?')[0]+'?v='+Date.now());
-    return;
-  }
-  localStorage.setItem(AGENT_VER_KEY,AGENT_VER);
-  /* v3.10.35: 註冊 Service Worker（network-first）—— 以後每次開頁都自動攞最新版，發布新版本零通知自動生效 */
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', function(){
-      navigator.serviceWorker.register('sw.js').catch(function(e){ console.warn('[SW] register failed', e); });
-    });
-  }
-})();
-/* v3.10.32: 雲端版本自檢 — 根治「同事開舊 bookmark 一直跑舊版」：每次開都向 version.json 查最新版，有更新即自動帶 cache-buster 重載 */
-(function(){
-  var AGENT_VER='v3.10.37',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.38',AGENT_VER_KEY='agent_app_version';
+  try { localStorage.setItem(AGENT_VER_KEY, AGENT_VER); } catch(e){}
+  function reloadCnt(){ try { return parseInt(sessionStorage.getItem('agent_reload_cnt')||'0',10)||0; } catch(e){ return 0; } }
   function doReload(){
-    try{ localStorage.setItem(AGENT_VER_KEY, AGENT_VER); location.replace(location.href.split('?')[0] + '?v=' + Date.now()); }
+    if (reloadCnt() >= 3) return; // 安全掣：CDN 仲未更新時避免死 loop
+    try { sessionStorage.setItem('agent_reload_cnt', String(reloadCnt()+1)); } catch(e){}
+    try { localStorage.setItem(AGENT_VER_KEY, AGENT_VER); location.replace(location.href.split('?')[0] + '?v=' + Date.now()); }
     catch(e){ location.reload(true); }
   }
-  if (/[?&]v=/.test(location.search)) return; // 已由 latest.html / 上一次自檢跳轉過嚟，信任本地
+  // 雲端自檢永遠跑（唔會因為 URL 有 ?v= 就停用）
   try {
     fetch('version.json?t=' + Date.now(), {cache:'no-store'})
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(d){
         if (d && d.version && d.version !== AGENT_VER) {
-          console.log('[CacheBuster] 雲端版本 '+d.version+' > 本地 '+AGENT_VER+'，自動升級');
+          console.log('[AutoUpdate] 雲端版本 '+d.version+' > 本地 '+AGENT_VER+'，自動升級');
           doReload();
+        } else {
+          try { sessionStorage.removeItem('agent_reload_cnt'); } catch(e){} // 版本一致，重置計數
         }
       })
-      .catch(function(e){ /* 網絡失敗唔阻擋頁面渲染 */ });
+      .catch(function(e){ /* 網絡失敗唔阻擋 */ });
   } catch(e){}
+  // 註冊 SW（network-first + no-store）→ 開頁永遠最新
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function(){
+      navigator.serviceWorker.register('sw.js').catch(function(e){ console.warn('[SW] register failed', e); });
+    });
+    // SW 更新完成 → 自動 reload 頁面（零手動刷新）
+    navigator.serviceWorker.addEventListener('message', function(ev){
+      if (ev.data && ev.data.type === 'SW_UPDATED') { location.reload(); }
+    });
+  }
 })();
 
 /* v3.10.20: 動態偵測 iOS 瀏海/動態島，僅真正有 notch 的設備才啟用 viewport-fit=cover + .has-notch */
