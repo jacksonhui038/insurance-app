@@ -2,9 +2,11 @@
 <html lang="zh-HK">
 <head>
 <script>// v3.9.29: 移除 Service Worker（回復正常靜態站行為）+ 雲端自檢自動更新
-var MGR_VER='v3.9.31',MGR_VER_KEY='mgr_app_version';
+var MGR_VER='v3.9.32',MGR_VER_KEY='mgr_app_version';
 (function(){
   try { localStorage.setItem(MGR_VER_KEY, MGR_VER); } catch(e){}
+  // v3.9.32: 早期獨立同步版本 badge（免受 render() 未跑/大函數錯誤影響，手機/桌面登入前都顯示正確版本）
+  try { document.addEventListener('DOMContentLoaded',function(){ try{ var _mv=document.getElementById('mgrVerBadge'); if(_mv) _mv.textContent=MGR_VER; }catch(e){} }); } catch(e){}
   // ★ 開頁立即移除任何舊 SW（自毀 SW 會 unregister 自己，呢度係雙重保障）
   try {
     if ('serviceWorker' in navigator && navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
@@ -287,7 +289,7 @@ tr:hover td{background:var(--blue50)}
   <!-- HEADER -->
   <div class="header">
     <div>
-      <h1>📊 團隊總覽 <span id="mgrVerBadge" style="display:inline-block;background:var(--blue500);color:#fff;font-size:11px;font-weight:600;padding:2px 10px;border-radius:8px;margin-left:6px;letter-spacing:0.5px;vertical-align:middle">v3.9.19</span></h1>
+      <h1>📊 團隊總覽 <span id="mgrVerBadge" style="display:inline-block;background:var(--blue500);color:#fff;font-size:11px;font-weight:600;padding:2px 10px;border-radius:8px;margin-left:6px;letter-spacing:0.5px;vertical-align:middle">v3.9.32</span></h1>
       <div class="sub" id="mgrNameDisplay">保險代理人團隊協作系統 · 經理視角</div>
     </div>
     <div class="header-actions">
