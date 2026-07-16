@@ -2,7 +2,7 @@
 <html lang="zh-HK">
 <head>
 <script>// v3.9.29: 移除 Service Worker（回復正常靜態站行為）+ 雲端自檢自動更新
-var MGR_VER='v3.9.32',MGR_VER_KEY='mgr_app_version';
+var MGR_VER='v3.9.33',MGR_VER_KEY='mgr_app_version';
 (function(){
   try { localStorage.setItem(MGR_VER_KEY, MGR_VER); } catch(e){}
   // v3.9.32: 早期獨立同步版本 badge（免受 render() 未跑/大函數錯誤影響，手機/桌面登入前都顯示正確版本）
@@ -289,7 +289,7 @@ tr:hover td{background:var(--blue50)}
   <!-- HEADER -->
   <div class="header">
     <div>
-      <h1>📊 團隊總覽 <span id="mgrVerBadge" style="display:inline-block;background:var(--blue500);color:#fff;font-size:11px;font-weight:600;padding:2px 10px;border-radius:8px;margin-left:6px;letter-spacing:0.5px;vertical-align:middle">v3.9.32</span></h1>
+      <h1>📊 團隊總覽 <span id="mgrVerBadge" style="display:inline-block;background:var(--blue500);color:#fff;font-size:11px;font-weight:600;padding:2px 10px;border-radius:8px;margin-left:6px;letter-spacing:0.5px;vertical-align:middle">v3.9.33</span></h1>
       <div class="sub" id="mgrNameDisplay">保險代理人團隊協作系統 · 經理視角</div>
     </div>
     <div class="header-actions">
@@ -578,13 +578,14 @@ var mgrName = '';
 function initLock(){
   var name = localStorage.getItem(MGR_KEY);
   var pin = localStorage.getItem(MGR_PIN_KEY);
+  var role = localStorage.getItem('mgr_role') || '';
   // Hide all
   ['lockChoice','lockLogin','lockSetup','lockUnlock'].forEach(function(id) {
     var el = document.getElementById(id); if (el) el.style.display = 'none';
   });
   if(name && pin){
     document.getElementById('lockUnlock').style.display='block';
-    document.getElementById('lockMgrName').textContent=name;
+    document.getElementById('lockMgrName').textContent=name + (role ? ' ('+role+')' : '');
     document.getElementById('mgrPinUnlock').focus();
   } else {
     document.getElementById('lockChoice').style.display='block';
@@ -635,6 +636,8 @@ function doMgrLogin() {
   localStorage.setItem('mgr_role', role);
   mgrUnlocked = true;
   mgrRole = role;
+  // v3.9.33: 切換登入者後重置下鑽狀態，避免顯示上一個用戶/舊 root
+  currentRoot = name; rootStack = []; saveDrillState();
   document.getElementById('lockBg').classList.add('hide');
   var hdr = document.getElementById('mgrNameDisplay');
   if (hdr) hdr.textContent = role + '：' + name;
@@ -681,6 +684,8 @@ function unlockOK(){
   mgrUnlocked = true;
   mgrName = localStorage.getItem(MGR_KEY) || '';
   mgrRole = localStorage.getItem('mgr_role') || '';
+  // v3.9.33: 解鎖後若 sessionStorage 有舊下鑽 root，而家會同登入者一致，先強制重置
+  currentRoot = mgrName; rootStack = []; saveDrillState();
   document.getElementById('lockBg').classList.add('hide');
   var hdr = document.getElementById('mgrNameDisplay');
   if(hdr && mgrName) hdr.textContent = (mgrRole?mgrRole+'：':'經理：') + mgrName;
@@ -720,6 +725,8 @@ function mgrChangeName(){
   errEl.textContent = '';
   if(!newName){ errEl.textContent = '請輸入新姓名'; return; }
   localStorage.setItem(MGR_KEY, newName);
+  // v3.9.33: 改名後重置下鑽狀態，避免舊 root 指向不存在/不屬於自己的用戶
+  currentRoot = newName; rootStack = []; saveDrillState();
   var hdr = document.getElementById('mgrNameDisplay');
   if(hdr) hdr.textContent = newName ? '經理：' + newName : '保險代理人團隊協作系統 · 經理視角';
   toast('✅ 姓名已更新為「' + newName + '」');
