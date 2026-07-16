@@ -2,11 +2,12 @@
 <html lang="zh-HK">
 <head>
 <script>// v3.9.18: 修正自動更新 — 移除舊版「強制 unregister SW + 清除 caches」(此舉係自動更新元兇)，改為註冊 SW (network-first) + version.json 雲端自檢
-var MGR_VER='v3.9.20',MGR_VER_KEY='mgr_app_version';
+var MGR_VER='v3.9.21',MGR_VER_KEY='mgr_app_version';
 (function(){
   var stored=localStorage.getItem(MGR_VER_KEY)||'';
   if(stored && stored!==MGR_VER && !/v=new/.test(location.search)){
     console.log('[CacheBuster] mgr '+stored+'→'+MGR_VER+'，強制重載');
+    try{ if(typeof saveDrillState==='function')saveDrillState(); }catch(e){}
     localStorage.setItem(MGR_VER_KEY,MGR_VER);
     location.replace(location.href.split('?')[0]+'?v='+Date.now());
     return;
@@ -21,7 +22,7 @@ var MGR_VER='v3.9.20',MGR_VER_KEY='mgr_app_version';
 /* v3.9.18: 雲端版本自檢 — 根治「同事開舊 bookmark 一直跑舊版」 */
 (function(){
   function doReload(){
-    try{ localStorage.setItem(MGR_VER_KEY, MGR_VER); location.replace(location.href.split('?')[0] + '?v=' + Date.now()); }
+    try{ /* v3.9.21: reload 前保存下鑽狀態 */ if(typeof saveDrillState==='function')saveDrillState(); localStorage.setItem(MGR_VER_KEY, MGR_VER); location.replace(location.href.split('?')[0] + '?v=' + Date.now()); }
     catch(e){ location.reload(true); }
   }
   if (/[?&]v=/.test(location.search)) return;
@@ -745,6 +746,10 @@ var detailTab = 'clients';
 var currentRoot = null; // v3.9.3: 下鑽視圖根節點
 var rootStack = [];     // v3.9.3: 下鑽路徑 stack
 
+// v3.9.21: 下鑽狀態持久化 — 版本自檯 reload 時保存/恢復，避免鑽入 DD 後被踢返首頁
+function saveDrillState(){ try{ sessionStorage.setItem('mgr_drill_root', currentRoot||''); sessionStorage.setItem('mgr_drill_stack', JSON.stringify(rootStack)); }catch(e){} }
+function restoreDrillState(){ try{ var r=sessionStorage.getItem('mgr_drill_root'); var s=sessionStorage.getItem('mgr_drill_stack'); if(r){ currentRoot=r; rootStack=s?JSON.parse(s):[]; return true; } }catch(e){} return false; }
+
 // ===== 雲端同步設定（Supabase 為主，Google Sheets 選填）=====
 var MGR_API_URL = '';
 var MGR_SUPA_URL = 'https://wwnyfwqaqdhddcxvgelu.supabase.co';
@@ -875,9 +880,8 @@ function mgrLoadFromSupabase() {
         }
         visibleCount++;
       });
-      // v3.9.3: 初始化下鑽根節點為登入者自己
-      currentRoot = myName;
-      rootStack = [];
+      // v3.9.21: 恢復下鑽狀態（版本 reload 後唔會再踢返首頁）；無保存過就用登入者自己
+      if(!restoreDrillState()){ currentRoot = myName; rootStack = []; }
       render();
       document.getElementById("noDataMsg").style.display = "none";
       document.getElementById("dataView").style.display = "block";
@@ -1228,6 +1232,7 @@ function importMulti(evt){
 function clearAll(){
   if(!confirm('確定清除所有團隊數據？'))return;
   TEAM={};selectedAgent=null;currentRoot=null;rootStack=[];
+  try{ sessionStorage.removeItem('mgr_drill_root'); sessionStorage.removeItem('mgr_drill_stack'); }catch(e){}
   document.getElementById('noDataMsg').style.display='block';
   document.getElementById('dataView').style.display='none';
   document.getElementById('detailPanel').style.display='none';
@@ -1297,18 +1302,18 @@ function getTableAgentsForView(){
     if (mgrs.length > 0) return mgrs;
     return Object.keys(TEAM);
   }
-  // v3.9.19: 已下鑽 — 必須包括該經理/DD/SDD 自己（佢地一樣跑數，係團隊跑業績一員），排最頭，再加直屬
-  var direct = getDirectChildren(currentRoot).slice();
-  var list = [currentRoot].concat(direct);
+  // v3.9.21: 已下鑽 — 顯示成個 subtree（該經理自己 + 所有下屬），因為 DD 下面仲有多層經理都要見到
+  var treeList = getTree(currentRoot);
+  // 排序：root 永遠排最頭，其餘按職級→有下屬排先
   var roleOrder={'SDD':1,'DD':2,'SDM':3,'DM':4,'SASM':5,'ASM':6,'Agent':7};
-  list.sort(function(a,b){
-    if(a===currentRoot) return -1;       // 該經理自己永遠排最前
+  treeList.sort(function(a,b){
+    if(a===currentRoot) return -1;
     if(b===currentRoot) return 1;
     var am = hasDownline(a)?0:1, bm = hasDownline(b)?0:1;
     if (am !== bm) return am - bm;
     return (roleOrder[TEAM[a].role]||99)-(roleOrder[TEAM[b].role]||99);
   });
-  return list;
+  return treeList;
 }
 function hasDownline(name){
   var map = buildTeamMgrMap();
@@ -1320,6 +1325,7 @@ function drillDown(name){
   currentRoot = name;
   selectedAgent = null;
   document.getElementById('detailPanel').style.display='none';
+  saveDrillState();
   render();
 }
 function drillUp(){
@@ -1327,6 +1333,7 @@ function drillUp(){
   currentRoot = rootStack.pop();
   selectedAgent = null;
   document.getElementById('detailPanel').style.display='none';
+  saveDrillState();
   render();
 }
 function drillReset(){
@@ -1336,6 +1343,7 @@ function drillReset(){
   rootStack = [];
   selectedAgent = null;
   document.getElementById('detailPanel').style.display='none';
+  saveDrillState();
   render();
 }
 function drillToRoot(name){
@@ -1350,6 +1358,7 @@ function drillToRoot(name){
   currentRoot = name;
   selectedAgent = null;
   document.getElementById('detailPanel').style.display='none';
+  saveDrillState();
   render();
 }
 
