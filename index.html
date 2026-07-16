@@ -51,12 +51,14 @@ h1{font-size:26px;color:#0f172a;margin-bottom:6px;font-weight:700}
 }
 </style>
 <script>
-/* v3.10.33: 首頁也註冊 Service Worker，確保從首頁進入的同事一樣自動保持最新版 */
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', function(){
-    navigator.serviceWorker.register('sw.js').catch(function(e){ console.warn('[SW] register failed', e); });
-  });
-}
+/* v3.10.41: 移除 Service Worker — 開頁立即註銷任何舊 SW，回復正常靜態站行為 */
+(function(){
+  if ('serviceWorker' in navigator && navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+    navigator.serviceWorker.getRegistrations().then(function(regs){
+      regs.forEach(function(r){ try { r.unregister(); } catch(e){} });
+    }).catch(function(){});
+  }
+})();
 </script>
 </head>
 <body>
