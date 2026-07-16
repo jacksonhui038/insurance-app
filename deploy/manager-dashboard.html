@@ -2,7 +2,7 @@
 <html lang="zh-HK">
 <head>
 <script>// v3.9.18: 修正自動更新 — 移除舊版「強制 unregister SW + 清除 caches」(此舉係自動更新元兇)，改為註冊 SW (network-first) + version.json 雲端自檢
-var MGR_VER='v3.9.23',MGR_VER_KEY='mgr_app_version';
+var MGR_VER='v3.9.24',MGR_VER_KEY='mgr_app_version';
 (function(){
   var stored=localStorage.getItem(MGR_VER_KEY)||'';
   if(stored && stored!==MGR_VER && !/v=new/.test(location.search)){
@@ -1298,7 +1298,21 @@ function getTopLevelManagers(){
 function getTableAgentsForView(){
   // v3.9.23: 返回 {name, depth} 物件陣列（depth = 由 currentRoot 計起嘅層級，用於縮排）
   if (rootStack.length === 0) {
-    // 頂層：顯示全 team 經理；如果完全無經理（異常），fallback 顯示所有成員
+    // v3.9.24: 頂層（登入者自己）— 如果登入者係 manager（有下屬 / 職級高於 Agent），
+    // 直接顯示成個 subtree（自己 + 所有下屬，包括 Agent），令 sub-manager 一登入就見到自己嘅 Agent 下屬。
+    // 修復：之前頂層只 call getTopLevelManagers()（只顯經理層級），而且 currentRoot 嗰行冇 🔽 唔能 drill 入自己，
+    // 導致 HUI YUEN SHU 登入後 CHAN MEI KING 喺 TEAM 入面但永遠見唔到。
+    if (currentRoot && TEAM[currentRoot] && (hasDownline(currentRoot) || (TEAM[currentRoot].role||'Agent') !== 'Agent')) {
+      var rootTree = getTree(currentRoot);
+      var rootResult = rootTree.map(function(n){ return {name:n, depth:getDepth(n, currentRoot)}; });
+      rootResult.sort(function(a,b){
+        if(a.name===currentRoot) return -1;
+        if(b.name===currentRoot) return 1;
+        return 0; // 保留 tree DFS 順序
+      });
+      return rootResult;
+    }
+    // 純 Agent 登入 或 異常：fallback 顯示所有成員
     var mgrs = getTopLevelManagers();
     var list = mgrs.length > 0 ? mgrs : Object.keys(TEAM);
     return list.map(function(n){ return {name:n, depth:0}; });
