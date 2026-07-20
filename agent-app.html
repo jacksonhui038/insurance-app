@@ -12,7 +12,7 @@
  * 開完一次後可改用 agent-app.html（正常 URL）
  */
 (function(){
-  var AGENT_VER='v3.10.49',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.50',AGENT_VER_KEY='agent_app_version';
   try { localStorage.setItem(AGENT_VER_KEY, AGENT_VER); } catch(e){}
   // v3.10.46: 早期獨立同步側欄版本 badge —— 免受下方 DOMContentLoaded 大函數任何錯誤影響，永不再顯示過期硬編碼版本
   try { document.addEventListener('DOMContentLoaded',function(){ try{ var _sv=document.getElementById('sidebarVer'); if(_sv) _sv.textContent=AGENT_VER; var _tv=document.getElementById('topbarVer'); if(_tv) _tv.textContent=AGENT_VER; var _lv=document.getElementById('loginVer'); if(_lv) _lv.textContent=AGENT_VER; }catch(e){} }); } catch(e){}
@@ -481,7 +481,7 @@ tr:hover td{background:var(--blue50)}
   <div class="sidebar-head">
     <h1>📊 SET理財規劃管家</h1>
     <div class="agent-info" id="sidebarAgentInfo">代理人版</div>
-    <div class="agent-ver" id="sidebarVer">v3.10.49</div>
+    <div class="agent-ver" id="sidebarVer">v3.10.50</div>
   </div>
   <nav class="sidebar-nav" id="sidebarNav">
     <button class="nav-btn" onclick="switchTab('dashboard',this)"><span class="nav-icon">📋</span> 總覽</button>
@@ -2766,6 +2766,11 @@ function findDashGoal() {
       if (dashGoalPeriod === 'custom' && isGoalActive(g)) return g; // 今天在自訂日期範圍內 → 活躍目標
     }
   }
+  // v3.10.50: 選定期內搵唔到目標時，自動 fallback 到「進行中嘅自訂目標」，
+  // 避免自訂目標一開始（今日）喺總覽 doughnut 變咗「未設定目標」而好似消失
+  for (var j = 0; j < DB.goals.length; j++) {
+    if (DB.goals[j].period === 'custom' && isGoalActive(DB.goals[j])) return DB.goals[j];
+  }
   return null;
 }
 function calcGoalProgress(g) {
@@ -2773,7 +2778,7 @@ function calcGoalProgress(g) {
   var now = new Date(), m = now.getMonth(), y = now.getFullYear(), q = Math.ceil((m + 1) / 3);
   var isPc = (g.type || 'commission') === 'PC';
   // 範圍過濾
-  var inRange = function(d) { var dt = new Date(d); if (g.period === 'custom') { var s = new Date(g.startDate || 0), e = new Date(g.endDate || 0); return dt >= s && dt <= e; } if (g.period === 'monthly') return dt.getMonth() === m && dt.getFullYear() === y; if (g.period === 'quarterly') { var mq = Math.ceil((dt.getMonth() + 1) / 3); return dt.getFullYear() === y && mq === Number(g.quarter); } if (g.period === 'yearly') return dt.getFullYear() === y; return true; };
+  var inRange = function(d) { var dt = new Date(d); if (g.period === 'custom') { var s = parseYMD(g.startDate) || new Date(0), e = parseYMD(g.endDate) || new Date(0); return dt >= s && dt <= e; } if (g.period === 'monthly') return dt.getMonth() === m && dt.getFullYear() === y; if (g.period === 'quarterly') { var mq = Math.ceil((dt.getMonth() + 1) / 3); return dt.getFullYear() === y && mq === Number(g.quarter); } if (g.period === 'yearly') return dt.getFullYear() === y; return true; };
   var actual = 0;
   if (isPc) { DB.pcs.forEach(function(pc){ if (inRange(pc.date)) { var subType = g.pcSubType || ''; if (!subType || pc.type === subType) actual += Number(pc.amount) || 0; } }); }
   else { DB.commissions.forEach(function(c){ if (inRange(c.date)) actual += Number(c.amount) || 0; }); }
