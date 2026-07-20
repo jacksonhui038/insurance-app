@@ -12,7 +12,7 @@
  * 開完一次後可改用 agent-app.html（正常 URL）
  */
 (function(){
-  var AGENT_VER='v3.10.54',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.55',AGENT_VER_KEY='agent_app_version';
   try { localStorage.setItem(AGENT_VER_KEY, AGENT_VER); } catch(e){}
   // v3.10.46: 早期獨立同步側欄版本 badge —— 免受下方 DOMContentLoaded 大函數任何錯誤影響，永不再顯示過期硬編碼版本
   try { document.addEventListener('DOMContentLoaded',function(){ try{ var _sv=document.getElementById('sidebarVer'); if(_sv) _sv.textContent=AGENT_VER; var _tv=document.getElementById('topbarVer'); if(_tv) _tv.textContent=AGENT_VER; var _lv=document.getElementById('loginVer'); if(_lv) _lv.textContent=AGENT_VER; }catch(e){} }); } catch(e){}
@@ -305,8 +305,8 @@ tr:hover td{background:var(--blue50)}
       <h3 style="margin-top:0">👋 歡迎使用 SET理財規劃管家</h3>
       <p style="color:var(--gray500);margin-bottom:16px">請選擇</p>
       <div style="display:flex;flex-direction:column;gap:10px">
-        <button class="btn btn-primary" onclick="showLoginMode()" style="padding:14px;font-size:15px">🔐 登入已有帳戶</button>
-        <button class="btn btn-outline" onclick="showRegisterMode()" style="padding:14px;font-size:15px">📝 註冊新帳戶</button>
+        <button class="btn btn-primary" onclick="showLoginMode()" id="choiceLoginBtn" style="padding:14px;font-size:15px">🔐 登入已有帳戶</button>
+        <button class="btn btn-outline" onclick="showRegisterMode()" id="choiceRegisterBtn" style="padding:14px;font-size:15px">📝 註冊新帳戶</button>
       </div>
       <hr style="border:none;border-top:1px solid var(--gray200);margin:14px 0">
       <button class="btn btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="padding:10px;font-size:13px;width:100%">🔄 切換到經理版</button>
@@ -511,7 +511,7 @@ tr:hover td{background:var(--blue50)}
   <div class="sidebar-head">
     <h1>📊 SET理財規劃管家</h1>
     <div class="agent-info" id="sidebarAgentInfo">代理人版</div>
-    <div class="agent-ver" id="sidebarVer">v3.10.54</div>
+    <div class="agent-ver" id="sidebarVer">v3.10.55</div>
   </div>
   <nav class="sidebar-nav" id="sidebarNav">
     <button class="nav-btn" onclick="switchTab('dashboard',this)"><span class="nav-icon">📋</span> 總覽</button>
@@ -1375,24 +1375,35 @@ function showChoiceMode() {
   document.getElementById('choiceMode').style.display = 'block';
 }
 
+// v3.10.55: 加 try/catch + console log，方便診斷「按掣冇反應」
 function showLoginMode() {
-  ['choiceMode','loginMode','registerMode','unlockMode','switchMode'].forEach(function(id) {
-    var el = document.getElementById(id); if (el) el.style.display = 'none';
-  });
-  document.getElementById('loginMode').style.display = 'block';
-  document.getElementById('loginName').value = '';
-  document.getElementById('loginPin').value = '';
-  var errEl = document.getElementById('loginErr'); if (errEl) errEl.style.display = 'none';
-  document.getElementById('loginName').focus();
+  try {
+    console.log('[showLoginMode] called');
+    ['choiceMode','loginMode','registerMode','unlockMode','switchMode'].forEach(function(id) {
+      var el = document.getElementById(id); if (el) el.style.display = 'none';
+    });
+    var loginMode = document.getElementById('loginMode');
+    if (!loginMode) { console.error('[showLoginMode] loginMode element not found'); return; }
+    loginMode.style.display = 'block';
+    var ln = document.getElementById('loginName'); if (ln) ln.value = '';
+    var lp = document.getElementById('loginPin'); if (lp) lp.value = '';
+    var errEl = document.getElementById('loginErr'); if (errEl) errEl.style.display = 'none';
+    if (ln) { setTimeout(function(){ try { ln.focus(); } catch(e){} }, 50); }
+  } catch(e) { console.error('[showLoginMode] error:', e); alert('登入畫面開啟失敗：' + e.message); }
 }
 
 function showRegisterMode() {
-  ['choiceMode','loginMode','registerMode','unlockMode','switchMode'].forEach(function(id) {
-    var el = document.getElementById(id); if (el) el.style.display = 'none';
-  });
-  document.getElementById('registerMode').style.display = 'block';
-  var errEl = document.getElementById('regErr'); if (errEl) errEl.style.display = 'none';
-  document.getElementById('nameInput').focus();
+  try {
+    console.log('[showRegisterMode] called');
+    ['choiceMode','loginMode','registerMode','unlockMode','switchMode'].forEach(function(id) {
+      var el = document.getElementById(id); if (el) el.style.display = 'none';
+    });
+    var registerMode = document.getElementById('registerMode');
+    if (!registerMode) { console.error('[showRegisterMode] registerMode element not found'); return; }
+    registerMode.style.display = 'block';
+    var errEl = document.getElementById('regErr'); if (errEl) errEl.style.display = 'none';
+    var ni = document.getElementById('nameInput'); if (ni) { setTimeout(function(){ try { ni.focus(); } catch(e){} }, 50); }
+  } catch(e) { console.error('[showRegisterMode] error:', e); alert('註冊畫面開啟失敗：' + e.message); }
 }
 
 function onRoleChange() {
@@ -2589,6 +2600,7 @@ function afterLoginSync() {
           // v3.10.54: 雲端同本地都空 —— 呢部係新裝置，提示去主力裝置 push
           toast('☁️ 雲端暫時無資料：請喺主力裝置（電腦）打開 App，點擊頂部「⬆️ 強制上傳」同步後，呢度會自動更新', 'info');
         }
+      }
     });
   }
 }
@@ -2621,6 +2633,26 @@ document.addEventListener('DOMContentLoaded',function(){
     mgrSel.addEventListener('change',function(){
       document.getElementById('customMgrGroup').style.display = this.value==='其他'?'block':'none';
       if (this.value==='其他') { setTimeout(function(){ document.getElementById('customMgrName').focus(); },100); }
+    });
+  }
+});
+
+// v3.10.55: 為 choice 按鈕額外用 addEventListener 綁定，避免某些瀏覽器/環境下 inline onclick 失效導致「按掣冇反應」
+document.addEventListener('DOMContentLoaded', function(){
+  var loginBtn = document.getElementById('choiceLoginBtn');
+  var regBtn = document.getElementById('choiceRegisterBtn');
+  if (loginBtn) {
+    loginBtn.addEventListener('click', function(e){
+      console.log('[choiceLoginBtn] addEventListener click');
+      e.preventDefault(); e.stopPropagation();
+      showLoginMode();
+    });
+  }
+  if (regBtn) {
+    regBtn.addEventListener('click', function(e){
+      console.log('[choiceRegisterBtn] addEventListener click');
+      e.preventDefault(); e.stopPropagation();
+      showRegisterMode();
     });
   }
 });
