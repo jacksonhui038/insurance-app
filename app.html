@@ -12,7 +12,7 @@
  * 開完一次後可改用 agent-app.html（正常 URL）
  */
 (function(){
-  var AGENT_VER='v3.10.52',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.53',AGENT_VER_KEY='agent_app_version';
   try { localStorage.setItem(AGENT_VER_KEY, AGENT_VER); } catch(e){}
   // v3.10.46: 早期獨立同步側欄版本 badge —— 免受下方 DOMContentLoaded 大函數任何錯誤影響，永不再顯示過期硬編碼版本
   try { document.addEventListener('DOMContentLoaded',function(){ try{ var _sv=document.getElementById('sidebarVer'); if(_sv) _sv.textContent=AGENT_VER; var _tv=document.getElementById('topbarVer'); if(_tv) _tv.textContent=AGENT_VER; var _lv=document.getElementById('loginVer'); if(_lv) _lv.textContent=AGENT_VER; }catch(e){} }); } catch(e){}
@@ -48,11 +48,15 @@ function doReload(){
     sessionStorage.setItem('agent_reload_cnt', String(cnt + 1));
     sessionStorage.setItem('agent_reload_ts', String(Date.now()));
   } catch(e){}
+  // v3.10.53: 直接導去 versioned 檔名（app-vX.Y.Z.html），檔名帶版本號 = 全新生 URL，徹底避開手機 cache，唔使人手清快取
+  var target = AGENT_VER;
+  try { target = sessionStorage.getItem('agent_update_target') || AGENT_VER; } catch(e){}
   try {
     localStorage.setItem(AGENT_VER_KEY, AGENT_VER);
-    var _b = location.href.split('?')[0];
-    // v3.10.52: 用 location.href 取代 location.replace，加 _v 版本號，更強制重新導航避開 cache
-    location.href = _b + '?_v=' + encodeURIComponent(AGENT_VER) + '&_cv=' + Date.now() + (location.hash || '');
+    var v = String(target).replace(/^v/, '');
+    var p = location.pathname;
+    var base = /agent-app/.test(p) ? 'agent-app' : 'app';
+    location.href = base + '-v' + v + '.html?_cv=' + Date.now() + (location.hash || '');
   } catch(e) { location.reload(true); }
 }
   // 雲端自檢永遠跑
@@ -62,6 +66,7 @@ function doReload(){
       .then(function(d){
         if (d && d.version && d.version !== AGENT_VER) {
           console.log('[AutoUpdate] 雲端版本 '+d.version+' > 本地 '+AGENT_VER+'，自動升級');
+          try { sessionStorage.setItem('agent_update_target', d.version); } catch(e){}
           doReload();
         } else {
           try { sessionStorage.removeItem('agent_reload_cnt'); } catch(e){} // 版本一致，重置計數
@@ -77,6 +82,7 @@ function doReload(){
         .then(function(d){
           if (d && d.version && d.version !== AGENT_VER) {
             console.log('[AutoUpdate] 定時檢查發現新版本 '+d.version+'，自動升級');
+            try { sessionStorage.setItem('agent_update_target', d.version); } catch(e){}
             doReload();
           }
         }).catch(function(){});
@@ -505,7 +511,7 @@ tr:hover td{background:var(--blue50)}
   <div class="sidebar-head">
     <h1>📊 SET理財規劃管家</h1>
     <div class="agent-info" id="sidebarAgentInfo">代理人版</div>
-    <div class="agent-ver" id="sidebarVer">v3.10.52</div>
+    <div class="agent-ver" id="sidebarVer">v3.10.53</div>
   </div>
   <nav class="sidebar-nav" id="sidebarNav">
     <button class="nav-btn" onclick="switchTab('dashboard',this)"><span class="nav-icon">📋</span> 總覽</button>
