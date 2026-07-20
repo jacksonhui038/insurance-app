@@ -12,7 +12,7 @@
  * 開完一次後可改用 agent-app.html（正常 URL）
  */
 (function(){
-  var AGENT_VER='v3.10.50',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.51',AGENT_VER_KEY='agent_app_version';
   try { localStorage.setItem(AGENT_VER_KEY, AGENT_VER); } catch(e){}
   // v3.10.46: 早期獨立同步側欄版本 badge —— 免受下方 DOMContentLoaded 大函數任何錯誤影響，永不再顯示過期硬編碼版本
   try { document.addEventListener('DOMContentLoaded',function(){ try{ var _sv=document.getElementById('sidebarVer'); if(_sv) _sv.textContent=AGENT_VER; var _tv=document.getElementById('topbarVer'); if(_tv) _tv.textContent=AGENT_VER; var _lv=document.getElementById('loginVer'); if(_lv) _lv.textContent=AGENT_VER; }catch(e){} }); } catch(e){}
@@ -481,7 +481,7 @@ tr:hover td{background:var(--blue50)}
   <div class="sidebar-head">
     <h1>📊 SET理財規劃管家</h1>
     <div class="agent-info" id="sidebarAgentInfo">代理人版</div>
-    <div class="agent-ver" id="sidebarVer">v3.10.50</div>
+    <div class="agent-ver" id="sidebarVer">v3.10.51</div>
   </div>
   <nav class="sidebar-nav" id="sidebarNav">
     <button class="nav-btn" onclick="switchTab('dashboard',this)"><span class="nav-icon">📋</span> 總覽</button>
@@ -579,6 +579,7 @@ tr:hover td{background:var(--blue50)}
     <div class="tab-panel active" id="panel-dashboard">
       <div class="cards-grid" id="dashCards"></div>
       <div id="upcomingGoalsRow" style="display:none;margin:12px 0;padding:14px 18px;border-radius:10px;background:linear-gradient(135deg,#fef3c7,#fde68a);border-left:4px solid #f59e0b"></div>
+      <div id="goalProgressBarRow" style="display:none;margin:12px 0;padding:14px 18px;border-radius:10px;background:#f8fafc;border-left:4px solid #3b82f6"></div>
       <div class="charts-grid">
         <div class="chart-card"><h3>📊 佣金收入趨勢</h3><canvas id="chartCommission"></canvas></div>
         <div class="chart-card"><h3>🎯 目標達成率</h3><div class="period-btns" id="dashGoalFilterBtns" style="margin-bottom:10px"><button class="period-btn active" onclick="filterDashGoal('monthly',this)">📅 每月</button><button class="period-btn" onclick="filterDashGoal('quarterly',this)">📊 季度</button><button class="period-btn" onclick="filterDashGoal('yearly',this)">📈 年度</button><button class="period-btn" onclick="filterDashGoal('custom',this)">🗓️ 自訂</button></div><canvas id="chartGoal"></canvas></div>
@@ -2788,7 +2789,25 @@ function calcGoalProgress(g) {
   return { pct: pct, actual: actual, label: (isPc ? pcMoney(actual) : money(actual)) + ' / ' + (isPc ? pcMoney(g.target) : money(g.target)) + rangeLabel, unit: isPc ? 'PC' : 'HK$' };
 }
 
+function renderGoalBar() {
+  var dg = findDashGoal(), dp = calcGoalProgress(dg);
+  var row = document.getElementById('goalProgressBarRow');
+  if (!row) return;
+  if (!dg) { row.style.display = 'none'; return; }
+  var pct = dp.pct;
+  var bc = pct >= 100 ? 'var(--green500)' : pct >= 70 ? 'var(--blue500)' : 'var(--yellow500)';
+  var pl = '', isPc = (dg.type || 'commission') === 'PC', fmt = isPc ? pcMoney : money;
+  if (dg.period === 'monthly') pl = dg.year + '年' + dg.month + '月';
+  else if (dg.period === 'quarterly') pl = dg.year + '年Q' + dg.quarter;
+  else if (dg.period === 'yearly') pl = dg.year + '年度';
+  else if (dg.period === 'custom') pl = (dg.startDate || '?') + ' ~ ' + (dg.endDate || '?');
+  row.style.display = 'block';
+  row.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><span style="font-weight:600;color:#1e293b">🎯 ' + (isPc ? 'PC 目標' : '佣金目標') + ' · ' + esc(pl) + '</span><span style="font-weight:700;color:' + bc + '">' + pct + '%</span></div>' +
+    '<div class="progress-bar"><div class="progress-fill" style="width:' + pct + '%;background:' + bc + '"></div></div>' +
+    '<div style="display:flex;justify-content:space-between;margin-top:6px;font-size:12px;color:#64748b"><span>已達成 ' + fmt(dp.actual) + '</span><span>目標 ' + fmt(dg.target) + '</span><span>差距 ' + fmt(dg.target - (dp.actual || 0)) + '</span></div>';
+}
 function renderDashboardCharts() {
+  renderGoalBar();
   if (!chartLib) return;
   var now=new Date(), m=now.getMonth(), y=now.getFullYear();
   destroyChart('chartCommission');
