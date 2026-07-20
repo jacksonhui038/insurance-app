@@ -12,7 +12,7 @@
  * 開完一次後可改用 agent-app.html（正常 URL）
  */
 (function(){
-  var AGENT_VER='v3.10.51',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.52',AGENT_VER_KEY='agent_app_version';
   try { localStorage.setItem(AGENT_VER_KEY, AGENT_VER); } catch(e){}
   // v3.10.46: 早期獨立同步側欄版本 badge —— 免受下方 DOMContentLoaded 大函數任何錯誤影響，永不再顯示過期硬編碼版本
   try { document.addEventListener('DOMContentLoaded',function(){ try{ var _sv=document.getElementById('sidebarVer'); if(_sv) _sv.textContent=AGENT_VER; var _tv=document.getElementById('topbarVer'); if(_tv) _tv.textContent=AGENT_VER; var _lv=document.getElementById('loginVer'); if(_lv) _lv.textContent=AGENT_VER; }catch(e){} }); } catch(e){}
@@ -24,13 +24,37 @@
       }).catch(function(){});
     }
   } catch(e){}
-  function reloadCnt(){ try { return parseInt(sessionStorage.getItem('agent_reload_cnt')||'0',10)||0; } catch(e){ return 0; } }
-  function doReload(){
-    if (reloadCnt() >= 5) return; // 安全掣：CDN 仲未更新時避免死 loop
-    try { sessionStorage.setItem('agent_reload_cnt', String(reloadCnt()+1)); } catch(e){}
-    try { localStorage.setItem(AGENT_VER_KEY, AGENT_VER); var _b = location.href.split('?')[0]; location.replace(_b + '?_cv=' + Date.now() + (location.hash||'')); }
-    catch(e){ location.reload(true); }
+function reloadCnt(){
+  try {
+    var s = sessionStorage.getItem('agent_reload_cnt') || '0';
+    var ts = sessionStorage.getItem('agent_reload_ts') || '0';
+    var now = Date.now();
+    // v3.10.52: 超過 2 分鐘未試過就重設計數，避免舊 cache 手機卡死喺舊版本
+    if (now - parseInt(ts, 10) > 120000) {
+      sessionStorage.setItem('agent_reload_cnt', '0');
+      sessionStorage.setItem('agent_reload_ts', String(now));
+      return 0;
+    }
+    return parseInt(s, 10) || 0;
+  } catch (e) { return 0; }
+}
+function doReload(){
+  var cnt = reloadCnt();
+  if (cnt >= 10) { // v3.10.52: 放寬到 10 次，兼且有 2 分鐘重設
+    console.warn('[AutoUpdate] 已達最大重試次數，請手動清除手機快取或重新安裝 PWA');
+    return;
   }
+  try {
+    sessionStorage.setItem('agent_reload_cnt', String(cnt + 1));
+    sessionStorage.setItem('agent_reload_ts', String(Date.now()));
+  } catch(e){}
+  try {
+    localStorage.setItem(AGENT_VER_KEY, AGENT_VER);
+    var _b = location.href.split('?')[0];
+    // v3.10.52: 用 location.href 取代 location.replace，加 _v 版本號，更強制重新導航避開 cache
+    location.href = _b + '?_v=' + encodeURIComponent(AGENT_VER) + '&_cv=' + Date.now() + (location.hash || '');
+  } catch(e) { location.reload(true); }
+}
   // 雲端自檢永遠跑
   try {
     fetch('version.json?t=' + Date.now(), {cache:'no-store'})
@@ -481,7 +505,7 @@ tr:hover td{background:var(--blue50)}
   <div class="sidebar-head">
     <h1>📊 SET理財規劃管家</h1>
     <div class="agent-info" id="sidebarAgentInfo">代理人版</div>
-    <div class="agent-ver" id="sidebarVer">v3.10.51</div>
+    <div class="agent-ver" id="sidebarVer">v3.10.52</div>
   </div>
   <nav class="sidebar-nav" id="sidebarNav">
     <button class="nav-btn" onclick="switchTab('dashboard',this)"><span class="nav-icon">📋</span> 總覽</button>
