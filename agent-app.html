@@ -12,7 +12,7 @@
  * 開完一次後可改用 agent-app.html（正常 URL）
  */
 (function(){
-  var AGENT_VER='v3.10.55',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.56',AGENT_VER_KEY='agent_app_version';
   try { localStorage.setItem(AGENT_VER_KEY, AGENT_VER); } catch(e){}
   // v3.10.46: 早期獨立同步側欄版本 badge —— 免受下方 DOMContentLoaded 大函數任何錯誤影響，永不再顯示過期硬編碼版本
   try { document.addEventListener('DOMContentLoaded',function(){ try{ var _sv=document.getElementById('sidebarVer'); if(_sv) _sv.textContent=AGENT_VER; var _tv=document.getElementById('topbarVer'); if(_tv) _tv.textContent=AGENT_VER; var _lv=document.getElementById('loginVer'); if(_lv) _lv.textContent=AGENT_VER; }catch(e){} }); } catch(e){}
@@ -511,7 +511,7 @@ tr:hover td{background:var(--blue50)}
   <div class="sidebar-head">
     <h1>📊 SET理財規劃管家</h1>
     <div class="agent-info" id="sidebarAgentInfo">代理人版</div>
-    <div class="agent-ver" id="sidebarVer">v3.10.55</div>
+    <div class="agent-ver" id="sidebarVer">v3.10.56</div>
   </div>
   <nav class="sidebar-nav" id="sidebarNav">
     <button class="nav-btn" onclick="switchTab('dashboard',this)"><span class="nav-icon">📋</span> 總覽</button>
@@ -1218,12 +1218,20 @@ function loadFromSupabase(callback, retry) {
   if (!SUPA_URL || !SUPA_KEY || !agentName) { if (callback) callback(false); return; }
   var controller = new AbortController();
   var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
-  fetch(SUPA_URL + '/rest/v1/agents?name=eq.'+encodeURIComponent(agentName)+'&select=data,manager,role,team', {
+  fetch(SUPA_URL + '/rest/v1/agents?name=eq.'+encodeURIComponent(agentName)+'&select=data,manager,team', { // v3.10.56: 移除 role — agents 表無頂層 role column（role 在 data.role），查詢 role 會 400 令整個 pull 靜默失效
     headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Cache-Control':'no-cache','Pragma':'no-cache'},
     signal:controller.signal
   })
   .then(function(res){ clearTimeout(timeoutId); return res.json(); })
   .then(function(rows){
+    // v3.10.56: Supabase 回咗 error object（例如查咗唔存在嘅 column）會係 object 而非 array，
+    // 唔可以當「無資料」當作成功 —— 否則雲端數據永遠 pull 唔到而又唔報錯
+    if (!Array.isArray(rows)) {
+      console.error('[loadFromSupabase] 收到非陣列回應（可能係 SQL 錯誤）：', JSON.stringify(rows).slice(0,200));
+      if (!retry) { setTimeout(function(){ loadFromSupabase(callback, true); }, 2000); }
+      else { if (callback) callback(false); }
+      return;
+    }
     if (rows && rows.length>0 && rows[0].data) {
       // v3.10.27: 每次雲端載入都刷新直屬經理（頂層 manager 優先，其次 data.manager），令 unlock/自動同步後 sidebar 即時更新
       var cloudMgr = rows[0].manager || (rows[0].data && rows[0].data.manager) || '';
@@ -1521,7 +1529,7 @@ function doLogin() {
         agentName = name; agentPIN = pin;
         assignedManager = ad.manager || '';
         assignedTeam = ad.team || '';
-        agentRole = ad.role || 'Agent';
+        agentRole = (ad && ad.data && ad.data.role) || (ad && ad.role) || 'Agent'; // v3.10.56: role 在 data.role（無頂層 column）
         agentHierarchyPath = ad.hierarchyPath || name;
         localStorage.setItem(AGENT_KEY, name);
         localStorage.setItem(AGENT_PIN_KEY, pin);
@@ -1607,7 +1615,7 @@ function doLogin() {
           agentName = name; agentPIN = pin;
           assignedManager = matched.manager || '';
           assignedTeam = matched.team || '';
-          agentRole = matched.role || 'Agent';
+          agentRole = (matched && matched.data && matched.data.role) || (matched && matched.role) || 'Agent'; // v3.10.56
           agentHierarchyPath = matched.hierarchyPath || name;
           localStorage.setItem(AGENT_KEY, name);
           localStorage.setItem(AGENT_PIN_KEY, pin);
@@ -2262,7 +2270,7 @@ function verifyAndRecover(name) {
     agentName = name; agentPIN = pin;
     assignedManager = ad.manager || '';
     assignedTeam = ad.team || '';
-    agentRole = ad.role || 'Agent';
+    agentRole = (ad && ad.data && ad.data.role) || (ad && ad.role) || 'Agent'; // v3.10.56
     agentHierarchyPath = ad.hierarchyPath || name;
     localStorage.setItem(AGENT_KEY, name);
     localStorage.setItem(AGENT_PIN_KEY, pin);
@@ -2312,7 +2320,7 @@ function verifyAndRecoverFromDetails(name, pin) {
       agentName = name; agentPIN = pin;
       assignedManager = ad.manager || '';
       assignedTeam = ad.team || '';
-      agentRole = ad.role || 'Agent';
+      agentRole = (ad && ad.data && ad.data.role) || (ad && ad.role) || 'Agent'; // v3.10.56
       agentHierarchyPath = ad.hierarchyPath || name;
       localStorage.setItem(AGENT_KEY, name);
       localStorage.setItem(AGENT_PIN_KEY, pin);
