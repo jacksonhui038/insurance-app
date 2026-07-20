@@ -12,7 +12,7 @@
  * 開完一次後可改用 agent-app.html（正常 URL）
  */
 (function(){
-  var AGENT_VER='v3.10.48',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.49',AGENT_VER_KEY='agent_app_version';
   try { localStorage.setItem(AGENT_VER_KEY, AGENT_VER); } catch(e){}
   // v3.10.46: 早期獨立同步側欄版本 badge —— 免受下方 DOMContentLoaded 大函數任何錯誤影響，永不再顯示過期硬編碼版本
   try { document.addEventListener('DOMContentLoaded',function(){ try{ var _sv=document.getElementById('sidebarVer'); if(_sv) _sv.textContent=AGENT_VER; var _tv=document.getElementById('topbarVer'); if(_tv) _tv.textContent=AGENT_VER; var _lv=document.getElementById('loginVer'); if(_lv) _lv.textContent=AGENT_VER; }catch(e){} }); } catch(e){}
@@ -481,7 +481,7 @@ tr:hover td{background:var(--blue50)}
   <div class="sidebar-head">
     <h1>📊 SET理財規劃管家</h1>
     <div class="agent-info" id="sidebarAgentInfo">代理人版</div>
-    <div class="agent-ver" id="sidebarVer">v3.10.48</div>
+    <div class="agent-ver" id="sidebarVer">v3.10.49</div>
   </div>
   <nav class="sidebar-nav" id="sidebarNav">
     <button class="nav-btn" onclick="switchTab('dashboard',this)"><span class="nav-icon">📋</span> 總覽</button>
@@ -3569,7 +3569,8 @@ function closeModal() { document.getElementById('modalBg').classList.remove('sho
 
 function saveTo(key, obj) {
   obj.updatedAt = Date.now(); // v3.10.29: 標記最後修改時間，用於雲端合併衝突解決
-  if (editId) { for (var i=0;i<DB[key].length;i++) if (DB[key][i].id===editId) { DB[key][i]=obj; return; } }
+  // v3.10.49: 用 String() 比較 id，避免舊行程 int id（如 26）同編輯時傳入嘅 string id（'26'）因 === 嚴格比較失敗而變成新增重複行程
+  if (editId) { var _eid=String(editId); for (var i=0;i<DB[key].length;i++) if (String(DB[key][i].id)===_eid) { DB[key][i]=obj; return; } }
   DB[key].push(obj);
 }
 
