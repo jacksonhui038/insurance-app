@@ -12,7 +12,7 @@
  * 開完一次後可改用 agent-app.html（正常 URL）
  */
 (function(){
-  var AGENT_VER='v3.10.53',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.54',AGENT_VER_KEY='agent_app_version';
   try { localStorage.setItem(AGENT_VER_KEY, AGENT_VER); } catch(e){}
   // v3.10.46: 早期獨立同步側欄版本 badge —— 免受下方 DOMContentLoaded 大函數任何錯誤影響，永不再顯示過期硬編碼版本
   try { document.addEventListener('DOMContentLoaded',function(){ try{ var _sv=document.getElementById('sidebarVer'); if(_sv) _sv.textContent=AGENT_VER; var _tv=document.getElementById('topbarVer'); if(_tv) _tv.textContent=AGENT_VER; var _lv=document.getElementById('loginVer'); if(_lv) _lv.textContent=AGENT_VER; }catch(e){} }); } catch(e){}
@@ -511,7 +511,7 @@ tr:hover td{background:var(--blue50)}
   <div class="sidebar-head">
     <h1>📊 SET理財規劃管家</h1>
     <div class="agent-info" id="sidebarAgentInfo">代理人版</div>
-    <div class="agent-ver" id="sidebarVer">v3.10.53</div>
+    <div class="agent-ver" id="sidebarVer">v3.10.54</div>
   </div>
   <nav class="sidebar-nav" id="sidebarNav">
     <button class="nav-btn" onclick="switchTab('dashboard',this)"><span class="nav-icon">📋</span> 總覽</button>
@@ -2575,14 +2575,20 @@ function afterLoginSync() {
       renderDashboard(); renderCurrentTab();
       // 2. 下載完畢後，只有「本地有數據」先自動上傳到 Supabase
       //    ⚠️ v3.9.3 起修復：雲端下載失敗 / 本地為空 時唔上傳，避免用空 DB 覆蓋雲端清走晒資料
+      // v3.10.54: 本地有數據就立即 push 到雲端（用 saveToCloud 內建重試，確保唔會因 1.5s timeout 太脆弱而漏傳）
       if (SUPA_URL && SUPA_KEY && !isDBEmpty()) {
-        setTimeout(function(){ saveToSupabase(function(ok2){
-          if (ok2) { setLastSyncTime(); document.getElementById('lastSyncTime').textContent = getLastSyncTime(); }
-          else { console.warn('[afterLoginSync] 上傳 Supabase 失敗，下次登入會自動重試'); }
-        }); }, 1500);
+        saveToCloud(function(ok2){
+          if (ok2) { setLastSyncTime(); var _lst=document.getElementById('lastSyncTime'); if(_lst) _lst.textContent=getLastSyncTime(); }
+          else { console.warn('[afterLoginSync] 上傳 Supabase 失敗，30s 後自動重試'); }
+        });
       } else if (isDBEmpty()) {
         console.warn('[afterLoginSync] 本地無數據，跳過自動上傳，避免清空白雲端');
-        if (!ok) toast('⚠️ 無法從雲端下載資料，已保留雲端資料避免被清走。請檢查網絡或稍後重試（你部機暫時顯示空白）', 'error');
+        if (!ok) {
+          toast('⚠️ 無法從雲端下載資料，已保留雲端資料避免被清走。請檢查網絡或稍後重試（你部機暫時顯示空白）', 'error');
+        } else {
+          // v3.10.54: 雲端同本地都空 —— 呢部係新裝置，提示去主力裝置 push
+          toast('☁️ 雲端暫時無資料：請喺主力裝置（電腦）打開 App，點擊頂部「⬆️ 強制上傳」同步後，呢度會自動更新', 'info');
+        }
       }
     });
   }
@@ -3813,6 +3819,12 @@ setInterval(function(){
     saveToCloud();
   }
 }, 30000);
+// v3.10.54: 切換返 App（tab 變 visible）時立即 push 本地數據，確保主力裝置一開就同步到雲端
+document.addEventListener('visibilitychange', function(){
+  if (document.visibilityState === 'visible' && CLOUD_ENABLED && agentName && !isDBEmpty()) {
+    saveToCloud();
+  }
+});
 </script>
 <script>
 // v3.10.14: 開啟自動 pull 雲端（解決跨裝置唔 sync / 「行程表改唔到」）
