@@ -12,7 +12,7 @@
  * 開完一次後可改用 agent-app.html（正常 URL）
  */
 (function(){
-  var AGENT_VER='v3.10.59',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.60',AGENT_VER_KEY='agent_app_version';
   try { localStorage.setItem(AGENT_VER_KEY, AGENT_VER); } catch(e){}
   // v3.10.46: 早期獨立同步側欄版本 badge —— 免受下方 DOMContentLoaded 大函數任何錯誤影響，永不再顯示過期硬編碼版本
   try { document.addEventListener('DOMContentLoaded',function(){ try{ var _sv=document.getElementById('sidebarVer'); if(_sv) _sv.textContent=AGENT_VER; var _tv=document.getElementById('topbarVer'); if(_tv) _tv.textContent=AGENT_VER; var _lv=document.getElementById('loginVer'); if(_lv) _lv.textContent=AGENT_VER; }catch(e){} }); } catch(e){}
@@ -529,7 +529,7 @@ tr:hover td{background:var(--blue50)}
   <div class="sidebar-head">
     <h1>📊 SET理財規劃管家</h1>
     <div class="agent-info" id="sidebarAgentInfo">代理人版</div>
-    <div class="agent-ver" id="sidebarVer">v3.10.59</div>
+    <div class="agent-ver" id="sidebarVer">v3.10.60</div>
   </div>
   <nav class="sidebar-nav" id="sidebarNav">
     <button class="nav-btn" onclick="switchTab('dashboard',this)"><span class="nav-icon">📋</span> 總覽</button>
@@ -1025,6 +1025,7 @@ function buildUploadData() {
   // v3.10.35: manager 優先用本地 assignedManager（唔用雲端快照舊值，否則改完經理會被自動同步倒寫番）
   var localMgr = (typeof assignedManager !== 'undefined' && assignedManager) || (typeof agentName !== 'undefined' && agentName ? localStorage.getItem('insurance_mgr_'+encodeURIComponent(agentName)) : '') || '';
   if (localMgr) base.manager = localMgr;
+  base.role = agentRole || ''; // v3.10.60: 確保 role 寫入上傳資料（不依賴雲端快照，因快照可能為密文）
   if (_cloudDataSnapshot && typeof _cloudDataSnapshot === 'object') {
     META_KEYS.forEach(function(mk){
       if (mk === 'manager' && localMgr) return; // 已用本地值，唔使補雲端舊值
@@ -1114,31 +1115,34 @@ function saveToSupabase(callback) {
     // v3.6.0: 發送前修復所有壞時間格式
     fixAllScheduleTimes(false);
     // v3.9.5: 用 buildUploadData() 取代直接 Object.assign({},DB)，確保保留 role/manager/team 同雲端既有記錄（MERGE 唔係 REPLACE）
-    var payload = JSON.stringify({name:agentName,data:uploadData,manager:mgr,team:team});
-    var payloadSize = new Blob([payload]).size;
-    if (payloadSize > 5 * 1024 * 1024) console.warn('[saveToSupabase] Payload size:', Math.round(payloadSize/1024), 'KB');
-    var controller = new AbortController();
-    var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
-    fetch(SUPA_URL + '/rest/v1/agents?on_conflict=name', {
-      method:'POST',
-      headers:{
-        'apikey':SUPA_KEY,
-        'Authorization':'Bearer '+SUPA_KEY,
-        'Content-Type':'application/json',
-        'Prefer':'resolution=merge-duplicates,return=minimal'
-      },
-      body:payload,
-      signal:controller.signal
-    })
-    .then(function(res){
-      clearTimeout(timeoutId);
-      if (res.ok) { if (callback) callback(true); }
-      else {
-        res.text().then(function(t){ console.error('[saveToSupabase] HTTP',res.status, t.substring(0,200)); });
-        if (callback) callback(false, 'HTTP '+res.status);
-      }
-    })
-    .catch(function(e){ clearTimeout(timeoutId); console.error('[saveToSupabase]',e); if (callback) callback(false, String(e)); });
+    // v3.10.60 Track A: 上傳前用 PIN 加密 data（雲端只存密文）
+    encryptData(uploadData, agentPIN || '').then(function(encData){
+      var payload = JSON.stringify({name:agentName,data:encData,manager:mgr,team:team});
+      var payloadSize = new Blob([payload]).size;
+      if (payloadSize > 5 * 1024 * 1024) console.warn('[saveToSupabase] Payload size:', Math.round(payloadSize/1024), 'KB');
+      var controller = new AbortController();
+      var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
+      fetch(SUPA_URL + '/rest/v1/agents?on_conflict=name', {
+        method:'POST',
+        headers:{
+          'apikey':SUPA_KEY,
+          'Authorization':'Bearer '+SUPA_KEY,
+          'Content-Type':'application/json',
+          'Prefer':'resolution=merge-duplicates,return=minimal'
+        },
+        body:payload,
+        signal:controller.signal
+      })
+      .then(function(res){
+        clearTimeout(timeoutId);
+        if (res.ok) { if (callback) callback(true); }
+        else {
+          res.text().then(function(t){ console.error('[saveToSupabase] HTTP',res.status, t.substring(0,200)); });
+          if (callback) callback(false, 'HTTP '+res.status);
+        }
+      })
+      .catch(function(e){ clearTimeout(timeoutId); console.error('[saveToSupabase]',e); if (callback) callback(false, String(e)); });
+    }).catch(function(e){ console.error('[saveToSupabase] encrypt fail', e); if (callback) callback(false, 'encrypt-fail'); });
   }
   if (_cloudDataSnapshot) {
     doUpload();
@@ -1184,16 +1188,22 @@ function forceUploadToSupabase() {
     if (rows && rows.length>0 && rows[0].data) _cloudDataSnapshot = JSON.parse(JSON.stringify(rows[0].data));
     var uploadData = buildUploadData();
     uploadData._forceUpload = new Date().toISOString();
-    var payload = JSON.stringify({name:agentName,data:uploadData,manager:mgr,team:team});
-    doForceUpload(payload, mgr, team);
+    // v3.10.60 Track A: 強制上傳前同樣加密 data
+    encryptData(uploadData, agentPIN || '').then(function(encData){
+      var payload = JSON.stringify({name:agentName,data:encData,manager:mgr,team:team});
+      doForceUpload(payload, mgr, team);
+    }).catch(function(e){ console.error('[forceUpload] encrypt fail', e); toast('❌ 加密失敗','error'); });
   })
   .catch(function(e){
     clearTimeout(getT);
     console.warn('[forceUpload] 拉取雲端失敗，改用現有基底上傳', e);
     var uploadData = buildUploadData();
     uploadData._forceUpload = new Date().toISOString();
-    var payload = JSON.stringify({name:agentName,data:uploadData,manager:mgr,team:team});
-    doForceUpload(payload, mgr, team);
+    // v3.10.60 Track A: 強制上傳前同樣加密 data
+    encryptData(uploadData, agentPIN || '').then(function(encData){
+      var payload = JSON.stringify({name:agentName,data:encData,manager:mgr,team:team});
+      doForceUpload(payload, mgr, team);
+    }).catch(function(e){ console.error('[forceUpload] encrypt fail', e); toast('❌ 加密失敗','error'); });
   });
 }
 function doForceUpload(payload, mgr, team) {
@@ -1251,50 +1261,56 @@ function loadFromSupabase(callback, retry) {
       return;
     }
     if (rows && rows.length>0 && rows[0].data) {
-      // v3.10.27: 每次雲端載入都刷新直屬經理（頂層 manager 優先，其次 data.manager），令 unlock/自動同步後 sidebar 即時更新
-      var cloudMgr = rows[0].manager || (rows[0].data && rows[0].data.manager) || '';
-      if (cloudMgr && cloudMgr !== assignedManager) {
-        assignedManager = cloudMgr;
-        try { localStorage.setItem('insurance_mgr_'+encodeURIComponent(agentName), cloudMgr); } catch(e){}
-        var _si = document.getElementById('sidebarAgentInfo');
-        if (_si) _si.textContent = agentName+' | '+agentRole+(cloudMgr?' | 經理：'+cloudMgr:'');
-      }
-      // v3.9.5: 保存雲端快照（保護 metadata 同雲端既有記錄，供 saveToSupabase 合併用）
-      _cloudDataSnapshot = JSON.parse(JSON.stringify(rows[0].data));
-      // v3.6.0: 徹底簡化登入流程 + 修復 race condition
-      var hasData = false;
-      ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k){
-        if (rows[0].data[k] && Array.isArray(rows[0].data[k]) && rows[0].data[k].length > 0) {
-          hasData = true;
-          // 按 ID 合併
-          var localMap = {};
-          if (DB[k] && Array.isArray(DB[k])) {
-            DB[k].forEach(function(item) { localMap[item.id] = item; });
-          }
-          rows[0].data[k].forEach(function(item) {
-            var existing = localMap[item.id];
-            if (existing) {
-              // v3.10.29: 衝突解決 — 雲端較新（或相等）才覆蓋，否則保留本地剛改動
-              var ct = item.updatedAt || 0, lt = existing.updatedAt || 0;
-              if (ct >= lt) localMap[item.id] = item;
-            } else {
-              localMap[item.id] = item; // 本地冇就用雲端
-            }
-          });
-          DB[k] = Object.values(localMap);
+      // v3.10.60 Track A: 雲端 data 已加密 → 先 decrypt 才合併（明文舊 row 會自動 fallback）
+      decryptData(rows[0].data, agentPIN).then(function(cloudData){
+        // v3.10.27: 每次雲端載入都刷新直屬經理（頂層 manager 優先，其次 data.manager），令 unlock/自動同步後 sidebar 即時更新
+        var cloudMgr = rows[0].manager || (cloudData && cloudData.manager) || '';
+        if (cloudMgr && cloudMgr !== assignedManager) {
+          assignedManager = cloudMgr;
+          try { localStorage.setItem('insurance_mgr_'+encodeURIComponent(agentName), cloudMgr); } catch(e){}
+          var _si = document.getElementById('sidebarAgentInfo');
+          if (_si) _si.textContent = agentName+' | '+agentRole+(cloudMgr?' | 經理：'+cloudMgr:'');
         }
+        // v3.9.5: 保存雲端快照（保護 metadata 同雲端既有記錄，供 saveToSupabase 合併用）
+        _cloudDataSnapshot = JSON.parse(JSON.stringify(cloudData));
+        // v3.6.0: 徹底簡化登入流程 + 修復 race condition
+        var hasData = false;
+        ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k){
+          if (cloudData[k] && Array.isArray(cloudData[k]) && cloudData[k].length > 0) {
+            hasData = true;
+            // 按 ID 合併
+            var localMap = {};
+            if (DB[k] && Array.isArray(DB[k])) {
+              DB[k].forEach(function(item) { localMap[item.id] = item; });
+            }
+            cloudData[k].forEach(function(item) {
+              var existing = localMap[item.id];
+              if (existing) {
+                // v3.10.29: 衝突解決 — 雲端較新（或相等）才覆蓋，否則保留本地剛改動
+                var ct = item.updatedAt || 0, lt = existing.updatedAt || 0;
+                if (ct >= lt) localMap[item.id] = item;
+              } else {
+                localMap[item.id] = item; // 本地冇就用雲端
+              }
+            });
+            DB[k] = Object.values(localMap);
+          }
+        });
+        // v3.10.5: content-based 去重 — 解決「id 重生成後本地舊 id + 雲端新 id 導致重複」
+        DB.schedules = deduplicateArray(DB.schedules, function(s){
+          return (s.date||'')+'|'+(s.clientName||'')+'|'+(s.startTime||'');
+        });
+        // v3.6.0: 修復雲端帶入嘅壞時間格式（Excel/ISO 日期）
+        fixAllScheduleTimes(true);
+        saveDB(); setLastSyncTime();
+        _cloudLoadedThisSession = true; // v3.9.4: 標記已成功下載雲端
+        if (callback) callback(true);
+        else { toast('☁️ 已從 Supabase 合併數據'); renderDashboard(); renderCurrentTab(); }
+      }).catch(function(e){
+        console.error('[loadFromSupabase] decrypt fail', e);
+        if (!retry) { setTimeout(function(){ loadFromSupabase(callback, true); }, 2000); }
+        else { if (callback) callback(false); }
       });
-      // v3.10.5: content-based 去重 — 解決「id 重生成後本地舊 id + 雲端新 id 導致重複」
-      // schedules 用 date|clientName|startTime 做 composite key，其餘表用 id（已有去重）
-      DB.schedules = deduplicateArray(DB.schedules, function(s){
-        return (s.date||'')+'|'+(s.clientName||'')+'|'+(s.startTime||'');
-      });
-      // v3.6.0: 修復雲端帶入嘅壞時間格式（Excel/ISO 日期）
-      fixAllScheduleTimes(true);
-      saveDB(); setLastSyncTime();
-      _cloudLoadedThisSession = true; // v3.9.4: 標記已成功下載雲端
-      if (callback) callback(true);
-      else { toast('☁️ 已從 Supabase 合併數據'); renderDashboard(); renderCurrentTab(); }
     } else {
       // v3.10.47: 雲端無記錄（新用戶）視為正常，避免彈紅色錯誤 toast；重試一次後仍空則視為已載入
       if (!retry) { setTimeout(function(){ loadFromSupabase(callback, true); }, 2000); }
@@ -1392,6 +1408,75 @@ function hashPin(pin) {
   var h = 5381;
   for (var i = 0; i < pin.length; i++) { h = ((h << 5) + h) + pin.charCodeAt(i); h = h & 0xffffffff; }
   return 'p' + Math.abs(h).toString(36);
+}
+
+// ===== Track A: 客戶端 AES-GCM 加密（PBKDF2 衍生 key，PIN 作密碼）=====
+// 目的：雲端只存密文，就算 anon key 公開、任何人 dump 成個表，都係亂碼睇唔到客戶資料
+// 密文格式：enc:v1:<base64 salt>.<base64 iv>.<base64 ciphertext>
+// 後向兼容：data 若非 'enc:v1:' 開頭（舊明文 row）→ decryptData 直接原樣返回
+var ENC_PREFIX = 'enc:v1:';
+var _encWarnShown = false;
+function _hasCrypto() {
+  return (typeof window !== 'undefined' && window.crypto && window.crypto.subtle);
+}
+function _b64enc(buf) {
+  var bytes = new Uint8Array(buf);
+  var bin = '';
+  for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+function _b64dec(str) {
+  var bin = atob(str);
+  var bytes = new Uint8Array(bin.length);
+  for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+function _deriveKey(pin, saltBuf) {
+  var pinBuf = new TextEncoder().encode(pin);
+  return crypto.subtle.importKey('raw', pinBuf, 'PBKDF2', false, ['deriveKey'])
+    .then(function(baseKey){
+      return crypto.subtle.deriveKey(
+        {name:'PBKDF2', salt: saltBuf, iterations: 100000, hash:'SHA-256'},
+        baseKey, {name:'AES-GCM', length:256}, false, ['encrypt','decrypt']
+      );
+    });
+}
+function isEncryptedData(d) {
+  return (typeof d === 'string' && d.indexOf(ENC_PREFIX) === 0);
+}
+function encryptData(obj, pin) {
+  return Promise.resolve().then(function(){
+    if (!_hasCrypto()) {
+      if (!_encWarnShown) { _encWarnShown = true; console.error('[encryptData] Web Crypto 不可用（需要 HTTPS 環境）'); }
+      return obj; // 無 crypto 環境（例如 file://）→ 退而求其次明文上傳（不應發生於 GitHub Pages HTTPS）
+    }
+    if (!pin) { console.warn('[encryptData] 無 PIN，跳過加密（明文上傳）'); return obj; }
+    var salt = crypto.getRandomValues(new Uint8Array(16));
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    var dataBuf = new TextEncoder().encode(JSON.stringify(obj));
+    return _deriveKey(pin, salt).then(function(key){
+      return crypto.subtle.encrypt({name:'AES-GCM', iv:iv}, key, dataBuf);
+    }).then(function(ct){
+      return ENC_PREFIX + _b64enc(salt) + '.' + _b64enc(iv) + '.' + _b64enc(ct);
+    });
+  });
+}
+function decryptData(d, pin) {
+  return Promise.resolve().then(function(){
+    if (!isEncryptedData(d)) return d; // 明文後向兼容（舊 row 或本地）
+    if (!_hasCrypto()) throw new Error('Web Crypto 不可用（需要 HTTPS 環境）');
+    if (!pin) throw new Error('無 PIN 無法解密雲端資料');
+    var parts = d.substring(ENC_PREFIX.length).split('.');
+    if (parts.length !== 3) throw new Error('密文格式錯誤');
+    var salt = _b64dec(parts[0]);
+    var iv = _b64dec(parts[1]);
+    var ct = _b64dec(parts[2]);
+    return _deriveKey(pin, salt).then(function(key){
+      return crypto.subtle.decrypt({name:'AES-GCM', iv:iv}, key, ct);
+    }).then(function(pt){
+      return JSON.parse(new TextDecoder().decode(pt));
+    });
+  });
 }
 
 function showChoiceMode() {
@@ -1547,36 +1632,49 @@ function doLogin() {
         agentName = name; agentPIN = pin;
         assignedManager = ad.manager || '';
         assignedTeam = ad.team || '';
-        agentRole = (ad && ad.data && ad.data.role) || (ad && ad.role) || 'Agent'; // v3.10.56: role 在 data.role（無頂層 column）
+        agentRole = (ad && ad.role) || 'Agent'; // v3.10.56: 頂層 role 已移除；data.role 待 decrypt 後補
         agentHierarchyPath = ad.hierarchyPath || name;
         localStorage.setItem(AGENT_KEY, name);
         localStorage.setItem(AGENT_PIN_KEY, pin);
         localStorage.setItem('insurance_agent_name_locked', 'true');
         localStorage.setItem('insurance_mgr_'+encodeURIComponent(name), assignedManager);
-        localStorage.setItem('insurance_role_'+encodeURIComponent(name), agentRole);
         localStorage.setItem('insurance_hpath_'+encodeURIComponent(name), agentHierarchyPath);
         if (assignedTeam) localStorage.setItem('insurance_team_'+encodeURIComponent(name), assignedTeam);
 
-        // Load data: merge cloud into local
+        // v3.10.60 Track A: 雲端 data 已加密 → 先 decrypt 才 merge（明文舊 row 自動 fallback）
         loadDB();
-        if (ad.data) {
-          ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k) {
-            if (ad.data[k] && Array.isArray(ad.data[k])) {
-              var localMap = {};
-              DB[k].forEach(function(item) { localMap[item.id] = item; });
-              ad.data[k].forEach(function(item) { localMap[item.id] = item; });
-              DB[k] = Object.values(localMap);
-            }
-          });
-          saveDB();
-        }
-        loginInProgress = false;
-        document.getElementById('nameModalBg').classList.remove('show');
-        document.getElementById('agentNameDisplay').textContent = name;
-        document.getElementById('sidebarAgentInfo').textContent = name+' | '+agentRole+(assignedManager?' | 經理：'+assignedManager:'');
-        renderDashboard(); renderCurrentTab(); afterLoginSync();
-        toast('登入成功！');
-        btn.textContent = '登入'; btn.disabled = false;
+        decryptData(ad.data, pin).then(function(dData){
+          agentRole = (dData && dData.role) || agentRole; // 從解密後 data 補回角色
+          localStorage.setItem('insurance_role_'+encodeURIComponent(name), agentRole);
+          if (dData) {
+            ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k) {
+              if (dData[k] && Array.isArray(dData[k])) {
+                var localMap = {};
+                DB[k].forEach(function(item) { localMap[item.id] = item; });
+                dData[k].forEach(function(item) { localMap[item.id] = item; });
+                DB[k] = Object.values(localMap);
+              }
+            });
+            saveDB();
+          }
+          loginInProgress = false;
+          document.getElementById('nameModalBg').classList.remove('show');
+          document.getElementById('agentNameDisplay').textContent = name;
+          document.getElementById('sidebarAgentInfo').textContent = name+' | '+agentRole+(assignedManager?' | 經理：'+assignedManager:'');
+          renderDashboard(); renderCurrentTab(); afterLoginSync();
+          toast('登入成功！');
+          btn.textContent = '登入'; btn.disabled = false;
+        }).catch(function(e){
+          console.error('[doLogin] decrypt fail', e);
+          // 解密失敗仍當登入成功（本地可能為空），提示重新操作
+          loginInProgress = false;
+          document.getElementById('nameModalBg').classList.remove('show');
+          document.getElementById('agentNameDisplay').textContent = name;
+          document.getElementById('sidebarAgentInfo').textContent = name+' | '+agentRole+(assignedManager?' | 經理：'+assignedManager:'');
+          renderDashboard(); renderCurrentTab(); afterLoginSync();
+          toast('⚠️ 登入成功，但雲端資料解密失敗（PIN 可能已更改），請於主力裝置重新強制上傳', 'error');
+          btn.textContent = '登入'; btn.disabled = false;
+        });
       } else {
         // Not found in Supabase — try local login (offline)
         var localOk = tryLocalLogin(name, pin, errEl, btn, safetyTimer);
@@ -1633,7 +1731,7 @@ function doLogin() {
           agentName = name; agentPIN = pin;
           assignedManager = matched.manager || '';
           assignedTeam = matched.team || '';
-          agentRole = (matched && matched.data && matched.data.role) || (matched && matched.role) || 'Agent'; // v3.10.56
+          agentRole = (matched && matched.role) || 'Agent'; // v3.10.56; data.role 待 decrypt 後補
           agentHierarchyPath = matched.hierarchyPath || name;
           localStorage.setItem(AGENT_KEY, name);
           localStorage.setItem(AGENT_PIN_KEY, pin);
@@ -1643,17 +1741,21 @@ function doLogin() {
           localStorage.setItem('insurance_hpath_'+encodeURIComponent(name), agentHierarchyPath);
           if (assignedTeam) localStorage.setItem('insurance_team_'+encodeURIComponent(name), assignedTeam);
           loadDB();
-          if (matched.data) {
-            ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k) {
-              if (matched.data[k] && Array.isArray(matched.data[k])) {
-                var localMap = {};
-                DB[k].forEach(function(item) { localMap[item.id] = item; });
-                matched.data[k].forEach(function(item) { localMap[item.id] = item; });
-                DB[k] = Object.values(localMap);
-              }
-            });
-            saveDB();
-          }
+          decryptData(matched.data, pin).then(function(mData){
+            agentRole = (mData && mData.role) || agentRole;
+            localStorage.setItem('insurance_role_'+encodeURIComponent(name), agentRole);
+            if (mData) {
+              ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k) {
+                if (mData[k] && Array.isArray(mData[k])) {
+                  var localMap = {};
+                  DB[k].forEach(function(item) { localMap[item.id] = item; });
+                  mData[k].forEach(function(item) { localMap[item.id] = item; });
+                  DB[k] = Object.values(localMap);
+                }
+              });
+              saveDB();
+            }
+          }).catch(function(e){ console.error('[doLogin offline] decrypt fail', e); });
           document.getElementById('nameModalBg').classList.remove('show');
           document.getElementById('agentNameDisplay').textContent = name;
           document.getElementById('sidebarAgentInfo').textContent = name+' | '+agentRole+(assignedManager?' | 經理：'+assignedManager:'');
@@ -1793,8 +1895,10 @@ function computeHierarchyPath(supervisor, myName, callback) {
     .then(function(res) { clearTimeout(tid); return res.json(); })
     .then(function(rows) {
       if (rows && rows.length > 0 && rows[0].data) {
-        var supPath = rows[0].data.hierarchyPath || rows[0].data._hierarchyPath || supervisor;
-        callback(supPath + ',' + myName);
+        decryptData(rows[0].data, agentPIN).then(function(dData){
+          var supPath = (dData && (dData.hierarchyPath || dData._hierarchyPath)) || supervisor;
+          callback(supPath + ',' + myName);
+        }).catch(function(){ callback(supervisor + ',' + myName); });
       } else {
         // Supervisor not found in cloud — use supervisor name as starting point
         callback(supervisor + ',' + myName);
@@ -2288,7 +2392,7 @@ function verifyAndRecover(name) {
     agentName = name; agentPIN = pin;
     assignedManager = ad.manager || '';
     assignedTeam = ad.team || '';
-    agentRole = (ad && ad.data && ad.data.role) || (ad && ad.role) || 'Agent'; // v3.10.56
+    agentRole = (ad && ad.role) || 'Agent'; // v3.10.56; data.role 待 decrypt 後補
     agentHierarchyPath = ad.hierarchyPath || name;
     localStorage.setItem(AGENT_KEY, name);
     localStorage.setItem(AGENT_PIN_KEY, pin);
@@ -2297,17 +2401,21 @@ function verifyAndRecover(name) {
     localStorage.setItem('insurance_role_'+encodeURIComponent(name), agentRole);
     if (assignedTeam) localStorage.setItem('insurance_team_'+encodeURIComponent(name), assignedTeam);
     localStorage.setItem('insurance_hpath_'+encodeURIComponent(name), agentHierarchyPath);
-    // Load data from cloud
-    if (ad.data) {
-      DB = {clients:[],policies:[],commissions:[],expenses:[],goals:[],schedules:[],pcs:[],incomes:[]};
-      ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k) { if (ad.data[k]) DB[k] = ad.data[k]; });
-      saveDB();
-    }
-    document.getElementById('nameModalBg').classList.remove('show');
-    document.getElementById('agentNameDisplay').textContent = name;
-    document.getElementById('sidebarAgentInfo').textContent = name+' | '+agentRole+(assignedManager?' | 經理：'+assignedManager:'');
-    renderDashboard(); renderCurrentTab();
-    toast('帳戶已恢復', 'success');
+    // Load data from cloud (v3.10.60 Track A: decrypt)
+    decryptData(ad.data, pin).then(function(dData){
+      agentRole = (dData && dData.role) || agentRole;
+      localStorage.setItem('insurance_role_'+encodeURIComponent(name), agentRole);
+      if (dData) {
+        DB = {clients:[],policies:[],commissions:[],expenses:[],goals:[],schedules:[],pcs:[],incomes:[]};
+        ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k) { if (dData[k]) DB[k] = dData[k]; });
+        saveDB();
+      }
+      document.getElementById('nameModalBg').classList.remove('show');
+      document.getElementById('agentNameDisplay').textContent = name;
+      document.getElementById('sidebarAgentInfo').textContent = name+' | '+agentRole+(assignedManager?' | 經理：'+assignedManager:'');
+      renderDashboard(); renderCurrentTab();
+      toast('帳戶已恢復', 'success');
+    }).catch(function(e){ console.error('[recover v1] decrypt fail', e); toast('⚠️ 恢復成功但解密失敗','error'); });
   })
   .catch(function(e){
     clearTimeout(timeoutId);
@@ -2338,50 +2446,50 @@ function verifyAndRecoverFromDetails(name, pin) {
       agentName = name; agentPIN = pin;
       assignedManager = ad.manager || '';
       assignedTeam = ad.team || '';
-      agentRole = (ad && ad.data && ad.data.role) || (ad && ad.role) || 'Agent'; // v3.10.56
+      agentRole = (ad && ad.role) || 'Agent'; // v3.10.56; data.role 待 decrypt 後補
       agentHierarchyPath = ad.hierarchyPath || name;
       localStorage.setItem(AGENT_KEY, name);
       localStorage.setItem(AGENT_PIN_KEY, pin);
       localStorage.setItem('insurance_agent_name_locked', 'true');
-      if (ad.data) {
-        // v3.10.35: 唔再用雲端整個替換 DB —— 否則「set 左目標但 push 未成功就切帳號/刷新」會令本地新增被雲端舊值清走
-        // 先從 localStorage 讀回本地 DB 作基底（保留未 push 嘅新增），再用雲端按 id 合併（雲端較新才覆蓋）
-        var _sk = getStoreKey();
-        var _local = null;
-        try { _local = JSON.parse(localStorage.getItem(_sk) || 'null'); } catch(e) {}
-        if (_local && typeof _local === 'object') {
-          DB = {clients:[],policies:[],commissions:[],expenses:[],goals:[],schedules:[],pcs:[],incomes:[]};
-          ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k){
-            DB[k] = (_local[k] && Array.isArray(_local[k])) ? _local[k].slice() : [];
-          });
-          // 雲端合併：本地有+雲端冇→保留本地；本地有+雲端有→雲端較新才覆蓋；本地冇+雲端有→用雲端
-          ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k){
-            if (ad.data[k] && Array.isArray(ad.data[k]) && ad.data[k].length > 0) {
-              var _map = {};
-              DB[k].forEach(function(it){ _map[it.id] = it; });
-              ad.data[k].forEach(function(it){
-                var _ex = _map[it.id];
-                if (_ex) {
-                  var _ct = it.updatedAt || 0, _lt = _ex.updatedAt || 0;
-                  if (_ct >= _lt) _map[it.id] = it;
-                } else {
-                  _map[it.id] = it;
-                }
-              });
-              DB[k] = Object.values(_map);
-            }
-          });
-        } else {
-          // 本地完全冇數據，直接用雲端
-          DB = {clients:[],policies:[],commissions:[],expenses:[],goals:[],schedules:[],pcs:[],incomes:[]};
-          ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k) { if (ad.data[k]) DB[k] = ad.data[k]; });
+      // v3.10.60 Track A: decrypt 後合併
+      decryptData(ad.data, pin).then(function(dData){
+        if (dData) {
+          agentRole = dData.role || agentRole;
+          var _sk = getStoreKey();
+          var _local = null;
+          try { _local = JSON.parse(localStorage.getItem(_sk) || 'null'); } catch(e) {}
+          if (_local && typeof _local === 'object') {
+            DB = {clients:[],policies:[],commissions:[],expenses:[],goals:[],schedules:[],pcs:[],incomes:[]};
+            ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k){
+              DB[k] = (_local[k] && Array.isArray(_local[k])) ? _local[k].slice() : [];
+            });
+            ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k){
+              if (dData[k] && Array.isArray(dData[k]) && dData[k].length > 0) {
+                var _map = {};
+                DB[k].forEach(function(it){ _map[it.id] = it; });
+                dData[k].forEach(function(it){
+                  var _ex = _map[it.id];
+                  if (_ex) {
+                    var _ct = it.updatedAt || 0, _lt = _ex.updatedAt || 0;
+                    if (_ct >= _lt) _map[it.id] = it;
+                  } else {
+                    _map[it.id] = it;
+                  }
+                });
+                DB[k] = Object.values(_map);
+              }
+            });
+          } else {
+            DB = {clients:[],policies:[],commissions:[],expenses:[],goals:[],schedules:[],pcs:[],incomes:[]};
+            ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k) { if (dData[k]) DB[k] = dData[k]; });
+          }
+          saveDB();
         }
-        saveDB();
-      }
-      document.getElementById('nameModalBg').classList.remove('show');
-      document.getElementById('agentNameDisplay').textContent = name;
-      renderDashboard(); renderCurrentTab();
-      toast('帳戶已恢復', 'success');
+        document.getElementById('nameModalBg').classList.remove('show');
+        document.getElementById('agentNameDisplay').textContent = name;
+        renderDashboard(); renderCurrentTab();
+        toast('帳戶已恢復', 'success');
+      }).catch(function(e){ console.error('[recover v2] decrypt fail', e); toast('⚠️ 恢復成功但解密失敗','error'); });
     }
   })
   .catch(function(e){ clearTimeout(timeoutId); console.error('[recoverAccount]',e); alert('恢復失敗：'+e.message); });
@@ -2581,14 +2689,18 @@ function saveMyManager() {
       headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }
     }).then(function (r) { return r.json(); }).then(function (rows) {
       if (rows && rows[0] && rows[0].data) {
-        var d = rows[0].data;
-        if (d.manager === mgr) return; // 已經同步，唔使再寫
-        d.manager = mgr;
-        return fetch(SUPA_URL + '/rest/v1/agents?name=eq.' + encodeURIComponent(agentName), {
-          method: 'PATCH',
-          headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-          body: JSON.stringify({ data: d })
-        });
+        // v3.10.60 Track A: data 已加密，先 decrypt → 改 manager → 再 encrypt 才 PATCH
+        return decryptData(rows[0].data, agentPIN).then(function(dData){
+          if (!dData || dData.manager === mgr) return; // 已經同步，唔使再寫
+          dData.manager = mgr;
+          return encryptData(dData, agentPIN).then(function(encData){
+            return fetch(SUPA_URL + '/rest/v1/agents?name=eq.' + encodeURIComponent(agentName), {
+              method: 'PATCH',
+              headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+              body: JSON.stringify({ data: encData })
+            });
+          });
+        }).catch(function(e){ console.error('[my-manager] decrypt/encrypt fail', e); });
       }
     }).catch(function (e) { console.error('[my-manager] data sync ❌', e); });
   }
