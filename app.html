@@ -12,7 +12,7 @@
  * 開完一次後可改用 agent-app.html（正常 URL）
  */
 (function(){
-  var AGENT_VER='v3.10.56',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.57',AGENT_VER_KEY='agent_app_version';
   try { localStorage.setItem(AGENT_VER_KEY, AGENT_VER); } catch(e){}
   // v3.10.46: 早期獨立同步側欄版本 badge —— 免受下方 DOMContentLoaded 大函數任何錯誤影響，永不再顯示過期硬編碼版本
   try { document.addEventListener('DOMContentLoaded',function(){ try{ var _sv=document.getElementById('sidebarVer'); if(_sv) _sv.textContent=AGENT_VER; var _tv=document.getElementById('topbarVer'); if(_tv) _tv.textContent=AGENT_VER; var _lv=document.getElementById('loginVer'); if(_lv) _lv.textContent=AGENT_VER; }catch(e){} }); } catch(e){}
@@ -207,6 +207,24 @@ tr:hover td{background:var(--blue50)}
 .form-group input[type="date"]::-webkit-calendar-picker-indicator,.form-group input[type="time"]::-webkit-calendar-picker-indicator{cursor:pointer;opacity:0.6}
 .form-group input[type="date"]::-webkit-calendar-picker-indicator:hover,.form-group input[type="time"]::-webkit-calendar-picker-indicator:hover{opacity:1}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+/* TIME WHEEL PICKER (iPhone-style，取代 Android 上下午原生 picker) */
+.tw-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:10000;display:flex;align-items:flex-end;justify-content:center}
+.tw-sheet{background:#fff;width:100%;max-width:440px;border-radius:16px 16px 0 0;padding:6px 16px 22px;box-shadow:0 -4px 24px rgba(0,0,0,0.25);animation:twUp .22s ease}
+@keyframes twUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.tw-head{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--gray200);margin-bottom:6px}
+.tw-title{font-weight:600;color:var(--gray700);font-size:15px}
+.tw-cancel,.tw-ok{background:none;border:none;font-size:15px;cursor:pointer;padding:6px 4px}
+.tw-cancel{color:var(--gray500)}
+.tw-ok{color:var(--blue600);font-weight:700}
+.tw-wheels{position:relative;display:flex;align-items:center;justify-content:center;height:200px}
+.tw-band{position:absolute;top:50%;left:16px;right:16px;height:40px;transform:translateY(-50%);background:var(--gray100);border-radius:8px;pointer-events:none}
+.tw-col{height:200px;overflow-y:scroll;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch;width:80px;text-align:center;scrollbar-width:none;position:relative;z-index:1}
+.tw-col::-webkit-scrollbar{display:none}
+.tw-item{height:40px;line-height:40px;scroll-snap-align:center;font-size:20px;color:var(--gray400);transition:color .12s,font-size .12s}
+.tw-item.sel{color:var(--gray900);font-weight:700;font-size:24px}
+.tw-colon{font-size:24px;font-weight:700;color:var(--gray700);padding:0 6px;z-index:2}
+.tw-unit{font-size:11px;color:var(--gray400);text-align:center;padding-top:4px;display:flex;justify-content:center;gap:0}
+.tw-unit span{width:80px}
 /* MODAL */
 .modal-bg{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.45);z-index:1000;justify-content:center;align-items:center}
 .modal-bg.show{display:flex}
@@ -511,7 +529,7 @@ tr:hover td{background:var(--blue50)}
   <div class="sidebar-head">
     <h1>📊 SET理財規劃管家</h1>
     <div class="agent-info" id="sidebarAgentInfo">代理人版</div>
-    <div class="agent-ver" id="sidebarVer">v3.10.56</div>
+    <div class="agent-ver" id="sidebarVer">v3.10.57</div>
   </div>
   <nav class="sidebar-nav" id="sidebarNav">
     <button class="nav-btn" onclick="switchTab('dashboard',this)"><span class="nav-icon">📋</span> 總覽</button>
@@ -2864,22 +2882,40 @@ function calcGoalProgress(g) {
   return { pct: pct, actual: actual, label: (isPc ? pcMoney(actual) : money(actual)) + ' / ' + (isPc ? pcMoney(g.target) : money(g.target)) + rangeLabel, unit: isPc ? 'PC' : 'HK$' };
 }
 
+// v3.10.57: 總覽同時顯示所有「進行中」目標（多過一個都全部顯示），PC 目標排先、佣金排後
 function renderGoalBar() {
-  var dg = findDashGoal(), dp = calcGoalProgress(dg);
   var row = document.getElementById('goalProgressBarRow');
   if (!row) return;
-  if (!dg) { row.style.display = 'none'; return; }
-  var pct = dp.pct;
-  var bc = pct >= 100 ? 'var(--green500)' : pct >= 70 ? 'var(--blue500)' : 'var(--yellow500)';
-  var pl = '', isPc = (dg.type || 'commission') === 'PC', fmt = isPc ? pcMoney : money;
-  if (dg.period === 'monthly') pl = dg.year + '年' + dg.month + '月';
-  else if (dg.period === 'quarterly') pl = dg.year + '年Q' + dg.quarter;
-  else if (dg.period === 'yearly') pl = dg.year + '年度';
-  else if (dg.period === 'custom') pl = (dg.startDate || '?') + ' ~ ' + (dg.endDate || '?');
+  var activeGoals = (DB.goals || []).filter(isGoalActive);
+  if (activeGoals.length === 0) { row.style.display = 'none'; return; }
+  // 排序：PC 目標行先，佣金第二
+  activeGoals.sort(function(a, b){
+    var ap = (a.type === 'PC') ? 0 : 1, bp = (b.type === 'PC') ? 0 : 1;
+    return ap - bp;
+  });
+  var html = '';
+  if (activeGoals.length > 1) {
+    html += '<div style="font-weight:700;color:#1e293b;font-size:14px;margin-bottom:10px">🎯 目標進度 · 共 ' + activeGoals.length + ' 個進行中</div>';
+  }
+  activeGoals.forEach(function(dg, idx){
+    var dp = calcGoalProgress(dg);
+    var pct = dp.pct;
+    var bc = pct >= 100 ? 'var(--green500)' : pct >= 70 ? 'var(--blue500)' : 'var(--yellow500)';
+    var isPc = (dg.type || 'commission') === 'PC', fmt = isPc ? pcMoney : money;
+    var pl = '';
+    if (dg.period === 'monthly') pl = dg.year + '年' + dg.month + '月';
+    else if (dg.period === 'quarterly') pl = dg.year + '年Q' + dg.quarter;
+    else if (dg.period === 'yearly') pl = dg.year + '年度';
+    else if (dg.period === 'custom') pl = (dg.startDate || '?') + ' ~ ' + (dg.endDate || '?');
+    var wrapStyle = idx > 0 ? 'margin-top:14px;padding-top:14px;border-top:1px solid var(--gray200)' : '';
+    html += '<div style="' + wrapStyle + '">' +
+      '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><span style="font-weight:600;color:#1e293b">🎯 ' + (isPc ? 'PC 目標' : '佣金目標') + ' · ' + esc(pl) + '</span><span style="font-weight:700;color:' + bc + '">' + pct + '%</span></div>' +
+      '<div class="progress-bar"><div class="progress-fill" style="width:' + pct + '%;background:' + bc + '"></div></div>' +
+      '<div style="display:flex;justify-content:space-between;margin-top:6px;font-size:12px;color:#64748b"><span>已達成 ' + fmt(dp.actual) + '</span><span>目標 ' + fmt(dg.target) + '</span><span>差距 ' + fmt(Math.max(0, dg.target - (dp.actual || 0))) + '</span></div>' +
+      '</div>';
+  });
   row.style.display = 'block';
-  row.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><span style="font-weight:600;color:#1e293b">🎯 ' + (isPc ? 'PC 目標' : '佣金目標') + ' · ' + esc(pl) + '</span><span style="font-weight:700;color:' + bc + '">' + pct + '%</span></div>' +
-    '<div class="progress-bar"><div class="progress-fill" style="width:' + pct + '%;background:' + bc + '"></div></div>' +
-    '<div style="display:flex;justify-content:space-between;margin-top:6px;font-size:12px;color:#64748b"><span>已達成 ' + fmt(dp.actual) + '</span><span>目標 ' + fmt(dg.target) + '</span><span>差距 ' + fmt(dg.target - (dp.actual || 0)) + '</span></div>';
+  row.innerHTML = html;
 }
 function renderDashboardCharts() {
   renderGoalBar();
@@ -3413,7 +3449,7 @@ function openForm(type, id) {
     var mOpts = []; for (var mi=1; mi<=12; mi++) mOpts.push({val:mi, label:mi+'月'});
     var periodOpts = [{val:'yearly',label:'年度'},{val:'quarterly',label:'季度'},{val:'monthly',label:'每月'},{val:'custom',label:'自訂日期'}];
     var gPeriod = g.period||'yearly';
-    h += fs('目標類型','type',['佣金','PC'],g.type||'佣金')
+    h += fs('目標類型','type',['PC','佣金'],g.type||'PC')
       +fs('PC類型','pcType',['全部','H&P','ILAS','SAVING','PENSION','Others'],g.pcType||'全部')
       +fs('目標週期','period',periodOpts,gPeriod)
       +fs('年度','year',yearOpts,Number(g.year||yr))
@@ -3535,7 +3571,7 @@ function fs(label, name, options, selected) {
 // 會面目的 — 多選 checkbox 群組（可多選，新客開發有子選項分支）
 function fPurpose(selected) {
   var sel = (selected||'').split(',').map(function(s){return s.trim();});
-  var mainOpts = ['講解保單','續保跟進','理財諮詢','索償處理','整合強積金','開立僱主強積金','售後服務','招聘增員','參加活動','其他'];
+  var mainOpts = ['講解保單','電話會議','簽單','續保跟進','理財諮詢','基金投資Review','強積金Review','索償處理','整合強積金','開立僱主強積金','售後服務','招聘增員','參加活動','其他'];
   var subOpts = ['社交媒體出post','自己組織活動','參加新活動','叫朋友介紹新朋友'];
   var isSubShow = sel.indexOf('新客開發') >= 0;
   var h = '<div class="form-group"><label>會面目的（可多選）</label><div class="checkbox-group" id="f_purpose_group">';
@@ -3637,19 +3673,81 @@ function fTime(label, name, slots, selected) {
   var v = normalizeTime(selected) || '10:00';
   if (!/^\d{2}:\d{2}$/.test(v)) v = '10:00';
   var listId = 'dl_time_'+name;
+  var inputId = 'f_'+name;
   var h = '<div class="form-group"><label>'+label+'</label>';
-  // 主輸入：原生 time picker（保證 HH:MM 格式）
+  // 主輸入：text（保留手動輸入 HH:MM，避免 Android 原生上下午 picker）
   h += '<div style="display:flex;align-items:center;gap:6px">';
-  h += '<input type="time" id="f_'+name+'" value="'+esc(v)+'" step="900" style="font-size:14px;padding:8px 10px;border:1px solid var(--gray300);border-radius:8px;flex:1;min-width:0" list="'+listId+'">';
-  h += '<button type="button" onclick="document.getElementById(\'f_'+name+'\').showPicker()" style="padding:8px 10px;border:1px solid var(--gray300);border-radius:8px;background:var(--gray50);cursor:pointer;font-size:16px;line-height:1;flex-shrink:0" title="揀時間">🕐</button>';
+  h += '<input type="text" id="'+inputId+'" value="'+esc(v)+'" placeholder="HH:MM" maxlength="5" autocomplete="off" onblur="normalizeTimeInput(this)" style="font-size:16px;padding:8px 10px;border:1px solid var(--gray300);border-radius:8px;flex:1;min-width:0" list="'+listId+'">';
+  h += '<button type="button" onclick="openTimeWheel(\''+inputId+'\')" style="padding:8px 12px;border:1px solid var(--gray300);border-radius:8px;background:var(--gray50);cursor:pointer;font-size:16px;line-height:1;flex-shrink:0" title="揀時間">🕐</button>';
   h += '</div>';
-  // datalist 備選（部分瀏覽器支援 time input + datalist）
+  // datalist 備選（快速常用時間）
   h += '<datalist id="'+listId+'">';
   slots.forEach(function(t){ h += '<option value="'+esc(t)+'">'; });
   h += '</datalist>';
-  h += '<small style="color:var(--gray500);font-size:11px">撳 🕐 揀時間（每15分鐘），或直接輸入 HH:MM</small>';
+  h += '<small style="color:var(--gray500);font-size:11px">撳 🕐 滾輪揀時間（時 00-23 · 分 00-59），或直接輸入 HH:MM</small>';
   h += '</div>';
   return h;
+}
+// 手動輸入時間後正規化：支援 "930"→09:30、"9:5"→09:05，並夾住 0-23 / 0-59
+function normalizeTimeInput(el){
+  if(!el) return;
+  var raw = (el.value||'').trim();
+  if(!raw){ return; }
+  var v = normalizeTime(raw);
+  if(!/^\d{1,2}:\d{1,2}$/.test(v)){
+    var digits = raw.replace(/\D/g,'');
+    if(digits.length===3) digits = '0'+digits;
+    if(digits.length===4){ v = digits.slice(0,2)+':'+digits.slice(2); }
+    else if(digits.length<=2){ v = (digits||'0')+':00'; }
+  }
+  var mt = v.match(/^(\d{1,2}):(\d{1,2})$/);
+  if(mt){
+    var hh = Math.min(23, Math.max(0, parseInt(mt[1],10)||0));
+    var mm = Math.min(59, Math.max(0, parseInt(mt[2],10)||0));
+    el.value = String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0');
+  }
+}
+// iPhone 風格滾輪時間選擇器（時 00-23 / 分 00-59），取代 Android 原生上下午 picker
+function openTimeWheel(inputId){
+  var input = document.getElementById(inputId);
+  if(!input) return;
+  var cur = normalizeTime(input.value) || '10:00';
+  var mt = cur.match(/^(\d{1,2}):(\d{1,2})$/);
+  var curH = mt?Math.min(23,Math.max(0,parseInt(mt[1],10))):10;
+  var curM = mt?Math.min(59,Math.max(0,parseInt(mt[2],10))):0;
+  var ITEM = 40, PAD = 80; // 對應 CSS：.tw-col 200px / .tw-item 40px / 上下 pad 80px
+  function buildCol(id, max){
+    var s = '<div class="tw-col" id="'+id+'"><div class="tw-pad" style="height:'+PAD+'px"></div>';
+    for(var i=0;i<=max;i++){ s += '<div class="tw-item">'+String(i).padStart(2,'0')+'</div>'; }
+    s += '<div class="tw-pad" style="height:'+PAD+'px"></div></div>';
+    return s;
+  }
+  var ov = document.createElement('div');
+  ov.className = 'tw-overlay';
+  ov.innerHTML = '<div class="tw-sheet">'
+    + '<div class="tw-head"><button type="button" class="tw-cancel">取消</button><span class="tw-title">選擇時間</span><button type="button" class="tw-ok">完成</button></div>'
+    + '<div class="tw-wheels"><div class="tw-band"></div>'
+    + buildCol('twH',23) + '<div class="tw-colon">:</div>' + buildCol('twM',59)
+    + '</div>'
+    + '<div class="tw-unit"><span>時</span><span style="width:18px"></span><span>分</span></div>'
+    + '</div>';
+  document.body.appendChild(ov);
+  var colH = document.getElementById('twH'), colM = document.getElementById('twM');
+  function selIdx(colEl){ return Math.max(0, Math.round(colEl.scrollTop/ITEM)); }
+  function mark(colEl){ var idx = selIdx(colEl); var items = colEl.querySelectorAll('.tw-item'); for(var i=0;i<items.length;i++){ items[i].classList.toggle('sel', i===idx); } }
+  // 初始定位（等 layout 完成先 set scrollTop）
+  setTimeout(function(){ colH.scrollTop = curH*ITEM; colM.scrollTop = curM*ITEM; mark(colH); mark(colM); }, 20);
+  colH.addEventListener('scroll', function(){ mark(colH); });
+  colM.addEventListener('scroll', function(){ mark(colM); });
+  function close(){ if(ov.parentNode) ov.parentNode.removeChild(ov); }
+  ov.querySelector('.tw-cancel').addEventListener('click', close);
+  ov.addEventListener('click', function(e){ if(e.target===ov) close(); });
+  ov.querySelector('.tw-ok').addEventListener('click', function(){
+    var hh = Math.min(23, Math.max(0, selIdx(colH)));
+    var mm = Math.min(59, Math.max(0, selIdx(colM)));
+    input.value = String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0');
+    close();
+  });
 }
 // 客戶欄：自由輸入 + 自動完成。輸入新名稱 = 自動新增客戶。
 function fClient(label, name, value) {
