@@ -12,7 +12,7 @@
  * 開完一次後可改用 agent-app.html（正常 URL）
  */
 (function(){
-  var AGENT_VER='v3.10.58',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.59',AGENT_VER_KEY='agent_app_version';
   try { localStorage.setItem(AGENT_VER_KEY, AGENT_VER); } catch(e){}
   // v3.10.46: 早期獨立同步側欄版本 badge —— 免受下方 DOMContentLoaded 大函數任何錯誤影響，永不再顯示過期硬編碼版本
   try { document.addEventListener('DOMContentLoaded',function(){ try{ var _sv=document.getElementById('sidebarVer'); if(_sv) _sv.textContent=AGENT_VER; var _tv=document.getElementById('topbarVer'); if(_tv) _tv.textContent=AGENT_VER; var _lv=document.getElementById('loginVer'); if(_lv) _lv.textContent=AGENT_VER; }catch(e){} }); } catch(e){}
@@ -529,7 +529,7 @@ tr:hover td{background:var(--blue50)}
   <div class="sidebar-head">
     <h1>📊 SET理財規劃管家</h1>
     <div class="agent-info" id="sidebarAgentInfo">代理人版</div>
-    <div class="agent-ver" id="sidebarVer">v3.10.58</div>
+    <div class="agent-ver" id="sidebarVer">v3.10.59</div>
   </div>
   <nav class="sidebar-nav" id="sidebarNav">
     <button class="nav-btn" onclick="switchTab('dashboard',this)"><span class="nav-icon">📋</span> 總覽</button>
@@ -3574,6 +3574,9 @@ function fPurpose(selected) {
   var mainOpts = ['講解保單','電話會議','簽單','續保跟進','理財諮詢','基金投資Review','強積金Review','保單Review','索償處理','整合強積金','開立僱主強積金','售後服務','招聘增員','參加活動','其他'];
   var subOpts = ['社交媒體出post','自己組織活動','參加新活動','叫朋友介紹新朋友'];
   var isSubShow = sel.indexOf('新客開發') >= 0;
+  var isOtherShow = sel.indexOf('其他') >= 0;
+  var otherText = '';
+  for (var _i=0;_i<sel.length;_i++){ if (sel[_i].indexOf('其他：')===0) otherText = sel[_i].slice(3); }
   var h = '<div class="form-group"><label>會面目的（可多選）</label><div class="checkbox-group" id="f_purpose_group">';
   mainOpts.forEach(function(opt){
     var checked = sel.indexOf(opt) >= 0 ? ' checked' : '';
@@ -3590,14 +3593,27 @@ function fPurpose(selected) {
     var checked = sel.indexOf(opt) >= 0 ? ' checked' : '';
     h += '<label class="'+(checked?'checked':'')+'"><input type="checkbox" value="'+esc(opt)+'" onchange="purposeSubToggle(this)"'+checked+'>'+esc(opt)+'</label>';
   });
-  h += '</div></div></div>';
+  h += '</div></div>';
+  // 其他 → 自訂輸入
+  h += '<div id="f_purpose_other" class="purpose-sub'+(isOtherShow?' show':'')+'">';
+  h += '<div style="font-size:11px;color:var(--gray400);margin-bottom:4px">▸ 請填寫其他會面目的：</div>';
+  h += '<input type="text" id="f_purpose_other_text" placeholder="例如：客戶生日飯局、同事培訓..." value="'+esc(otherText)+'" style="font-size:14px;padding:8px 10px;border:1px solid var(--gray300);border-radius:8px;width:100%;box-sizing:border-box">';
+  h += '</div>';
+  h += '</div>';
   return h;
 }
-// 收集會面目的已選值（主選項 + 子選項）
+// 收集會面目的已選值（主選項 + 子選項 + 其他自訂）
 function getPurposeValues() {
   var vals = [];
   document.querySelectorAll('#f_purpose_group input[type="checkbox"]').forEach(function(cb){
-    if (cb.checked) vals.push(cb.value);
+    if (!cb.checked) return;
+    if (cb.value === '其他') {
+      var txt = document.getElementById('f_purpose_other_text');
+      var t = txt ? txt.value.trim() : '';
+      vals.push(t ? '其他：' + t : '其他');
+    } else {
+      vals.push(cb.value);
+    }
   });
   var subEl = document.getElementById('f_purpose_sub');
   if (subEl) {
@@ -3607,7 +3623,7 @@ function getPurposeValues() {
   }
   return vals.join(', ');
 }
-// 新客開發 toggle 子選項顯示
+// 新客開發 / 其他 toggle 子選項顯示
 function purposeToggle(el) {
   if (el.value === '新客開發') {
     var sub = document.getElementById('f_purpose_sub');
@@ -3617,6 +3633,12 @@ function purposeToggle(el) {
       if (!el.checked) {
         sub.querySelectorAll('input[type="checkbox"]').forEach(function(cb){ cb.checked = false; });
       }
+    }
+  } else if (el.value === '其他') {
+    var other = document.getElementById('f_purpose_other');
+    if (other) {
+      other.classList.toggle('show', el.checked);
+      if (el.checked) { var oi = document.getElementById('f_purpose_other_text'); if (oi) setTimeout(function(){ oi.focus(); }, 50); }
     }
   }
   // 更新 label 樣式
