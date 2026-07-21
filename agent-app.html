@@ -12,7 +12,7 @@
  * 開完一次後可改用 agent-app.html（正常 URL）
  */
 (function(){
-  var AGENT_VER='v3.10.57',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.58',AGENT_VER_KEY='agent_app_version';
   try { localStorage.setItem(AGENT_VER_KEY, AGENT_VER); } catch(e){}
   // v3.10.46: 早期獨立同步側欄版本 badge —— 免受下方 DOMContentLoaded 大函數任何錯誤影響，永不再顯示過期硬編碼版本
   try { document.addEventListener('DOMContentLoaded',function(){ try{ var _sv=document.getElementById('sidebarVer'); if(_sv) _sv.textContent=AGENT_VER; var _tv=document.getElementById('topbarVer'); if(_tv) _tv.textContent=AGENT_VER; var _lv=document.getElementById('loginVer'); if(_lv) _lv.textContent=AGENT_VER; }catch(e){} }); } catch(e){}
@@ -529,7 +529,7 @@ tr:hover td{background:var(--blue50)}
   <div class="sidebar-head">
     <h1>📊 SET理財規劃管家</h1>
     <div class="agent-info" id="sidebarAgentInfo">代理人版</div>
-    <div class="agent-ver" id="sidebarVer">v3.10.57</div>
+    <div class="agent-ver" id="sidebarVer">v3.10.58</div>
   </div>
   <nav class="sidebar-nav" id="sidebarNav">
     <button class="nav-btn" onclick="switchTab('dashboard',this)"><span class="nav-icon">📋</span> 總覽</button>
@@ -3571,7 +3571,7 @@ function fs(label, name, options, selected) {
 // 會面目的 — 多選 checkbox 群組（可多選，新客開發有子選項分支）
 function fPurpose(selected) {
   var sel = (selected||'').split(',').map(function(s){return s.trim();});
-  var mainOpts = ['講解保單','電話會議','簽單','續保跟進','理財諮詢','基金投資Review','強積金Review','索償處理','整合強積金','開立僱主強積金','售後服務','招聘增員','參加活動','其他'];
+  var mainOpts = ['講解保單','電話會議','簽單','續保跟進','理財諮詢','基金投資Review','強積金Review','保單Review','索償處理','整合強積金','開立僱主強積金','售後服務','招聘增員','參加活動','其他'];
   var subOpts = ['社交媒體出post','自己組織活動','參加新活動','叫朋友介紹新朋友'];
   var isSubShow = sel.indexOf('新客開發') >= 0;
   var h = '<div class="form-group"><label>會面目的（可多選）</label><div class="checkbox-group" id="f_purpose_group">';
