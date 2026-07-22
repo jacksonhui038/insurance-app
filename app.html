@@ -12,7 +12,7 @@
  * 開完一次後可改用 agent-app.html（正常 URL）
  */
 (function(){
-  var AGENT_VER='v3.10.60',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.62',AGENT_VER_KEY='agent_app_version';
   try { localStorage.setItem(AGENT_VER_KEY, AGENT_VER); } catch(e){}
   // v3.10.46: 早期獨立同步側欄版本 badge —— 免受下方 DOMContentLoaded 大函數任何錯誤影響，永不再顯示過期硬編碼版本
   try { document.addEventListener('DOMContentLoaded',function(){ try{ var _sv=document.getElementById('sidebarVer'); if(_sv) _sv.textContent=AGENT_VER; var _tv=document.getElementById('topbarVer'); if(_tv) _tv.textContent=AGENT_VER; var _lv=document.getElementById('loginVer'); if(_lv) _lv.textContent=AGENT_VER; }catch(e){} }); } catch(e){}
@@ -529,7 +529,7 @@ tr:hover td{background:var(--blue50)}
   <div class="sidebar-head">
     <h1>📊 SET理財規劃管家</h1>
     <div class="agent-info" id="sidebarAgentInfo">代理人版</div>
-    <div class="agent-ver" id="sidebarVer">v3.10.60</div>
+    <div class="agent-ver" id="sidebarVer">v3.10.62</div>
   </div>
   <nav class="sidebar-nav" id="sidebarNav">
     <button class="nav-btn" onclick="switchTab('dashboard',this)"><span class="nav-icon">📋</span> 總覽</button>
@@ -1117,16 +1117,14 @@ function saveToSupabase(callback) {
     // v3.9.5: 用 buildUploadData() 取代直接 Object.assign({},DB)，確保保留 role/manager/team 同雲端既有記錄（MERGE 唔係 REPLACE）
     // v3.10.60 Track A: 上傳前用 PIN 加密 data（雲端只存密文）
     encryptData(uploadData, agentPIN || '').then(function(encData){
-      var payload = JSON.stringify({name:agentName,data:encData,manager:mgr,team:team});
+      var payload = JSON.stringify(buildUpsertPayload(agentName, encData, mgr, team));
       var payloadSize = new Blob([payload]).size;
       if (payloadSize > 5 * 1024 * 1024) console.warn('[saveToSupabase] Payload size:', Math.round(payloadSize/1024), 'KB');
       var controller = new AbortController();
       var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
       fetch(SUPA_URL + '/rest/v1/agents?on_conflict=name', {
         method:'POST',
-        headers:{
-          'apikey':SUPA_KEY,
-          'Authorization':'Bearer '+SUPA_KEY,
+        headers:{ ...supaHeaders(),
           'Content-Type':'application/json',
           'Prefer':'resolution=merge-duplicates,return=minimal'
         },
@@ -1150,7 +1148,7 @@ function saveToSupabase(callback) {
     var gC = new AbortController();
     var gT = setTimeout(function(){ gC.abort(); }, 15000);
     fetch(SUPA_URL + '/rest/v1/agents?name=eq.'+encodeURIComponent(agentName)+'&select=data', {
-      headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Cache-Control':'no-cache'},
+      headers:{ ...supaHeaders(),'Cache-Control':'no-cache'},
       signal:gC.signal
     })
     .then(function(res){ clearTimeout(gT); return res.json(); })
@@ -1180,7 +1178,7 @@ function forceUploadToSupabase() {
   var getC = new AbortController();
   var getT = setTimeout(function(){ getC.abort(); }, 15000);
   fetch(SUPA_URL + '/rest/v1/agents?name=eq.'+encodeURIComponent(agentName)+'&select=data', {
-    headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Cache-Control':'no-cache'},
+    headers:{ ...supaHeaders(),'Cache-Control':'no-cache'},
     signal:getC.signal
   })
   .then(function(res){ clearTimeout(getT); return res.json(); })
@@ -1190,7 +1188,7 @@ function forceUploadToSupabase() {
     uploadData._forceUpload = new Date().toISOString();
     // v3.10.60 Track A: 強制上傳前同樣加密 data
     encryptData(uploadData, agentPIN || '').then(function(encData){
-      var payload = JSON.stringify({name:agentName,data:encData,manager:mgr,team:team});
+      var payload = JSON.stringify(buildUpsertPayload(agentName, encData, mgr, team));
       doForceUpload(payload, mgr, team);
     }).catch(function(e){ console.error('[forceUpload] encrypt fail', e); toast('❌ 加密失敗','error'); });
   })
@@ -1201,7 +1199,7 @@ function forceUploadToSupabase() {
     uploadData._forceUpload = new Date().toISOString();
     // v3.10.60 Track A: 強制上傳前同樣加密 data
     encryptData(uploadData, agentPIN || '').then(function(encData){
-      var payload = JSON.stringify({name:agentName,data:encData,manager:mgr,team:team});
+      var payload = JSON.stringify(buildUpsertPayload(agentName, encData, mgr, team));
       doForceUpload(payload, mgr, team);
     }).catch(function(e){ console.error('[forceUpload] encrypt fail', e); toast('❌ 加密失敗','error'); });
   });
@@ -1211,9 +1209,7 @@ function doForceUpload(payload, mgr, team) {
   var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
   fetch(SUPA_URL + '/rest/v1/agents?on_conflict=name', {
     method:'POST',
-    headers:{
-      'apikey':SUPA_KEY,
-      'Authorization':'Bearer '+SUPA_KEY,
+    headers:{ ...supaHeaders(),
       'Content-Type':'application/json',
       'Prefer':'resolution=merge-duplicates,return=representation'
     },
@@ -1247,7 +1243,7 @@ function loadFromSupabase(callback, retry) {
   var controller = new AbortController();
   var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
   fetch(SUPA_URL + '/rest/v1/agents?name=eq.'+encodeURIComponent(agentName)+'&select=data,manager,team', { // v3.10.56: 移除 role — agents 表無頂層 role column（role 在 data.role），查詢 role 會 400 令整個 pull 靜默失效
-    headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Cache-Control':'no-cache','Pragma':'no-cache'},
+    headers:{ ...supaHeaders(),'Cache-Control':'no-cache','Pragma':'no-cache'},
     signal:controller.signal
   })
   .then(function(res){ clearTimeout(timeoutId); return res.json(); })
@@ -1328,7 +1324,7 @@ function supabaseDeleteAgent(name, callback) {
   var timeoutId = setTimeout(function(){ controller.abort(); }, 15000);
   fetch(SUPA_URL + '/rest/v1/agents?name=eq.'+encodeURIComponent(name), {
     method:'DELETE',
-    headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY},
+    headers:{ ...supaHeaders() },
     signal:controller.signal
   })
   .then(function(res){ clearTimeout(timeoutId); if(callback) callback(res.ok); })
@@ -1408,6 +1404,206 @@ function hashPin(pin) {
   var h = 5381;
   for (var i = 0; i < pin.length; i++) { h = ((h << 5) + h) + pin.charCodeAt(i); h = h & 0xffffffff; }
   return 'p' + Math.abs(h).toString(36);
+}
+
+// ===== Track B: Supabase Auth（自動接好）+ JWT 路由（設計 A：保留「全名 + PIN」）=====
+// 每位同事第一次用舊流程登入（RLS 未開）嗰陣，app 自動 signUp + 填 user_id，同事零感知。
+// 之後所有雲端 call 改用工件 JWT（Authorization: Bearer <JWT>）；RLS 開咗之後 anon 讀唔到，必須用 JWT。
+var SUPA_JWT = '';
+var SUPA_UID = '';
+
+// 所有雲端 call 用呢個 header：有 JWT 就用 JWT，冇就用 anon key（RLS 未開時等同舊行為）
+function supaHeaders(extra) {
+  var h = { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + (SUPA_JWT || SUPA_KEY) };
+  if (extra) { for (var k in extra) { if (Object.prototype.hasOwnProperty.call(extra, k)) h[k] = extra[k]; } }
+  return h;
+}
+
+// 同步 SHA-1（生成合成 email，同 SQL 草稿 sha1[:12] 一致）
+function sha1hex(s) {
+  function rotl(n,c){ return (n<<c)|(n>>>(32-c)); }
+  function tohex(n){ var r=''; for (var i=7;i>=0;i--){ r+=((n>>>(i*4))&0xf).toString(16); } return r; }
+  var msg = unescape(encodeURIComponent(s));
+  var words = [];
+  for (var i=0;i<msg.length;i+=4){
+    words[i>>2] = (((msg.charCodeAt(i)<<24)|((msg.charCodeAt(i+1)||0)<<16)|((msg.charCodeAt(i+2)||0)<<8)|(msg.charCodeAt(i+3)||0))) >>> 0;
+  }
+  var mlen = msg.length;
+  words[mlen>>2] |= 0x80 << (24-(mlen%4)*8);
+  words[(((mlen+8)>>6)<<4)+14] = mlen*8;
+  var a=1732584193,b=4023233417,c=2562383102,d=271733878,e=3285377520;
+  for (var i=0;i<words.length;i+=16){
+    var w=[];
+    for (var j=0;j<16;j++) w[j]=words[i+j];
+    for (var j=16;j<80;j++){ var n=w[j-3]^w[j-8]^w[j-14]^w[j-16]; w[j]=rotl(n,1); }
+    var A=a,B=b,C=c,D=d,E=e;
+    for (var j=0;j<80;j++){
+      var f,k;
+      if (j<20){ f=(B&C)|((~B)&D); k=1518500249; }
+      else if (j<40){ f=B^C^D; k=1859775393; }
+      else if (j<60){ f=(B&C)|(B&D)|(C&D); k=2400959708; }
+      else { f=B^C^D; k=3395461395; }
+      var temp=(rotl(A,5)+f+E+k+(w[j]|0)) & 0xffffffff;
+      E=D; D=C; C=rotl(B,30); B=A; A=temp;
+    }
+    a=(a+A)&0xffffffff; b=(b+B)&0xffffffff; c=(c+C)&0xffffffff; d=(d+D)&0xffffffff; e=(e+E)&0xffffffff;
+  }
+  return tohex(a)+tohex(b)+tohex(c)+tohex(d)+tohex(e);
+}
+
+// 合成 email：sha1(全名小寫去空格) 頭 12 位 + @insurance-app.local（非真 inbox，純內部 ID）
+function syntheticEmail(name) {
+  var s = (name || '').toLowerCase().replace(/\s+/g, '');
+  return sha1hex(s).slice(0, 12) + '@insurance-app.local';
+}
+// 密碼：PIN + 固定鹽（湊 ≥6 位滿足 Supabase 預設；用家仍只入 PIN）
+function syntheticPassword(pin) { return (pin || '') + 'insapp2026'; }
+
+function _authPost(path, body) {
+  return new Promise(function(resolve, reject){
+    fetch(SUPA_URL + path, {
+      method:'POST',
+      headers:{'apikey':SUPA_KEY,'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    }).then(function(res){
+      res.json().then(function(j){ resolve({status:res.status, body:j||{}}); }, function(){ resolve({status:res.status, body:{}}); });
+    }).catch(function(e){ reject(e); });
+  });
+}
+function authSignIn(name, pin) {
+  return _authPost('/auth/v1/token?grant_type=password', {email: syntheticEmail(name), password: syntheticPassword(pin)})
+    .then(function(r){
+      if (r.status===200 && r.body && r.body.access_token) {
+        var uid = (r.body.user && r.body.user.id) || '';
+        return {jwt: r.body.access_token, uid: uid};
+      }
+      return Promise.reject({status:r.status, body:r.body});
+    });
+}
+function authSignUp(name, pin) {
+  return _authPost('/auth/v1/signup', {email: syntheticEmail(name), password: syntheticPassword(pin)})
+    .then(function(r){
+      if (r.status===200 && r.body) {
+        var jwt = r.body.access_token || '';
+        var uid = (r.body.user && r.body.user.id) || (r.body.id || '');
+        return {jwt: jwt, uid: uid};
+      }
+      return Promise.reject({status:r.status, body:r.body});
+    });
+}
+function patchUserId(name, uid) {
+  if (!uid) return Promise.resolve(false);
+  return fetch(SUPA_URL + '/rest/v1/agents?name=eq.'+encodeURIComponent(name), {
+    method:'PATCH',
+    headers: supaHeaders({'Content-Type':'application/json','Prefer':'return=minimal'}),
+    body: JSON.stringify({user_id: uid})
+  }).then(function(res){ return res.ok; }).catch(function(e){ console.warn('[patchUserId]', e); return false; });
+}
+// 叫 Edge Function（service_role）幫呢位 agent 接好：建/改 Auth 帳號（密碼=PIN+SALT）+ 填 user_id。
+// 用家仍只入 name+PIN，完全唔知背後發生咩。Edge Function 會先驗證 PIN（解密 data / 比對 _pinHash）先 set password，防 brute-force / DoS。
+function provisionViaEdge(name, pin) {
+  return new Promise(function(resolve){
+    var url = (SUPA_URL || '').replace(/\/+$/, '') + '/functions/v1/provision';
+    fetch(url, {
+      method:'POST',
+      headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json'},
+      body: JSON.stringify({name:name, pin:pin})
+    }).then(function(r){ return r.json().catch(function(){ return {}; }); })
+      .then(function(j){ resolve(!!(j && j.ok)); })
+      .catch(function(e){ console.warn('[provisionViaEdge]', e); resolve(false); });
+  });
+}
+// Track B (Option B)：透過 Edge Function 確保 Auth 帳號 + user_id，再 signIn 攞 JWT（填充 SUPA_JWT / SUPA_UID）
+function provisionAgent(name, pin) {
+  return provisionViaEdge(name, pin).then(function(ok){
+    if (!ok) { console.warn('[provisionAgent] Edge Function 未接好（唔影響登入，下次再試）'); return false; }
+    return authSignIn(name, pin).then(function(res){
+      SUPA_JWT = res.jwt || SUPA_JWT;
+      SUPA_UID = res.uid || SUPA_UID;
+      return true;
+    }).catch(function(e){ console.warn('[provisionAgent] signIn after provision 失敗', e); return false; });
+  });
+}
+// 儲存 payload：夾 user_id（RLS WITH CHECK 要求 user_id = auth.uid()）；SUPA_UID 空就唔夾（RLS 未開時唔會錯）
+function buildUpsertPayload(name, data, mgr, team) {
+  var p = {name: name, data: data, manager: mgr, team: team};
+  if (SUPA_UID) p.user_id = SUPA_UID;
+  return p;
+}
+// 共用登入成功處理（雲端 / 離線快取 / JWT 三條路徑共用）
+function applyLogin(ad, name, pin, toastMsg, decryptFailMsg) {
+  agentName = name; agentPIN = pin;
+  assignedManager = ad.manager || '';
+  assignedTeam = ad.team || '';
+  agentRole = (ad && ad.role) || 'Agent';
+  agentHierarchyPath = ad.hierarchyPath || name;
+  localStorage.setItem(AGENT_KEY, name);
+  localStorage.setItem(AGENT_PIN_KEY, pin);
+  localStorage.setItem('insurance_agent_name_locked', 'true');
+  localStorage.setItem('insurance_mgr_'+encodeURIComponent(name), assignedManager);
+  localStorage.setItem('insurance_role_'+encodeURIComponent(name), agentRole);
+  localStorage.setItem('insurance_hpath_'+encodeURIComponent(name), agentHierarchyPath);
+  if (assignedTeam) localStorage.setItem('insurance_team_'+encodeURIComponent(name), assignedTeam);
+  loadDB();
+  decryptData(ad.data, pin).then(function(dData){
+    agentRole = (dData && dData.role) || agentRole;
+    localStorage.setItem('insurance_role_'+encodeURIComponent(name), agentRole);
+    if (dData) {
+      ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k) {
+        if (dData[k] && Array.isArray(dData[k])) {
+          var localMap = {};
+          DB[k].forEach(function(item) { localMap[item.id] = item; });
+          dData[k].forEach(function(item) { localMap[item.id] = item; });
+          DB[k] = Object.values(localMap);
+        }
+      });
+      saveDB();
+    }
+    finishLoginUI(name, toastMsg);
+  }).catch(function(e){
+    console.error('[applyLogin] decrypt fail', e);
+    if (decryptFailMsg) toast(decryptFailMsg, 'error');
+    finishLoginUI(name, toastMsg);
+  });
+}
+function finishLoginUI(name, toastMsg) {
+  loginInProgress = false;
+  var btn = document.getElementById('loginBtn'); if (btn) { btn.textContent = '登入'; btn.disabled = false; }
+  document.getElementById('nameModalBg').classList.remove('show');
+  document.getElementById('agentNameDisplay').textContent = name;
+  document.getElementById('sidebarAgentInfo').textContent = name+' | '+agentRole+(assignedManager?' | 經理：'+assignedManager:'');
+  renderDashboard(); renderCurrentTab(); afterLoginSync();
+  toast(toastMsg || '登入成功！');
+}
+// Track B 登入優先路徑：先用 Auth 攞 JWT（RLS 開咗之後唯一方法）。
+// 返 true = 已處理（成功）；false = 未接好 / 網絡錯 → caller 行舊 anon 流程。
+// PIN 已由 Auth（密碼 = PIN+SALT）驗證；authSignIn 失敗（401）即 PIN 錯或帳號未接好。
+function attemptJwtLogin(name, pin, pinH, errEl, btn) {
+  function signInAndLoad() {
+    return authSignIn(name, pin).then(function(res){
+      SUPA_JWT = res.jwt || SUPA_JWT;
+      SUPA_UID = res.uid || SUPA_UID;
+      return fetch(SUPA_URL + '/rest/v1/agents?name=eq.'+encodeURIComponent(name)+'&select=*', {
+        headers: supaHeaders({'Cache-Control':'no-cache'})
+      }).then(function(r){ return r.json(); }).then(function(rows){
+        if (!Array.isArray(rows) || rows.length===0) { throw {status:404}; }
+        var ad = rows[0];
+        applyLogin(ad, name, pin, '登入成功！', '⚠️ 登入成功，但雲端資料解密失敗（PIN 可能已更改），請於主力裝置重新強制上傳');
+        return true;
+      });
+    });
+  }
+  return signInAndLoad().catch(function(e){
+    var code = (e && e.status) || (e && e.body && e.body.status) || 0;
+    // 401 帳號未接好 / 密碼未 set（placeholder）→ 經 Edge Function 自動接好，再試一次
+    if (code === 401 || code === 400 || code === 403) {
+      return provisionAgent(name, pin).then(function(ok){
+        if (!ok) return false;
+        return signInAndLoad().then(function(){ return true; }).catch(function(){ return false; });
+      });
+    }
+    return false; // 網絡錯 → 行舊流程
+  });
 }
 
 // ===== Track A: 客戶端 AES-GCM 加密（PBKDF2 衍生 key，PIN 作密碼）=====
@@ -1553,7 +1749,7 @@ function onTeamChange() {
 }
 
 var loginInProgress = false;
-function doLogin() {
+async function doLogin() {
   var btn = document.getElementById('loginBtn');
   var errEl = document.getElementById('loginErr');
   var nameInput = document.getElementById('loginName');
@@ -1588,11 +1784,14 @@ function doLogin() {
 
   // Only use Supabase (primary cloud)
   if (SUPA_URL && SUPA_KEY) {
+    // Track B: 先用 Auth 攞 JWT（RLS 開咗之後唯一登入方法）；未接好就落返舊 anon 流程
+    var _jwtHandled = await attemptJwtLogin(name, pin, pinH, errEl, btn);
+    if (_jwtHandled) return;
     var ctrl = new AbortController();
     var tid = setTimeout(function(){ ctrl.abort(); }, 10000);
     // v3.6.1: fetch all agents, client-side match (handles Chinese + case-insensitive)
     fetch(SUPA_URL + '/rest/v1/agents?select=*', {
-      headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY },
+      headers: { ...supaHeaders() },
       signal: ctrl.signal
     })
     .then(function(res) { clearTimeout(tid); return res.json(); })
@@ -1630,6 +1829,7 @@ function doLogin() {
         }
         // Success — login
         agentName = name; agentPIN = pin;
+        provisionAgent(name, pin); // Track B: 自動接好 Auth + user_id（下次登入直接用 JWT）
         assignedManager = ad.manager || '';
         assignedTeam = ad.team || '';
         agentRole = (ad && ad.role) || 'Agent'; // v3.10.56: 頂層 role 已移除；data.role 待 decrypt 後補
@@ -1729,6 +1929,7 @@ function doLogin() {
           clearTimeout(safetyTimer);
           loginInProgress = false;
           agentName = name; agentPIN = pin;
+          provisionAgent(name, pin); // Track B: 自動接好 Auth + user_id（下次登入直接用 JWT）
           assignedManager = matched.manager || '';
           assignedTeam = matched.team || '';
           agentRole = (matched && matched.role) || 'Agent'; // v3.10.56; data.role 待 decrypt 後補
@@ -1890,7 +2091,7 @@ function computeHierarchyPath(supervisor, myName, callback) {
     var ctrl = new AbortController();
     var tid = setTimeout(function(){ ctrl.abort(); }, 10000);
     fetch(SUPA_URL + '/rest/v1/agents?name=eq.' + encodeURIComponent(supervisor) + '&select=data', {
-      headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }, signal: ctrl.signal
+      headers: { ...supaHeaders() }, signal: ctrl.signal
     })
     .then(function(res) { clearTimeout(tid); return res.json(); })
     .then(function(rows) {
@@ -1918,7 +2119,7 @@ function checkAgentExists(name, callback) {
     var ctrl = new AbortController();
     var tid = setTimeout(function(){ ctrl.abort(); }, 10000);
     fetch(SUPA_URL + '/rest/v1/agents?name=eq.' + encodeURIComponent(name) + '&select=name', {
-      headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }, signal: ctrl.signal
+      headers: { ...supaHeaders() }, signal: ctrl.signal
     })
     .then(function(res) { clearTimeout(tid); return res.json(); })
     .then(function(rows) { callback(rows && rows.length > 0); })
@@ -1936,13 +2137,11 @@ function registerToCloudWithPin(name, manager, team, pinH, role, hPath, callback
     var timeoutId = setTimeout(function(){ controller.abort(); }, 20000);
     fetch(SUPA_URL + '/rest/v1/agents?on_conflict=name', {
       method:'POST',
-      headers:{
-        'apikey':SUPA_KEY,
-        'Authorization':'Bearer '+SUPA_KEY,
+      headers:{ ...supaHeaders(),
         'Content-Type':'application/json',
         'Prefer':'resolution=merge-duplicates,return=minimal'
       },
-      body:JSON.stringify([{name:name,data:dwp,manager:manager,team:team}]),
+      body:JSON.stringify([buildUpsertPayload(name, dwp, manager, team)]),
       signal:controller.signal
     })
     .then(function(res){
@@ -2251,7 +2450,7 @@ function forceRegister(name, pin, role, supervisor, team) {
   // v3.6.1: fetch all agents, client-side match (handles Chinese + case-insensitive)
   if (SUPA_URL && SUPA_KEY) {
     fetch(SUPA_URL + '/rest/v1/agents?select=*', {
-      headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}
+      headers:{ ...supaHeaders() }
     })
     .then(function(r){ return r.json(); })
     .then(function(rows){
@@ -2313,8 +2512,8 @@ function forceRegister(name, pin, role, supervisor, team) {
         });
         fetch(SUPA_URL + '/rest/v1/agents?on_conflict=name', {
           method:'POST',
-          headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
-          body:JSON.stringify({name:name, data:dwp, manager:supervisor, team:team})
+          headers:{ ...supaHeaders(),'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
+          body:JSON.stringify(buildUpsertPayload(name, dwp, supervisor, team))
         }).then(function(r){
           if (r.ok) toast('強制覆蓋註冊成功 ✓ 雲端資料已保留', 'success');
           else toast('雲端更新失敗', 'error');
@@ -2372,7 +2571,7 @@ function verifyAndRecover(name) {
   var controller = new AbortController();
   var timeoutId = setTimeout(function(){ controller.abort(); }, 15000);
   fetch(SUPA_URL + '/rest/v1/agents?name=eq.'+encodeURIComponent(name)+'&select=*', {
-    headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY},
+    headers:{ ...supaHeaders() },
     signal:controller.signal
   })
   .then(function(res){ clearTimeout(timeoutId); return res.json(); })
@@ -2435,7 +2634,7 @@ function verifyAndRecoverFromDetails(name, pin) {
   var controller = new AbortController();
   var timeoutId = setTimeout(function(){ controller.abort(); }, 15000);
   fetch(SUPA_URL + '/rest/v1/agents?name=eq.'+encodeURIComponent(name)+'&select=*', {
-    headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY},
+    headers:{ ...supaHeaders() },
     signal:controller.signal
   })
   .then(function(res){ clearTimeout(timeoutId); return res.json(); })
@@ -2601,7 +2800,7 @@ function saveCloudSetup() {
     if (Object.keys(patchBody).length > 0) {
       fetch(SUPA_URL + '/rest/v1/agents?name=eq.' + encodeURIComponent(agentName), {
         method:'PATCH',
-        headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+        headers:{ ...supaHeaders(),'Content-Type':'application/json','Prefer':'return=minimal'},
         body:JSON.stringify(patchBody)
       }).then(function(r){
         if (r.ok) console.log('[team-update] ✅ manager/team updated:', patchBody);
@@ -2678,7 +2877,7 @@ function saveMyManager() {
     // 1) 更新頂層 manager 欄位
     fetch(SUPA_URL + '/rest/v1/agents?name=eq.' + encodeURIComponent(agentName), {
       method: 'PATCH',
-      headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+      headers: { ...supaHeaders(), 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
       body: JSON.stringify({ manager: mgr })
     }).then(function (r) {
       if (r.ok) { console.log('[my-manager] ✅ manager updated:', mgr); toast('☁️ 已同步到雲端'); }
@@ -2686,7 +2885,7 @@ function saveMyManager() {
     }).catch(function (e) { console.error('[my-manager] ❌', e); });
     // 2) 同步 data.manager（登入時優先讀 data.manager，唔改會「改極都改唔到」）
     fetch(SUPA_URL + '/rest/v1/agents?name=eq.' + encodeURIComponent(agentName) + '&select=data', {
-      headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }
+      headers: { ...supaHeaders() }
     }).then(function (r) { return r.json(); }).then(function (rows) {
       if (rows && rows[0] && rows[0].data) {
         // v3.10.60 Track A: data 已加密，先 decrypt → 改 manager → 再 encrypt 才 PATCH
@@ -2696,7 +2895,7 @@ function saveMyManager() {
           return encryptData(dData, agentPIN).then(function(encData){
             return fetch(SUPA_URL + '/rest/v1/agents?name=eq.' + encodeURIComponent(agentName), {
               method: 'PATCH',
-              headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+              headers: { ...supaHeaders(), 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
               body: JSON.stringify({ data: encData })
             });
           });
