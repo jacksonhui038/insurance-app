@@ -12,7 +12,7 @@
  * 開完一次後可改用 agent-app.html（正常 URL）
  */
 (function(){
-  var AGENT_VER='v3.10.62',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.63',AGENT_VER_KEY='agent_app_version';
   try { localStorage.setItem(AGENT_VER_KEY, AGENT_VER); } catch(e){}
   // v3.10.46: 早期獨立同步側欄版本 badge —— 免受下方 DOMContentLoaded 大函數任何錯誤影響，永不再顯示過期硬編碼版本
   try { document.addEventListener('DOMContentLoaded',function(){ try{ var _sv=document.getElementById('sidebarVer'); if(_sv) _sv.textContent=AGENT_VER; var _tv=document.getElementById('topbarVer'); if(_tv) _tv.textContent=AGENT_VER; var _lv=document.getElementById('loginVer'); if(_lv) _lv.textContent=AGENT_VER; }catch(e){} }); } catch(e){}
@@ -1419,42 +1419,22 @@ function supaHeaders(extra) {
   return h;
 }
 
-// 同步 SHA-1（生成合成 email，同 SQL 草稿 sha1[:12] 一致）
+// SHA-1（生成合成 email，同 admin script 嘅 Python hashlib.sha1 一致）
+// 用 Web Crypto（crypto.subtle.digest SHA-1），UTF-8 編碼，確保同 Python 結果完全一致
 function sha1hex(s) {
-  function rotl(n,c){ return (n<<c)|(n>>>(32-c)); }
-  function tohex(n){ var r=''; for (var i=7;i>=0;i--){ r+=((n>>>(i*4))&0xf).toString(16); } return r; }
-  var msg = unescape(encodeURIComponent(s));
-  var words = [];
-  for (var i=0;i<msg.length;i+=4){
-    words[i>>2] = (((msg.charCodeAt(i)<<24)|((msg.charCodeAt(i+1)||0)<<16)|((msg.charCodeAt(i+2)||0)<<8)|(msg.charCodeAt(i+3)||0))) >>> 0;
-  }
-  var mlen = msg.length;
-  words[mlen>>2] |= 0x80 << (24-(mlen%4)*8);
-  words[(((mlen+8)>>6)<<4)+14] = mlen*8;
-  var a=1732584193,b=4023233417,c=2562383102,d=271733878,e=3285377520;
-  for (var i=0;i<words.length;i+=16){
-    var w=[];
-    for (var j=0;j<16;j++) w[j]=words[i+j];
-    for (var j=16;j<80;j++){ var n=w[j-3]^w[j-8]^w[j-14]^w[j-16]; w[j]=rotl(n,1); }
-    var A=a,B=b,C=c,D=d,E=e;
-    for (var j=0;j<80;j++){
-      var f,k;
-      if (j<20){ f=(B&C)|((~B)&D); k=1518500249; }
-      else if (j<40){ f=B^C^D; k=1859775393; }
-      else if (j<60){ f=(B&C)|(B&D)|(C&D); k=2400959708; }
-      else { f=B^C^D; k=3395461395; }
-      var temp=(rotl(A,5)+f+E+k+(w[j]|0)) & 0xffffffff;
-      E=D; D=C; C=rotl(B,30); B=A; A=temp;
-    }
-    a=(a+A)&0xffffffff; b=(b+B)&0xffffffff; c=(c+C)&0xffffffff; d=(d+D)&0xffffffff; e=(e+E)&0xffffffff;
-  }
-  return tohex(a)+tohex(b)+tohex(c)+tohex(d)+tohex(e);
+  return crypto.subtle.digest("SHA-1", new TextEncoder().encode(s)).then(function(buf){
+    var b = new Uint8Array(buf);
+    var hex = "";
+    for (var i=0;i<b.length;i++){ hex += b[i].toString(16).padStart(2,"0"); }
+    return hex;
+  });
 }
 
 // 合成 email：sha1(全名小寫去空格) 頭 12 位 + @insurance-app.local（非真 inbox，純內部 ID）
+// 返回 Promise<string>
 function syntheticEmail(name) {
   var s = (name || '').toLowerCase().replace(/\s+/g, '');
-  return sha1hex(s).slice(0, 12) + '@insurance-app.local';
+  return sha1hex(s).then(function(h){ return h.slice(0, 12) + '@insurance-app.local'; });
 }
 // 密碼：PIN + 固定鹽（湊 ≥6 位滿足 Supabase 預設；用家仍只入 PIN）
 function syntheticPassword(pin) { return (pin || '') + 'insapp2026'; }
@@ -1471,25 +1451,29 @@ function _authPost(path, body) {
   });
 }
 function authSignIn(name, pin) {
-  return _authPost('/auth/v1/token?grant_type=password', {email: syntheticEmail(name), password: syntheticPassword(pin)})
-    .then(function(r){
-      if (r.status===200 && r.body && r.body.access_token) {
-        var uid = (r.body.user && r.body.user.id) || '';
-        return {jwt: r.body.access_token, uid: uid};
-      }
-      return Promise.reject({status:r.status, body:r.body});
-    });
+  return syntheticEmail(name).then(function(email){
+    return _authPost('/auth/v1/token?grant_type=password', {email: email, password: syntheticPassword(pin)})
+      .then(function(r){
+        if (r.status===200 && r.body && r.body.access_token) {
+          var uid = (r.body.user && r.body.user.id) || '';
+          return {jwt: r.body.access_token, uid: uid};
+        }
+        return Promise.reject({status:r.status, body:r.body});
+      });
+  });
 }
 function authSignUp(name, pin) {
-  return _authPost('/auth/v1/signup', {email: syntheticEmail(name), password: syntheticPassword(pin)})
-    .then(function(r){
-      if (r.status===200 && r.body) {
-        var jwt = r.body.access_token || '';
-        var uid = (r.body.user && r.body.user.id) || (r.body.id || '');
-        return {jwt: jwt, uid: uid};
-      }
-      return Promise.reject({status:r.status, body:r.body});
-    });
+  return syntheticEmail(name).then(function(email){
+    return _authPost('/auth/v1/signup', {email: email, password: syntheticPassword(pin)})
+      .then(function(r){
+        if (r.status===200 && r.body) {
+          var jwt = r.body.access_token || '';
+          var uid = (r.body.user && r.body.user.id) || (r.body.id || '');
+          return {jwt: jwt, uid: uid};
+        }
+        return Promise.reject({status:r.status, body:r.body});
+      });
+  });
 }
 function patchUserId(name, uid) {
   if (!uid) return Promise.resolve(false);
