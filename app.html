@@ -12,7 +12,7 @@
  * 開完一次後可改用 agent-app.html（正常 URL）
  */
 (function(){
-  var AGENT_VER='v3.10.63',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.64',AGENT_VER_KEY='agent_app_version';
   try { localStorage.setItem(AGENT_VER_KEY, AGENT_VER); } catch(e){}
   // v3.10.46: 早期獨立同步側欄版本 badge —— 免受下方 DOMContentLoaded 大函數任何錯誤影響，永不再顯示過期硬編碼版本
   try { document.addEventListener('DOMContentLoaded',function(){ try{ var _sv=document.getElementById('sidebarVer'); if(_sv) _sv.textContent=AGENT_VER; var _tv=document.getElementById('topbarVer'); if(_tv) _tv.textContent=AGENT_VER; var _lv=document.getElementById('loginVer'); if(_lv) _lv.textContent=AGENT_VER; }catch(e){} }); } catch(e){}
@@ -1517,6 +1517,7 @@ function provisionAgent(name, pin) {
 function buildUpsertPayload(name, data, mgr, team) {
   var p = {name: name, data: data, manager: mgr, team: team};
   if (SUPA_UID) p.user_id = SUPA_UID;
+  if (agentRole) p.role = agentRole; // v3.10.64: dual-write role 到 plaintext column（manager dashboard 可讀）
   return p;
 }
 // 共用登入成功處理（雲端 / 離線快取 / JWT 三條路徑共用）
