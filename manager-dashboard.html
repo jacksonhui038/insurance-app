@@ -2,7 +2,7 @@
 <html lang="zh-HK">
 <head>
 <script>// v3.9.29: 移除 Service Worker（回復正常靜態站行為）+ 雲端自檢自動更新
-var MGR_VER='v3.9.35',MGR_VER_KEY='mgr_app_version';
+var MGR_VER='v3.9.36',MGR_VER_KEY='mgr_app_version';
 (function(){
   try { localStorage.setItem(MGR_VER_KEY, MGR_VER); } catch(e){}
   // v3.9.32: 早期獨立同步版本 badge（免受 render() 未跑/大函數錯誤影響，手機/桌面登入前都顯示正確版本）
@@ -576,6 +576,10 @@ var mgrRole = '';
 var mgrName = '';
 
 function initLock(){
+  try {
+    var sj = sessionStorage.getItem('mgr_jwt');
+    if (sj) { MGR_JWT = sj; MGR_UID = sessionStorage.getItem('mgr_uid') || ''; unlockOK(); return; }
+  } catch(e){}
   var name = localStorage.getItem(MGR_KEY);
   var pin = localStorage.getItem(MGR_PIN_KEY);
   var role = localStorage.getItem('mgr_role') || '';
@@ -630,20 +634,28 @@ function doMgrLogin() {
   if (!/^[A-Z\s]+$/.test(name)) { err.textContent = '⚠️ 姓名必須為英文全名大寫（A–Z + 空格），例如 CHAN TAI MAN'; return; }
   if (!role) { err.textContent = '請選擇職級'; return; }
   if (!pin || pin.length < 4) { err.textContent = 'PIN 碼至少 4 位數字'; return; }
-  btn.textContent = '進入中...'; btn.disabled = true;
-  localStorage.setItem(MGR_KEY, name);
-  localStorage.setItem(MGR_PIN_KEY, pin);
-  localStorage.setItem('mgr_role', role);
-  mgrUnlocked = true;
-  mgrRole = role;
-  // v3.9.33: 切換登入者後重置下鑽狀態，避免顯示上一個用戶/舊 root
-  currentRoot = name; rootStack = []; saveDrillState();
-  document.getElementById('lockBg').classList.add('hide');
-  var hdr = document.getElementById('mgrNameDisplay');
-  if (hdr) hdr.textContent = role + '：' + name;
-  render();
-  mgrLoadFromCloud();
-  btn.textContent = '登入'; btn.disabled = false;
+  btn.textContent = '驗證中...'; btn.disabled = true;
+  mgrAuthSignIn(name, pin).then(function(res){
+    MGR_JWT = res.jwt; MGR_UID = res.uid;
+    try { sessionStorage.setItem('mgr_jwt', MGR_JWT); sessionStorage.setItem('mgr_uid', MGR_UID); } catch(e){}
+    localStorage.setItem(MGR_KEY, name);
+    localStorage.setItem(MGR_PIN_KEY, pin);
+    localStorage.setItem('mgr_role', role);
+    mgrUnlocked = true;
+    mgrRole = role;
+    // v3.9.33: 切換登入者後重置下鑽狀態，避免顯示上一個用戶/舊 root
+    currentRoot = name; rootStack = []; saveDrillState();
+    document.getElementById('lockBg').classList.add('hide');
+    var hdr = document.getElementById('mgrNameDisplay');
+    if (hdr) hdr.textContent = role + '：' + name;
+    render();
+    mgrLoadFromCloud();
+    btn.textContent = '登入'; btn.disabled = false;
+  }).catch(function(e){
+    btn.textContent = '登入'; btn.disabled = false;
+    var st = (e && e.status) || '';
+    err.textContent = '⚠️ Supabase 驗證失敗（PIN 錯誤或網絡問題）' + (st ? ' ['+st+']' : '');
+  });
 }
 
 function doSetupPin(){
@@ -660,24 +672,47 @@ function doSetupPin(){
   if(!pin||pin.length<4){err.textContent='PIN 碼至少 4 位數字';return;}
   if(!/^\d+$/.test(pin)){err.textContent='PIN 碼只能含數字';return;}
   if(pin!==pin2){err.textContent='PIN 碼不一致';return;}
-  localStorage.setItem(MGR_KEY,name);
-  localStorage.setItem(MGR_PIN_KEY,pin);
-  localStorage.setItem('mgr_role',role);
-  mgrRole = role;
-  unlockOK();
+  var btn = document.getElementById('mgrSetupBtn');
+  if(btn){ btn.textContent='驗證中...'; btn.disabled=true; }
+  mgrAuthSignIn(name, pin).then(function(res){
+    MGR_JWT = res.jwt; MGR_UID = res.uid;
+    try { sessionStorage.setItem('mgr_jwt', MGR_JWT); sessionStorage.setItem('mgr_uid', MGR_UID); } catch(e){}
+    localStorage.setItem(MGR_KEY,name);
+    localStorage.setItem(MGR_PIN_KEY,pin);
+    localStorage.setItem('mgr_role',role);
+    mgrRole = role;
+    if(btn){ btn.textContent='設定'; btn.disabled=false; }
+    unlockOK();
+  }).catch(function(e){
+    if(btn){ btn.textContent='設定'; btn.disabled=false; }
+    var st=(e&&e.status)||'';
+    err.textContent='⚠️ Supabase 驗證失敗（PIN 錯誤或網絡問題）'+(st?' ['+st+']':'')+'（經理必須先喺 agent app 接好帳戶）';
+  });
 }
 
 function doUnlock(){
   var pin = document.getElementById('mgrPinUnlock').value.trim();
   var saved = localStorage.getItem(MGR_PIN_KEY);
   var err = document.getElementById('unlockErr');
+  var name = localStorage.getItem(MGR_KEY) || '';
   if(pin!==saved){
     err.textContent='PIN 碼錯誤';
     document.getElementById('mgrPinUnlock').value='';
     document.getElementById('mgrPinUnlock').focus();
     return;
   }
-  unlockOK();
+  var btn = document.getElementById('mgrUnlockBtn');
+  if(btn){ btn.textContent='驗證中...'; btn.disabled=true; }
+  mgrAuthSignIn(name, pin).then(function(res){
+    MGR_JWT = res.jwt; MGR_UID = res.uid;
+    try { sessionStorage.setItem('mgr_jwt', MGR_JWT); sessionStorage.setItem('mgr_uid', MGR_UID); } catch(e){}
+    if(btn){ btn.textContent='解鎖'; btn.disabled=false; }
+    unlockOK();
+  }).catch(function(e){
+    if(btn){ btn.textContent='解鎖'; btn.disabled=false; }
+    var st=(e&&e.status)||'';
+    err.textContent='⚠️ Supabase 驗證失敗（網絡問題）'+(st?' ['+st+']':'');
+  });
 }
 
 function unlockOK(){
@@ -774,6 +809,37 @@ var MGR_SUPA_URL = 'https://wwnyfwqaqdhddcxvgelu.supabase.co';
 var MGR_SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3bnlmd3FhcWRoZGRjeHZnZWx1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MTU4NTIsImV4cCI6MjA5ODM5MTg1Mn0.pzYPKK9rt-LuGV-sVtmHCzTjym1OXaHiDVbsZ9f0GQY';
 var MGR_CLOUD_ENABLED = Boolean(MGR_SUPA_URL && MGR_SUPA_KEY);
 
+// ===== Track B: Supabase Auth 登入（manager 用自己 Auth 帳戶攞 JWT，取代 anon 讀全表）=====
+var MGR_JWT = '';
+var MGR_UID = '';
+function sha1hex(s) {
+  return crypto.subtle.digest("SHA-1", new TextEncoder().encode(s)).then(function(buf){
+    var b = new Uint8Array(buf); var hex = "";
+    for (var i=0;i<b.length;i++){ hex += b[i].toString(16).padStart(2,"0"); }
+    return hex;
+  });
+}
+function mgrSyntheticEmail(name) {
+  var s = (name || '').toLowerCase().replace(/\s+/g, '');
+  return sha1hex(s).then(function(h){ return h.slice(0, 12) + '@insurance-app.local'; });
+}
+function mgrSyntheticPassword(pin) { return (pin || '') + 'insapp2026'; }
+function mgrAuthSignIn(name, pin) {
+  return mgrSyntheticEmail(name).then(function(email){
+    return fetch(MGR_SUPA_URL + '/auth/v1/token?grant_type=password', {
+      method:'POST',
+      headers:{'apikey':MGR_SUPA_KEY,'Content-Type':'application/json'},
+      body: JSON.stringify({email: email, password: mgrSyntheticPassword(pin)})
+    }).then(function(res){ return res.json().then(function(j){ return {status:res.status, body:j||{}}; }); })
+      .then(function(r){
+        if (r.status===200 && r.body && r.body.access_token) {
+          return {jwt: r.body.access_token, uid: (r.body.user && r.body.user.id) || ''};
+        }
+        return Promise.reject({status:r.status, body:r.body});
+      });
+  });
+}
+
 function mgrSetApiUrl(url) {
   MGR_API_URL = url;
   MGR_CLOUD_ENABLED = url.length > 0;
@@ -826,7 +892,7 @@ function mgrLoadFromSupabase() {
   // Load ALL agents, then filter client-side by manager field
   // v3.9.35: select 加 role column，否則 encrypted data 嘅 agent 永遠 fallback 'Agent' 唔會出現喺 manager list
   return fetch(MGR_SUPA_URL + '/rest/v1/agents?select=name,data,manager,team,role&apikey=' + encodeURIComponent(MGR_SUPA_KEY), {
-    headers:{'apikey':MGR_SUPA_KEY,'Authorization':'Bearer '+MGR_SUPA_KEY},
+    headers:{'apikey':MGR_SUPA_KEY,'Authorization':'Bearer '+(MGR_JWT||MGR_SUPA_KEY)},
     signal:controller.signal
   })
   .then(function(res){ clearTimeout(timeoutId); if (!res.ok) { return res.text().then(function(t){ throw new Error('HTTP '+res.status+': '+t); }); } return res.json(); })
@@ -1002,7 +1068,7 @@ function mgrRunSupabaseDiagnostic() {
     el.innerHTML += '\n⏳ 測試 B：代碼預設 key + headers（繞過輸入框）...\n';
     return fetch(MGR_SUPA_URL + '/rest/v1/agents?select=name&limit=1', {
       method:'GET',
-      headers:{'apikey':MGR_SUPA_KEY,'Authorization':'Bearer '+MGR_SUPA_KEY}
+      headers:{'apikey':MGR_SUPA_KEY,'Authorization':'Bearer '+(MGR_JWT||MGR_SUPA_KEY)}
     });
   }
   // 測試 C：只用 query param（唔送任何 auth header）
@@ -2002,7 +2068,7 @@ function doDeleteAgent() {
     var timeoutId = setTimeout(function(){ controller.abort(); }, 15000);
     fetch(MGR_SUPA_URL + '/rest/v1/agents?name=eq.'+encodeURIComponent(name), {
       method:'DELETE',
-      headers:{'apikey':MGR_SUPA_KEY,'Authorization':'Bearer '+MGR_SUPA_KEY},
+      headers:{'apikey':MGR_SUPA_KEY,'Authorization':'Bearer '+(MGR_JWT||MGR_SUPA_KEY)},
       signal:controller.signal
     }).then(function(){ clearTimeout(timeoutId); }).catch(function(e){ clearTimeout(timeoutId); });
   }
@@ -2087,7 +2153,7 @@ function doResetPin() {
     var timeoutId = setTimeout(function(){ controller.abort(); }, 15000);
     // Step 1: GET current data
     fetch(MGR_SUPA_URL + '/rest/v1/agents?name=eq.' + encodeURIComponent(name) + '&select=data', {
-      headers: { 'apikey': MGR_SUPA_KEY, 'Authorization': 'Bearer ' + MGR_SUPA_KEY },
+      headers: { 'apikey': MGR_SUPA_KEY, 'Authorization': 'Bearer ' + (MGR_JWT||MGR_SUPA_KEY) },
       signal: controller.signal
     })
     .then(function(res) { return res.json(); })
@@ -2103,7 +2169,7 @@ function doResetPin() {
           method: 'PATCH',
           headers: {
             'apikey': MGR_SUPA_KEY,
-            'Authorization': 'Bearer ' + MGR_SUPA_KEY,
+            'Authorization': 'Bearer ' + (MGR_JWT||MGR_SUPA_KEY),
             'Content-Type': 'application/json',
             'Prefer': 'return=minimal'
           },
@@ -2228,7 +2294,7 @@ function doFixRole() {
       var timeoutId = setTimeout(function(){ controller.abort(); }, 15000);
       // GET current data
       fetch(MGR_SUPA_URL + '/rest/v1/agents?name=eq.' + encodeURIComponent(name) + '&select=data', {
-        headers: { 'apikey': MGR_SUPA_KEY, 'Authorization': 'Bearer ' + MGR_SUPA_KEY },
+        headers: { 'apikey': MGR_SUPA_KEY, 'Authorization': 'Bearer ' + (MGR_JWT||MGR_SUPA_KEY) },
         signal: controller.signal
       })
       .then(function(res) { return res.json(); })
@@ -2249,7 +2315,7 @@ function doFixRole() {
             method: 'PATCH',
             headers: {
               'apikey': MGR_SUPA_KEY,
-              'Authorization': 'Bearer ' + MGR_SUPA_KEY,
+              'Authorization': 'Bearer ' + (MGR_JWT||MGR_SUPA_KEY),
               'Content-Type': 'application/json',
               'Prefer': 'return=minimal'
             },
@@ -2312,7 +2378,7 @@ function doFixRole() {
     // Look up supervisor's hierarchyPath from Supabase
     if (MGR_SUPA_URL && MGR_SUPA_KEY) {
       fetch(MGR_SUPA_URL + '/rest/v1/agents?name=eq.' + encodeURIComponent(supervisor) + '&select=data', {
-        headers: { 'apikey': MGR_SUPA_KEY, 'Authorization': 'Bearer ' + MGR_SUPA_KEY }
+        headers: { 'apikey': MGR_SUPA_KEY, 'Authorization': 'Bearer ' + (MGR_JWT||MGR_SUPA_KEY) }
       })
       .then(function(res) { return res.json(); })
       .then(function(rows) {
@@ -2379,7 +2445,7 @@ function doRegisterMgr() {
   var timeoutId = setTimeout(function(){ controller.abort(); }, 15000);
   // Check if agent already exists
   fetch(MGR_SUPA_URL + '/rest/v1/agents?name=eq.' + encodeURIComponent(name) + '&select=name', {
-    headers: { 'apikey': MGR_SUPA_KEY, 'Authorization': 'Bearer ' + MGR_SUPA_KEY },
+    headers: { 'apikey': MGR_SUPA_KEY, 'Authorization': 'Bearer ' + (MGR_JWT||MGR_SUPA_KEY) },
     signal: controller.signal
   })
   .then(function(res) { clearTimeout(timeoutId); return res.json(); })
@@ -2393,7 +2459,7 @@ function doRegisterMgr() {
         method: 'PATCH',
         headers: {
           'apikey': MGR_SUPA_KEY,
-          'Authorization': 'Bearer ' + MGR_SUPA_KEY,
+          'Authorization': 'Bearer ' + (MGR_JWT||MGR_SUPA_KEY),
           'Content-Type': 'application/json',
           'Prefer': 'return=minimal'
         },
@@ -2428,7 +2494,7 @@ function doRegisterMgr() {
         method: 'POST',
         headers: {
           'apikey': MGR_SUPA_KEY,
-          'Authorization': 'Bearer ' + MGR_SUPA_KEY,
+          'Authorization': 'Bearer ' + (MGR_JWT||MGR_SUPA_KEY),
           'Content-Type': 'application/json',
           'Prefer': 'return=minimal'
         },
