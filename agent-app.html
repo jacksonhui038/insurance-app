@@ -12,7 +12,7 @@
  * 開完一次後可改用 agent-app.html（正常 URL）
  */
 (function(){
-  var AGENT_VER='v3.10.64',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.65',AGENT_VER_KEY='agent_app_version';
   try { localStorage.setItem(AGENT_VER_KEY, AGENT_VER); } catch(e){}
   // v3.10.46: 早期獨立同步側欄版本 badge —— 免受下方 DOMContentLoaded 大函數任何錯誤影響，永不再顯示過期硬編碼版本
   try { document.addEventListener('DOMContentLoaded',function(){ try{ var _sv=document.getElementById('sidebarVer'); if(_sv) _sv.textContent=AGENT_VER; var _tv=document.getElementById('topbarVer'); if(_tv) _tv.textContent=AGENT_VER; var _lv=document.getElementById('loginVer'); if(_lv) _lv.textContent=AGENT_VER; }catch(e){} }); } catch(e){}
@@ -317,7 +317,7 @@ tr:hover td{background:var(--blue50)}
     <!-- CHOICE: Login or Register -->
     <div id="choiceMode">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <button onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="padding:6px 14px;border:1px solid var(--gray300);border-radius:8px;background:var(--gray100);color:var(--gray600);cursor:pointer;font-size:13px;display:flex;align-items:center;gap:4px">◀ 返回</button>
+        <button onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html?switch=1'" style="padding:6px 14px;border:1px solid var(--gray300);border-radius:8px;background:var(--gray100);color:var(--gray600);cursor:pointer;font-size:13px;display:flex;align-items:center;gap:4px">◀ 返回</button>
         <span style="font-size:11px;color:var(--gray400)">代理人版</span>
       </div>
       <h3 style="margin-top:0">👋 歡迎使用 SET理財規劃管家</h3>
@@ -327,7 +327,7 @@ tr:hover td{background:var(--blue50)}
         <button class="btn btn-outline" onclick="showRegisterMode()" id="choiceRegisterBtn" style="padding:14px;font-size:15px">📝 註冊新帳戶</button>
       </div>
       <hr style="border:none;border-top:1px solid var(--gray200);margin:14px 0">
-      <button class="btn btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="padding:10px;font-size:13px;width:100%">🔄 切換到經理版</button>
+      <button class="btn btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html?switch=1'" style="padding:10px;font-size:13px;width:100%">🔄 切換到經理版</button>
       <p style="font-size:11px;color:var(--gray400);margin-top:16px;text-align:center" id="loginVer">v3.10.48</p>
     </div>
     <!-- LOGIN MODE -->
@@ -398,7 +398,7 @@ tr:hover td{background:var(--blue50)}
       <div class="modal-actions" style="justify-content:center;gap:8px;flex-wrap:wrap">
         <button class="btn btn-primary" onclick="confirmSwitch()">確認切換</button>
         <button class="btn btn-outline" onclick="cancelSwitch()">取消</button>
-        <button class="btn btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="border-color:var(--blue500);color:var(--blue500)">🔄 直接去經理版</button>
+        <button class="btn btn-outline" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html?switch=1'" style="border-color:var(--blue500);color:var(--blue500)">🔄 直接去經理版</button>
       </div>
     </div>
   </div>
@@ -542,7 +542,7 @@ tr:hover td{background:var(--blue50)}
     <button class="nav-btn" onclick="switchTab('reports',this)"><span class="nav-icon">📈</span> 業績報表</button>
   </nav>
   <div style="margin-top:auto;padding:12px 8px 16px">
-    <button class="nav-btn" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'" style="width:100%;border:1px dashed var(--blue500);color:var(--blue700);background:var(--blue50)">
+    <button class="nav-btn" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html?switch=1'" style="width:100%;border:1px dashed var(--blue500);color:var(--blue700);background:var(--blue50)">
       <span class="nav-icon">🔄</span> 切換到經理版
     </button>
   </div>
@@ -558,7 +558,7 @@ tr:hover td{background:var(--blue50)}
   <button class="bottom-nav-btn" onclick="switchTab('expenses',this)"><span class="bottom-nav-icon">💳</span><span class="bottom-nav-label">支出</span></button>
   <button class="bottom-nav-btn" onclick="switchTab('pcs',this)"><span class="bottom-nav-icon">📊</span><span class="bottom-nav-label">PC</span></button>
   <button class="bottom-nav-btn" onclick="switchTab('reports',this)"><span class="bottom-nav-icon">📈</span><span class="bottom-nav-label">報表</span></button>
-  <button class="bottom-nav-btn" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html'"><span class="bottom-nav-icon">🔄</span><span class="bottom-nav-label">經理</span></button>
+  <button class="bottom-nav-btn" onclick="window.location.href='https://jacksonhui038.github.io/insurance-app/manager-dashboard.html?switch=1'"><span class="bottom-nav-icon">🔄</span><span class="bottom-nav-label">經理</span></button>
 </nav>
 
 <!-- MAIN -->
