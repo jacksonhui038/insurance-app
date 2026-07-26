@@ -2,7 +2,7 @@
 <html lang="zh-HK">
 <head>
 <script>// v3.9.29: 移除 Service Worker（回復正常靜態站行為）+ 雲端自檢自動更新
-var MGR_VER='v3.9.37',MGR_VER_KEY='mgr_app_version';
+var MGR_VER='v3.9.38',MGR_VER_KEY='mgr_app_version';
 (function(){
   try { localStorage.setItem(MGR_VER_KEY, MGR_VER); } catch(e){}
   // v3.9.32: 早期獨立同步版本 badge（免受 render() 未跑/大函數錯誤影響，手機/桌面登入前都顯示正確版本）
@@ -577,6 +577,23 @@ var mgrName = '';
 
 function initLock(){
   try {
+    var switchRequested = new URLSearchParams(window.location.search).get('switch') === '1';
+    if (switchRequested) {
+      sessionStorage.removeItem('mgr_jwt');
+      sessionStorage.removeItem('mgr_uid');
+      MGR_JWT = '';
+      MGR_UID = '';
+      history.replaceState(null, '', window.location.pathname);
+      ['lockChoice','lockLogin','lockSetup','lockUnlock'].forEach(function(id) {
+        var el = document.getElementById(id); if (el) el.style.display = 'none';
+      });
+      document.getElementById('lockLogin').style.display = 'block';
+      document.getElementById('mgrLoginName').value = '';
+      document.getElementById('mgrLoginPin').value = '';
+      var switchErr = document.getElementById('mgrLoginErr'); if (switchErr) switchErr.textContent = '';
+      document.getElementById('mgrLoginName').focus();
+      return;
+    }
     var sj = sessionStorage.getItem('mgr_jwt');
     if (sj) { MGR_JWT = sj; MGR_UID = sessionStorage.getItem('mgr_uid') || ''; unlockOK(); return; }
   } catch(e){}
