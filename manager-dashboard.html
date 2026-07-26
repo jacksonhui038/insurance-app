@@ -2,7 +2,7 @@
 <html lang="zh-HK">
 <head>
 <script>// v3.9.29: 移除 Service Worker（回復正常靜態站行為）+ 雲端自檢自動更新
-var MGR_VER='v3.9.38',MGR_VER_KEY='mgr_app_version';
+var MGR_VER='v3.9.39',MGR_VER_KEY='mgr_app_version';
 (function(){
   try { localStorage.setItem(MGR_VER_KEY, MGR_VER); } catch(e){}
   // v3.9.32: 早期獨立同步版本 badge（免受 render() 未跑/大函數錯誤影響，手機/桌面登入前都顯示正確版本）
@@ -1432,9 +1432,9 @@ function getTableAgentsForView(){
     // Concept：SDD 一眼睇晒成個團隊嘅經理架構，Agent 收埋喺各自經理下面（要 drill 先見到）
     if (currentRoot && TEAM[currentRoot] && (hasDownline(currentRoot) || (TEAM[currentRoot].role||'Agent') !== 'Agent')) {
       var rootTree = getTree(currentRoot);
-      // 只保留經理（職級唔係 Agent）
+      // 只保留經理（職級唔係 Agent，或者有直屬下屬嘅人都當經理顯示，避免 role 標錯就隱形）
       var mgrsOnly = rootTree.filter(function(n){
-        return (TEAM[n].role||'Agent') !== 'Agent';
+        return (TEAM[n].role||'Agent') !== 'Agent' || hasDownline(n);
       });
       var roleOrder={'SDD':1,'DD':2,'SDM':3,'DM':4,'SASM':5,'ASM':6,'Agent':7};
       var result = mgrsOnly.map(function(n){ return {name:n, depth:0}; });
