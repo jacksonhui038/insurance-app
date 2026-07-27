@@ -12,7 +12,7 @@
  * 開完一次後可改用 agent-app.html（正常 URL）
  */
 (function(){
-  var AGENT_VER='v3.10.69',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.70',AGENT_VER_KEY='agent_app_version';
   try { localStorage.setItem(AGENT_VER_KEY, AGENT_VER); } catch(e){}
   // v3.10.46: 早期獨立同步側欄版本 badge —— 免受下方 DOMContentLoaded 大函數任何錯誤影響，永不再顯示過期硬編碼版本
   try { document.addEventListener('DOMContentLoaded',function(){ try{ var _sv=document.getElementById('sidebarVer'); if(_sv) _sv.textContent=AGENT_VER; var _tv=document.getElementById('topbarVer'); if(_tv) _tv.textContent=AGENT_VER; var _lv=document.getElementById('loginVer'); if(_lv) _lv.textContent=AGENT_VER; }catch(e){} }); } catch(e){}
@@ -1135,11 +1135,13 @@ function saveToSupabase(callback) {
       if (payloadSize > 5 * 1024 * 1024) console.warn('[saveToSupabase] Payload size:', Math.round(payloadSize/1024), 'KB');
       var controller = new AbortController();
       var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
-      fetch(SUPA_URL + '/rest/v1/agents?on_conflict=name', {
-        method:'POST',
+      // v3.10.70: RLS 啟用後唔可以用 POST upsert；ON CONFLICT 仍會先檢查 INSERT policy，
+      // 即使本人 row 已存在都會 401。改用 PATCH 更新已 provision 嘅本人 row，只觸發 UPDATE policy。
+      fetch(SUPA_URL + '/rest/v1/agents?name=eq.'+encodeURIComponent(agentName), {
+        method:'PATCH',
         headers:{ ...supaHeaders(),
           'Content-Type':'application/json',
-          'Prefer':'resolution=merge-duplicates,return=minimal'
+          'Prefer':'return=minimal'
         },
         body:payload,
         signal:controller.signal
@@ -1220,11 +1222,12 @@ function forceUploadToSupabase() {
 function doForceUpload(payload, mgr, team) {
   var controller = new AbortController();
   var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
-  fetch(SUPA_URL + '/rest/v1/agents?on_conflict=name', {
-    method:'POST',
+  // v3.10.70: 已登入代理人只更新自己既有 row，避免 POST upsert 被 RLS INSERT policy 擋住。
+  fetch(SUPA_URL + '/rest/v1/agents?name=eq.'+encodeURIComponent(agentName), {
+    method:'PATCH',
     headers:{ ...supaHeaders(),
       'Content-Type':'application/json',
-      'Prefer':'resolution=merge-duplicates,return=representation'
+      'Prefer':'return=representation'
     },
     body:payload,
     signal:controller.signal
