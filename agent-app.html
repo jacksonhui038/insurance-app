@@ -12,7 +12,7 @@
  * 開完一次後可改用 agent-app.html（正常 URL）
  */
 (function(){
-  var AGENT_VER='v3.10.66',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.67',AGENT_VER_KEY='agent_app_version';
   try { localStorage.setItem(AGENT_VER_KEY, AGENT_VER); } catch(e){}
   // v3.10.46: 早期獨立同步側欄版本 badge —— 免受下方 DOMContentLoaded 大函數任何錯誤影響，永不再顯示過期硬編碼版本
   try { document.addEventListener('DOMContentLoaded',function(){ try{ var _sv=document.getElementById('sidebarVer'); if(_sv) _sv.textContent=AGENT_VER; var _tv=document.getElementById('topbarVer'); if(_tv) _tv.textContent=AGENT_VER; var _lv=document.getElementById('loginVer'); if(_lv) _lv.textContent=AGENT_VER; }catch(e){} }); } catch(e){}
@@ -1523,7 +1523,9 @@ function provisionAgent(name, pin) {
 function buildUpsertPayload(name, data, mgr, team, dataSummary) {
   var p = {name: name, data: data, manager: mgr, team: team};
   if (SUPA_UID) p.user_id = SUPA_UID;
-  if (agentRole) p.role = agentRole; // v3.10.64: dual-write role 到 plaintext column（manager dashboard 可讀）
+  // v3.10.67: 唔再寫 server 頂層 role column —— 職級(團隊架構)由 admin/manager dashboard 擁有，
+  // 避免代理人個人 app 用 data.role='Agent' 覆寫經理職級（HUI YUEN SHU 曾中招：ASM 被覆寫成 Agent）。
+  // 個人 role 仍寫入加密 data blob（buildUploadData 嘅 base.role），唔影響本地 sidebar 顯示。
   if (dataSummary) p.data_summary = dataSummary; // v3.10.66: plaintext metrics（data column 已 Track A 加密，dashboard 讀 data_summary 顯示業績）
   return p;
 }
