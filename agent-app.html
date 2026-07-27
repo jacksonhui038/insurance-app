@@ -12,7 +12,7 @@
  * 開完一次後可改用 agent-app.html（正常 URL）
  */
 (function(){
-  var AGENT_VER='v3.10.68',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.69',AGENT_VER_KEY='agent_app_version';
   try { localStorage.setItem(AGENT_VER_KEY, AGENT_VER); } catch(e){}
   // v3.10.46: 早期獨立同步側欄版本 badge —— 免受下方 DOMContentLoaded 大函數任何錯誤影響，永不再顯示過期硬編碼版本
   try { document.addEventListener('DOMContentLoaded',function(){ try{ var _sv=document.getElementById('sidebarVer'); if(_sv) _sv.textContent=AGENT_VER; var _tv=document.getElementById('topbarVer'); if(_tv) _tv.textContent=AGENT_VER; var _lv=document.getElementById('loginVer'); if(_lv) _lv.textContent=AGENT_VER; }catch(e){} }); } catch(e){}
@@ -3186,7 +3186,7 @@ function calcGoalProgress(g) {
   // 範圍過濾
   var inRange = function(d) { var dt = new Date(d); if (g.period === 'custom') { var s = parseYMD(g.startDate) || new Date(0), e = parseYMD(g.endDate) || new Date(0); return dt >= s && dt <= e; } if (g.period === 'monthly') return dt.getMonth() === m && dt.getFullYear() === y; if (g.period === 'quarterly') { var mq = Math.ceil((dt.getMonth() + 1) / 3); return dt.getFullYear() === y && mq === Number(g.quarter); } if (g.period === 'yearly') return dt.getFullYear() === y; return true; };
   var actual = 0;
-  if (isPc) { DB.pcs.forEach(function(pc){ if (inRange(pc.date)) { var subType = g.pcSubType || ''; if (!subType || pc.type === subType) actual += Number(pc.amount) || 0; } }); }
+  if (isPc) { DB.pcs.forEach(function(pc){ if (inRange(pc.date)) { if (pcTypeMatchesGoal(pc.pcType, g.pcType)) actual += Number(pc.amount) || 0; } }); }
   else { DB.commissions.forEach(function(c){ if (inRange(c.date)) actual += Number(c.amount) || 0; }); }
   var pct = g.target > 0 ? Math.min(100, Math.round(actual / g.target * 100)) : 0;
   var rangeLabel = '';
@@ -3446,6 +3446,13 @@ function filterGoals(f, btn) {
   renderGoals();
 }
 
+// v3.10.69: INOW 係匯總 bucket —— H&P / SAVING / ILAS 自動計入 INOW 目標
+function pcTypeMatchesGoal(cType, gType) {
+  if (!gType || gType === '全部') return true;
+  if (cType === gType) return true;
+  if (gType === 'INOW' && (cType === 'H&P' || cType === 'SAVING' || cType === 'ILAS')) return true;
+  return false;
+}
 function renderGoals() {
   var now = new Date(), y = now.getFullYear(), m = now.getMonth();
   var filtered = DB.goals.filter(function(g){
@@ -3470,7 +3477,7 @@ function renderGoals() {
         actual = dataSource.filter(function(c){
           var d = parseYMD(c.date);
           if (d && d >= cs && d <= ce) {
-            if (isPC && g.pcType && g.pcType !== '全部') return c.pcType === g.pcType;
+            if (isPC && g.pcType && g.pcType !== '全部') return pcTypeMatchesGoal(c.pcType, g.pcType);
             return true;
           }
           return false;
@@ -3481,7 +3488,7 @@ function renderGoals() {
       actual = dataSource.filter(function(c){
         var d=new Date(c.date);
         if (d.getMonth()===(g.month-1)&&d.getFullYear()===g.year) {
-          if (isPC && g.pcType && g.pcType !== '全部') return c.pcType === g.pcType;
+          if (isPC && g.pcType && g.pcType !== '全部') return pcTypeMatchesGoal(c.pcType, g.pcType);
           return true;
         }
         return false;
@@ -3495,7 +3502,7 @@ function renderGoals() {
       actual = dataSource.filter(function(c){
         var d=new Date(c.date);
         if (d>=s2 && d<=e2) {
-          if (isPC && g.pcType && g.pcType !== '全部') return c.pcType === g.pcType;
+          if (isPC && g.pcType && g.pcType !== '全部') return pcTypeMatchesGoal(c.pcType, g.pcType);
           return true;
         }
         return false;
