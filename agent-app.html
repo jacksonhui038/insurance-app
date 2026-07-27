@@ -12,7 +12,7 @@
  * 開完一次後可改用 agent-app.html（正常 URL）
  */
 (function(){
-  var AGENT_VER='v3.10.65',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.66',AGENT_VER_KEY='agent_app_version';
   try { localStorage.setItem(AGENT_VER_KEY, AGENT_VER); } catch(e){}
   // v3.10.46: 早期獨立同步側欄版本 badge —— 免受下方 DOMContentLoaded 大函數任何錯誤影響，永不再顯示過期硬編碼版本
   try { document.addEventListener('DOMContentLoaded',function(){ try{ var _sv=document.getElementById('sidebarVer'); if(_sv) _sv.textContent=AGENT_VER; var _tv=document.getElementById('topbarVer'); if(_tv) _tv.textContent=AGENT_VER; var _lv=document.getElementById('loginVer'); if(_lv) _lv.textContent=AGENT_VER; }catch(e){} }); } catch(e){}
@@ -1036,6 +1036,17 @@ function buildUploadData() {
   }
   // _pinHash：本地 PIN 優先，否則保留雲端
   base._pinHash = (agentPIN ? hashPin(agentPIN) : ((_cloudDataSnapshot && _cloudDataSnapshot._pinHash) || ''));
+  // v3.10.66 Track A+：data_summary 是 plaintext metrics（data column 已 Track A 加密，manager dashboard 唔識 decrypt）
+  function _smArr(k){var a=DB[k];if(Array.isArray(a))return a;var alt={commissions:'incomes',policies:'pcs'}[k];return(Array.isArray(DB[alt])?DB[alt]:[]);}
+  base.data_summary={
+    totalClients:(DB.clients||[]).length,
+    totalPolicies:_smArr('policies').length,
+    totalComm:_smArr('commissions').reduce(function(s,c){return s+Number(c.amount||0);},0),
+    monthComm:(function(){var m=new Date().getMonth(),y=new Date().getFullYear(),s=0;_smArr('commissions').forEach(function(c){var dt=new Date(c.date);if(dt.getMonth()===m&&dt.getFullYear()===y)s+=Number(c.amount||0);});return s;})(),
+    totalExp:(DB.expenses||[]).reduce(function(s,e){return s+Number(e.amount||0);},0),
+    totalPC:_smArr('pcs').reduce(function(s,pc){return s+Number(pc.amount||0);},0),
+    updatedAt:new Date().toISOString()
+  };
   return base;
 }
 function saveToCloud(callback, retry) {
@@ -1117,7 +1128,7 @@ function saveToSupabase(callback) {
     // v3.9.5: 用 buildUploadData() 取代直接 Object.assign({},DB)，確保保留 role/manager/team 同雲端既有記錄（MERGE 唔係 REPLACE）
     // v3.10.60 Track A: 上傳前用 PIN 加密 data（雲端只存密文）
     encryptData(uploadData, agentPIN || '').then(function(encData){
-      var payload = JSON.stringify(buildUpsertPayload(agentName, encData, mgr, team));
+      var payload = JSON.stringify(buildUpsertPayload(agentName, encData, mgr, team, uploadData.data_summary));
       var payloadSize = new Blob([payload]).size;
       if (payloadSize > 5 * 1024 * 1024) console.warn('[saveToSupabase] Payload size:', Math.round(payloadSize/1024), 'KB');
       var controller = new AbortController();
@@ -1188,7 +1199,7 @@ function forceUploadToSupabase() {
     uploadData._forceUpload = new Date().toISOString();
     // v3.10.60 Track A: 強制上傳前同樣加密 data
     encryptData(uploadData, agentPIN || '').then(function(encData){
-      var payload = JSON.stringify(buildUpsertPayload(agentName, encData, mgr, team));
+      var payload = JSON.stringify(buildUpsertPayload(agentName, encData, mgr, team, uploadData.data_summary));
       doForceUpload(payload, mgr, team);
     }).catch(function(e){ console.error('[forceUpload] encrypt fail', e); toast('❌ 加密失敗','error'); });
   })
@@ -1199,7 +1210,7 @@ function forceUploadToSupabase() {
     uploadData._forceUpload = new Date().toISOString();
     // v3.10.60 Track A: 強制上傳前同樣加密 data
     encryptData(uploadData, agentPIN || '').then(function(encData){
-      var payload = JSON.stringify(buildUpsertPayload(agentName, encData, mgr, team));
+      var payload = JSON.stringify(buildUpsertPayload(agentName, encData, mgr, team, uploadData.data_summary));
       doForceUpload(payload, mgr, team);
     }).catch(function(e){ console.error('[forceUpload] encrypt fail', e); toast('❌ 加密失敗','error'); });
   });
@@ -1509,10 +1520,11 @@ function provisionAgent(name, pin) {
   });
 }
 // 儲存 payload：夾 user_id（RLS WITH CHECK 要求 user_id = auth.uid()）；SUPA_UID 空就唔夾（RLS 未開時唔會錯）
-function buildUpsertPayload(name, data, mgr, team) {
+function buildUpsertPayload(name, data, mgr, team, dataSummary) {
   var p = {name: name, data: data, manager: mgr, team: team};
   if (SUPA_UID) p.user_id = SUPA_UID;
   if (agentRole) p.role = agentRole; // v3.10.64: dual-write role 到 plaintext column（manager dashboard 可讀）
+  if (dataSummary) p.data_summary = dataSummary; // v3.10.66: plaintext metrics（data column 已 Track A 加密，dashboard 讀 data_summary 顯示業績）
   return p;
 }
 // 共用登入成功處理（雲端 / 離線快取 / JWT 三條路徑共用）
