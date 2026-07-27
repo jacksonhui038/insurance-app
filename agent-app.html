@@ -12,7 +12,7 @@
  * 開完一次後可改用 agent-app.html（正常 URL）
  */
 (function(){
-  var AGENT_VER='v3.10.67',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.68',AGENT_VER_KEY='agent_app_version';
   try { localStorage.setItem(AGENT_VER_KEY, AGENT_VER); } catch(e){}
   // v3.10.46: 早期獨立同步側欄版本 badge —— 免受下方 DOMContentLoaded 大函數任何錯誤影響，永不再顯示過期硬編碼版本
   try { document.addEventListener('DOMContentLoaded',function(){ try{ var _sv=document.getElementById('sidebarVer'); if(_sv) _sv.textContent=AGENT_VER; var _tv=document.getElementById('topbarVer'); if(_tv) _tv.textContent=AGENT_VER; var _lv=document.getElementById('loginVer'); if(_lv) _lv.textContent=AGENT_VER; }catch(e){} }); } catch(e){}
@@ -189,6 +189,8 @@ tr:hover td{background:var(--blue50)}
 .badge-blue{background:var(--blue100);color:var(--blue700)}
 .badge-purple{background:#f3e8ff;color:#9333ea}
 .badge-gray{background:var(--gray100);color:var(--gray500)}
+.badge-inow{background:#cffafe;color:#0e7490}
+.badge-ifunds{background:#ffedd5;color:#c2410c}
 /* CHECKBOX GROUP for purpose multi-select */
 .checkbox-group{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
 .checkbox-group label{display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border-radius:6px;border:1px solid var(--gray300);background:var(--white);font-size:12px;cursor:pointer;transition:all .15s;margin:0}
@@ -3028,7 +3030,7 @@ var TYPES = {
   incomeCat: ['佣金收入','轉介費','花紅','其他收入','餐飲','交通','娛樂','購物','家居','醫療','教育','通訊','保險','其他支出'],
   expenseCat: ['餐飲','交通','娛樂','購物','家居','醫療','教育','通訊','保險','其他'],
   payment: ['現金','信用卡','銀行轉帳','電子錢包','其他'],
-  pcType: ['H&P','ILAS','SAVING','PENSION','Others']
+  pcType: ['H&P','ILAS','SAVING','PENSION','INOW','IFUNDS','Others']
 };
 
 function switchTab(tab, btnEl) {
@@ -3357,7 +3359,7 @@ function renderPCs() {
   var h = '';
   if (DB.pcs.length === 0) h = '<tr><td colspan="7" class="empty">尚無 PC 記錄</td></tr>';
   else DB.pcs.forEach(function(pc){
-    var tc = pc.pcType==='H&P'?'badge-blue':pc.pcType==='ILAS'?'badge-purple':pc.pcType==='SAVING'?'badge-green':pc.pcType==='PENSION'?'badge-yellow':'badge-gray';
+    var tc = pc.pcType==='H&P'?'badge-blue':pc.pcType==='ILAS'?'badge-purple':pc.pcType==='SAVING'?'badge-green':pc.pcType==='PENSION'?'badge-yellow':pc.pcType==='INOW'?'badge-inow':pc.pcType==='IFUNDS'?'badge-ifunds':'badge-gray';
     h += '<tr><td>'+esc(dFmt(pc.date))+'</td><td><span class="badge '+tc+'">'+esc(pc.pcType||'—')+'</span></td><td>'+esc(pc.clientName||'—')+'</td><td>'+esc(pc.policyNo||'—')+'</td><td class="amt-pos">'+pcMoney(pc.amount)+'</td><td>'+esc(pc.notes||'—')+'</td><td><button class="btn btn-sm btn-outline" onclick="openForm(\'pc\','+pc.id+')">編輯</button> <button class="btn btn-sm btn-danger" onclick="del(\'pcs\','+pc.id+')">刪除</button></td></tr>';
   });
   document.getElementById('pcTable').innerHTML = h;
@@ -3760,7 +3762,7 @@ function openForm(type, id) {
     var periodOpts = [{val:'yearly',label:'年度'},{val:'quarterly',label:'季度'},{val:'monthly',label:'每月'},{val:'custom',label:'自訂日期'}];
     var gPeriod = g.period||'yearly';
     h += fs('目標類型','type',['PC','佣金'],g.type||'PC')
-      +fs('PC類型','pcType',['全部','H&P','ILAS','SAVING','PENSION','Others'],g.pcType||'全部')
+      +fs('PC類型','pcType',['全部','H&P','ILAS','SAVING','PENSION','INOW','IFUNDS','Others'],g.pcType||'全部')
       +fs('目標週期','period',periodOpts,gPeriod)
       +fs('年度','year',yearOpts,Number(g.year||yr))
       +fs('季度目標','quarter',qOpts,Number(g.quarter||Math.ceil((new Date().getMonth()+1)/3)))
