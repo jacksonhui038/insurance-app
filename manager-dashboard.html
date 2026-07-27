@@ -2,7 +2,7 @@
 <html lang="zh-HK">
 <head>
 <script>// v3.9.29: 移除 Service Worker（回復正常靜態站行為）+ 雲端自檢自動更新
-var MGR_VER='v3.9.40',MGR_VER_KEY='mgr_app_version';
+var MGR_VER='v3.9.41',MGR_VER_KEY='mgr_app_version';
 (function(){
   try { localStorage.setItem(MGR_VER_KEY, MGR_VER); } catch(e){}
   // v3.9.32: 早期獨立同步版本 badge（免受 render() 未跑/大函數錯誤影響，手機/桌面登入前都顯示正確版本）
@@ -930,7 +930,9 @@ function mgrLoadFromSupabase() {
   var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
   // Load ALL agents, then filter client-side by manager field
   // v3.9.35: select 加 role column，否則 encrypted data 嘅 agent 永遠 fallback 'Agent' 唔會出現喺 manager list
-  return fetch(MGR_SUPA_URL + '/rest/v1/agents?select=name,data,manager,team,role&apikey=' + encodeURIComponent(MGR_SUPA_KEY), {
+  // v3.9.41: 一定要 select data_summary！之前漏咗，搞到 v3.10.66 嘅 data_summary backfill 變死碼，
+  // dashboard 一直 fallback 讀 plaintext r.data → 加密(Track A) agent 永遠 0 業績。
+  return fetch(MGR_SUPA_URL + '/rest/v1/agents?select=name,data,manager,team,role,data_summary&apikey=' + encodeURIComponent(MGR_SUPA_KEY), {
     headers:{'apikey':MGR_SUPA_KEY,'Authorization':'Bearer '+(MGR_JWT||MGR_SUPA_KEY)},
     signal:controller.signal
   })
