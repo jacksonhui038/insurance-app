@@ -2,7 +2,7 @@
 <html lang="zh-HK">
 <head>
 <script>// v3.9.29: 移除 Service Worker（回復正常靜態站行為）+ 雲端自檢自動更新
-var MGR_VER='v3.9.39',MGR_VER_KEY='mgr_app_version';
+var MGR_VER='v3.9.40',MGR_VER_KEY='mgr_app_version';
 (function(){
   try { localStorage.setItem(MGR_VER_KEY, MGR_VER); } catch(e){}
   // v3.9.32: 早期獨立同步版本 badge（免受 render() 未跑/大函數錯誤影響，手機/桌面登入前都顯示正確版本）
@@ -1008,6 +1008,8 @@ function mgrLoadFromSupabase() {
             if (r.data[k]) TEAM[aName][k] = r.data[k];
           });
         }
+        // v3.10.66: data_summary 是 plaintext metrics（data column 已 Track A 加密時 dashboard 仍可顯示業績）
+        if (r.data_summary) TEAM[aName]._summary = r.data_summary;
         visibleCount++;
       });
       // v3.9.21: 恢復下鑽狀態（版本 reload 後唔會再踢返首頁）；無保存過就用登入者自己
@@ -1545,11 +1547,23 @@ function render(){
   var now=new Date(),m=now.getMonth(),y=now.getFullYear();
   var monthComm=0, monthPC=0;
   allTreeAgents.forEach(function(a){
-    var d=TEAM[a];
-    totalClients+=d.clients.length;totalPolicies+=d.policies.length;totalGoals+=(d.goals||[]).length;
-    d.commissions.forEach(function(c){totalComm+=Number(c.amount)||0;var dt=new Date(c.date);if(dt.getMonth()===m&&dt.getFullYear()===y)monthComm+=Number(c.amount)||0;});
-    d.expenses.forEach(function(e){totalExp+=Number(e.amount)||0;});
-    if(d.pcs) d.pcs.forEach(function(pc){totalPC+=Number(pc.amount)||0;var dt=new Date(pc.date);if(dt.getMonth()===m&&dt.getFullYear()===y)monthPC+=Number(pc.amount)||0;});
+    var d=TEAM[a]||{};
+    var s=d._summary||{};
+    // v3.10.66: 優先用 data_summary (plaintext metrics)，fallback 讀 plaintext data 計算
+    var tClients=(typeof s.totalClients==='number')?s.totalClients:((d.clients||[]).length);
+    var tPolicies=(typeof s.totalPolicies==='number')?s.totalPolicies:((d.policies||[]).length);
+    var tComm=(typeof s.totalComm==='number')?s.totalComm:0;
+    var mComm=(typeof s.monthComm==='number')?s.monthComm:0;
+    var tExp=(typeof s.totalExp==='number')?s.totalExp:0;
+    var tPC=(typeof s.totalPC==='number')?s.totalPC:(Array.isArray(d.pcs)?d.pcs.reduce(function(s,pc){return s+Number(pc.amount||0);},0):0);
+    if(typeof s.monthComm!=='number'){
+      var mm=new Date().getMonth(),yy=new Date().getFullYear();
+      (d.commissions||[]).forEach(function(c){
+        var amt=Number(c.amount)||0;tComm+=amt;
+        var dt=new Date(c.date);if(dt.getMonth()===mm&&dt.getFullYear()===yy)mComm+=amt;
+      });
+    }
+    totalClients+=tClients;totalPolicies+=tPolicies;totalComm+=tComm;totalExp+=tExp;totalPC+=tPC;monthComm+=mComm;
   });
   document.getElementById('summaryCards').innerHTML=
     '<div class="stat-card" style="border-left-color:#3b82f6"><div class="label">總人數</div><div class="value">'+allTreeAgents.length+'</div><div class="sub">'+esc(rootName)+' 線內成員</div></div>'+
@@ -1561,14 +1575,31 @@ function render(){
   // Agent ranking — 表格成員由 getTableAgentsForView() 決定（頂層顯示全 team 經理，下鑼層顯示 subtree）
   var ranks=[];
   tableAgents.forEach(function(a){
-    var d=TEAM[a.name];
+    var d=TEAM[a.name]||{};
+    var s=d._summary||{};
     var mc=0,yc=0;
-    d.commissions.forEach(function(c){var dt=new Date(c.date);if(dt.getMonth()===m&&dt.getFullYear()===y)mc+=Number(c.amount)||0;if(dt.getFullYear()===y)yc+=Number(c.amount)||0;});
+    // v3.10.66: 優先讀 _summary，否則從 plaintext data 計算
+    if(typeof s.monthComm==='number'){mc=s.monthComm;}
+    if(typeof s.yearComm==='number'){yc=s.yearComm;}
+    if(typeof s.monthComm!=='number'||typeof s.yearComm!=='number'){
+      var yNow=new Date().getFullYear(),mNow=new Date().getMonth();
+      (d.commissions||[]).forEach(function(c){var amt=Number(c.amount)||0;yc+=amt;var dt=new Date(c.date);if(dt.getMonth()===mNow&&dt.getFullYear()===yNow)mc+=amt;});
+    }
     var mpc=0,ypc=0;
-    if(d.pcs) d.pcs.forEach(function(pc){var dt=new Date(pc.date);if(dt.getMonth()===m&&dt.getFullYear()===y)mpc+=Number(pc.amount)||0;if(dt.getFullYear()===y)ypc+=Number(pc.amount)||0;});
-    var me=0;d.expenses.forEach(function(e){var dt=new Date(e.date);if(dt.getMonth()===m&&dt.getFullYear()===y)me+=Number(e.amount)||0;});
+    if(typeof s.totalPC==='number'){/* PC 總額已在 summary，不分月年，用 sum 即可 */}
+    if(typeof s.monthPC==='number'){mpc=s.monthPC;}
+    if(typeof s.yearPC==='number'){ypc=s.yearPC;}
+    if(typeof s.monthPC!=='number'||typeof s.yearPC!=='number'){
+      var yNow2=new Date().getFullYear(),mNow2=new Date().getMonth();
+      if(d.pcs) d.pcs.forEach(function(pc){var amt=Number(pc.amount)||0;ypc+=amt;var dt=new Date(pc.date);if(dt.getMonth()===mNow2&&dt.getFullYear()===yNow2)mpc+=amt;});
+    }
+    var me=0;
+    if(typeof s.monthExp==='number'){me=s.monthExp;}
+    else{(d.expenses||[]).forEach(function(e){var dt=new Date(e.date);if(dt.getMonth()===m&&dt.getFullYear()===y)me+=Number(e.amount)||0;});}
     var goalRate=0;(d.goals||[]).forEach(function(g){if(g.period==='monthly'&&g.year===y&&g.month===m+1&&g.target>0)goalRate=Math.round(mc/g.target*100);});
-    ranks.push({name:a.name,depth:a.depth,role:d.role||'Agent',clients:d.clients.length,policies:d.policies.length,monthComm:mc,yearComm:yc,monthPC:mpc,yearPC:ypc,expenses:me,goalRate:Math.min(goalRate,999),net:mc-me,supervisor:d.supervisor||''});
+    var tClients=(typeof s.totalClients==='number')?s.totalClients:(d.clients||[]).length;
+    var tPolicies=(typeof s.totalPolicies==='number')?s.totalPolicies:(d.policies||[]).length;
+    ranks.push({name:a.name,depth:a.depth,role:d.role||'Agent',clients:tClients,policies:tPolicies,monthComm:mc,yearComm:yc,monthPC:mpc,yearPC:ypc,expenses:me,goalRate:Math.min(goalRate,999),net:mc-me,supervisor:d.supervisor||''});
   });
   var roleOrder={'SDD':1,'DD':2,'SDM':3,'DM':4,'SASM':5,'ASM':6,'Agent':7};
   // v3.9.27: 頂層只顯示經理（getTableAgentsForView 已過濾 Agent），按職級+月佣排序（SDD>DD>SDM>DM>SASM>ASM）
