@@ -12,7 +12,7 @@
  * 開完一次後可改用 agent-app.html（正常 URL）
  */
 (function(){
-  var AGENT_VER='v3.10.72',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.73',AGENT_VER_KEY='agent_app_version';
   // v3.10.72: 同時掛 window 屬性，避免 IIFE 外部用 AGENT_VER 時 ReferenceError
   try { window.AGENT_VER = AGENT_VER; } catch(e){}
   try { localStorage.setItem(AGENT_VER_KEY, AGENT_VER); } catch(e){}
@@ -1074,7 +1074,12 @@ function saveToCloud(callback, retry) {
     }
   }
   if (SUPA_URL && SUPA_KEY) {
-    saveToSupabase(function(ok, errMsg){ supaOk=ok; if (!ok) console.error('[saveToCloud Supabase]', errMsg||'unknown'); checkDone(); });
+    saveToSupabase(function(ok, errMsg){
+      supaOk=ok;
+      if (!ok) console.error('[saveToCloud Supabase]', errMsg||'unknown');
+      if (ok) { try { if (_syncTimer) { clearTimeout(_syncTimer); _syncTimer = null; } } catch(e){} }
+      checkDone();
+    });
   } else {
     if (callback) callback(false);
     else toast('⚠️ 未設定 Supabase，無法同步','error');
@@ -1097,8 +1102,10 @@ function saveToCloud(callback, retry) {
 function _scheduleRetry(callback) {
   if (_syncTimer) clearTimeout(_syncTimer);
   var delay = Math.min(8000 * Math.pow(1.5, _syncRetryCount), 60000); // 8s, 12s, 18s, 最多 60s
+  // v3.10.73: 之前用 `if (!done)` 但 done 係 saveToCloud 內部 closure variable，
+  // 喺 setTimeout 外層 scope 攞唔到 → ReferenceError。直接 retry，成功 save 後會 clearTimeout 取消。
   _syncTimer = setTimeout(function(){
-    if (!done) { saveToCloud(callback, true); }
+    saveToCloud(callback, true);
   }, delay);
 }
 
