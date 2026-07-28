@@ -12,7 +12,7 @@
  * 開完一次後可改用 agent-app.html（正常 URL）
  */
 (function(){
-  var AGENT_VER='v3.10.70',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.71',AGENT_VER_KEY='agent_app_version';
   try { localStorage.setItem(AGENT_VER_KEY, AGENT_VER); } catch(e){}
   // v3.10.46: 早期獨立同步側欄版本 badge —— 免受下方 DOMContentLoaded 大函數任何錯誤影響，永不再顯示過期硬編碼版本
   try { document.addEventListener('DOMContentLoaded',function(){ try{ var _sv=document.getElementById('sidebarVer'); if(_sv) _sv.textContent=AGENT_VER; var _tv=document.getElementById('topbarVer'); if(_tv) _tv.textContent=AGENT_VER; var _lv=document.getElementById('loginVer'); if(_lv) _lv.textContent=AGENT_VER; }catch(e){} }); } catch(e){}
@@ -883,28 +883,30 @@ function runSupabaseDiagnostic() {
 }
 
 function testSupabaseWrite(url, key, el) {
-  // 測試寫入權限（用一個不會影響數據的 HEAD 請求）
+  // v3.10.71: 改用 PATCH + own row (同 saveToSupabase 一致)，避免 POST+fake name 誤觸 INSERT policy 401。
+  // 舊 POST 行為：fake name __test_connection__ 唔等於 auth user → INSERT policy 拒絕 → 401 false negative
+  // 新 PATCH 行為：PATCH own row → 只觸 UPDATE own_row policy → 反映真實 saveToSupabase 行為
+  var testName = (typeof agentName === 'string' && agentName) ? agentName : '__diag_unauth__';
   var ctrl = new AbortController();
   var tid = setTimeout(function(){ ctrl.abort(); }, 10000);
-  fetch(url + '/rest/v1/agents?select=name&limit=1', {
-    method: 'POST',
+  fetch(url + '/rest/v1/agents?name=eq.'+encodeURIComponent(testName), {
+    method: 'PATCH',
     headers: {
       'apikey': key,
       'Authorization': 'Bearer ' + key,
       'Content-Type': 'application/json',
       'Prefer': 'return=minimal'
     },
-    body: JSON.stringify({ name: '__test_connection__', data: {} }),
+    body: JSON.stringify({ _diag_at: new Date().toISOString() }),
     signal: ctrl.signal
   })
   .then(function(res) {
     clearTimeout(tid);
     if (res.ok) {
-      el.innerHTML += '✅ 寫入權限正常\n';
+      el.innerHTML += '✅ 寫入權限正常（PATCH own row）\n';
       el.innerHTML += '━━━━━━━━━━━━━━━━━━\n';
       el.innerHTML += '🎉 所有測試通過！Supabase 設定正確。\n';
-      // 清理測試記錄
-      cleanupTestRecord(url, key);
+      el.innerHTML += 'ℹ️ saveToSupabase / 強制上傳 已改用 PATCH endpoint，與此測試一致。\n';
     } else if (res.status === 403) {
       el.innerHTML += '❌ 403 寫入被拒 — RLS 政策阻擋寫入\n';
       el.innerHTML += '━━━━━━━━━━━━━━━━━━\n';
@@ -919,6 +921,9 @@ function testSupabaseWrite(url, key, el) {
       el.innerHTML += '   CREATE POLICY "allow_all" ON agents\n';
       el.innerHTML += '   FOR ALL USING (true) WITH CHECK (true);\n';
       el.innerHTML += '\n';
+    } else if (res.status === 401) {
+      el.innerHTML += '❌ 401 未授權 — anon key 唔啱 或 own row 唔存在\n';
+      el.innerHTML += '👉 確認已登入 + anon key 喺 Settings → API 重新複製\n';
     } else {
       el.innerHTML += '⚠️ 寫入測試 HTTP ' + res.status + '\n';
     }
