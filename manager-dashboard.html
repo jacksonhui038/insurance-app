@@ -2,7 +2,7 @@
 <html lang="zh-HK">
 <head>
 <script>// v3.9.29: 移除 Service Worker（回復正常靜態站行為）+ 雲端自檢自動更新
-var MGR_VER='v3.9.50',MGR_VER_KEY='mgr_app_version';
+var MGR_VER='v3.9.51',MGR_VER_KEY='mgr_app_version';
 (function(){
   try { localStorage.setItem(MGR_VER_KEY, MGR_VER); } catch(e){}
   // v3.9.32: 早期獨立同步版本 badge（免受 render() 未跑/大函數錯誤影響，手機/桌面登入前都顯示正確版本）
@@ -1852,82 +1852,34 @@ function renderTeamActivity() {
   var activities = [];
   var agentNames = getTree(currentRoot);
 
-  // v3.9.48: 優先用 s.schedulesRecent（ciphertext 救星），fallback 舊 TEAM[a].schedules 邏輯
-  var _useSummary2=false;agentNames.forEach(function(a){var _s=TEAM[a]&&TEAM[a]._summary;if(Array.isArray(_s&&_s.schedulesRecent)){_useSummary2=true;}});
-  if(_useSummary2){
-    agentNames.forEach(function(agentName){
-      var agentData=TEAM[agentName];if(!agentData)return;
-      var sr=agentData._summary&&agentData._summary.schedulesRecent;
-      if(!Array.isArray(sr))return;
-      sr.forEach(function(schedule){
-        var scheduleDate=parseScheduleDate(schedule.date);
-        if(!scheduleDate)return;
-        var d=new Date(scheduleDate);
-        var y2=d.getFullYear();
-        var m2=d.getMonth()+1;
-        var q2=Math.floor(d.getMonth()/3)+1;
-        var match=false;
-        if(teamActivityPeriod==='today'){match=(scheduleDate===todayStr);}
-        else if(teamActivityPeriod==='week'){match=(d>=weekStart&&d<=weekEnd);}
-        else if(teamActivityPeriod==='month'){match=(y2===activityYear&&m2===activityMonth);}
-        else if(teamActivityPeriod==='quarter'){match=(y2===activityYear&&q2===activityQuarter);}
-        else if(teamActivityPeriod==='year'){match=(y2===activityYear);}
-        else if(teamActivityPeriod==='all'){match=true;}
-        else if(teamActivityPeriod==='overdue'){match=(d<now&&schedule.status!=='已完成'&&schedule.status!=='取消');}
-        if(match){
-          activities.push({agent:agentName,date:scheduleDate,startTime:parseScheduleTime(schedule.startTime),endTime:parseScheduleTime(schedule.endTime),clientName:schedule.clientName||'',purpose:schedule.purpose||'',location:schedule.location||'',status:schedule.status||'待確認',meetingNotes:schedule.meetingNotes||'',followUp:schedule.followUp||''});
-        }
-      });
-    });
-  }else{
-  // Collect all schedules from current tree
-  agentNames.forEach(function(agentName) {
-    var agentData = TEAM[agentName];
-    if (!agentData.schedules) return;
-
-    agentData.schedules.forEach(function(schedule) {
-      var scheduleDate = parseScheduleDate(schedule.date);
-      if (!scheduleDate) return;
-
-      var d = new Date(scheduleDate);
-      var y = d.getFullYear();
-      var m = d.getMonth() + 1;
-      var q = Math.floor(d.getMonth() / 3) + 1;
-      var match = false;
-
-      if (teamActivityPeriod === 'today') {
-        match = (scheduleDate === todayStr);
-      } else if (teamActivityPeriod === 'week') {
-        match = (d >= weekStart && d <= weekEnd);
-      } else if (teamActivityPeriod === 'month') {
-        match = (y === activityYear && m === activityMonth);
-      } else if (teamActivityPeriod === 'quarter') {
-        match = (y === activityYear && q === activityQuarter);
-      } else if (teamActivityPeriod === 'year') {
-        match = (y === activityYear);
-      } else if (teamActivityPeriod === 'all') {
-        match = true;
-      } else if (teamActivityPeriod === 'overdue') {
-        match = (d < now && schedule.status !== '已完成' && schedule.status !== '取消');
-      }
-
-      if (match) {
-        activities.push({
-          agent: agentName,
-          date: scheduleDate,
-          startTime: parseScheduleTime(schedule.startTime),
-          endTime: parseScheduleTime(schedule.endTime),
-          clientName: schedule.clientName || '',
-          purpose: schedule.purpose || '',
-          location: schedule.location || '',
-          status: schedule.status || '待確認',
-          meetingNotes: schedule.meetingNotes || '',
-          followUp: schedule.followUp || ''
-        });
+  // v3.9.51: per-agent fallback — 優先用 _summary.schedulesRecent（ciphertext 救星），否則讀明文 agentData.schedules
+  function _agentSchedules(ad){
+    var sr=ad._summary&&ad._summary.schedulesRecent;
+    if(Array.isArray(sr))return sr;
+    return ad.schedules||[];
+  }
+  agentNames.forEach(function(agentName){
+    var agentData=TEAM[agentName];if(!agentData)return;
+    _agentSchedules(agentData).forEach(function(schedule){
+      var scheduleDate=parseScheduleDate(schedule.date);
+      if(!scheduleDate)return;
+      var d=new Date(scheduleDate);
+      var y2=d.getFullYear();
+      var m2=d.getMonth()+1;
+      var q2=Math.floor(d.getMonth()/3)+1;
+      var match=false;
+      if(teamActivityPeriod==='today'){match=(scheduleDate===todayStr);}
+      else if(teamActivityPeriod==='week'){match=(d>=weekStart&&d<=weekEnd);}
+      else if(teamActivityPeriod==='month'){match=(y2===activityYear&&m2===activityMonth);}
+      else if(teamActivityPeriod==='quarter'){match=(y2===activityYear&&q2===activityQuarter);}
+      else if(teamActivityPeriod==='year'){match=(y2===activityYear);}
+      else if(teamActivityPeriod==='all'){match=true;}
+      else if(teamActivityPeriod==='overdue'){match=(d<now&&schedule.status!=='已完成'&&schedule.status!=='取消');}
+      if(match){
+        activities.push({agent:agentName,date:scheduleDate,startTime:parseScheduleTime(schedule.startTime),endTime:parseScheduleTime(schedule.endTime),clientName:schedule.clientName||'',purpose:schedule.purpose||'',location:schedule.location||'',status:schedule.status||'待確認',meetingNotes:schedule.meetingNotes||'',followUp:schedule.followUp||''});
       }
     });
   });
-  }
 
   // Build range label
   if (teamActivityPeriod === 'month') {
@@ -2675,23 +2627,18 @@ var _teamGoalsFilter='active';
 function renderTeamGoals(){
   var agentNames=getTree(currentRoot);if(!agentNames||agentNames.length===0)return;
   var allGoals=[];
-  // v3.9.48: 優先用 s.activeGoals（ciphertext 救星），fallback 舊 d.goals 邏輯
-  var _useSummary=false;agentNames.forEach(function(a){var _s=TEAM[a]&&TEAM[a]._summary;if(Array.isArray(_s&&_s.activeGoals)){_useSummary=true;}});
-  if(_useSummary){
-    agentNames.forEach(function(a){
-      var d=TEAM[a];if(!d)return;
-      var sg=d._summary&&d._summary.activeGoals;
-      if(!Array.isArray(sg))return;
+  // v3.9.51: per-agent fallback — 優先用 _summary.activeGoals（ciphertext 救星），否則讀明文 d.goals 計算
+  agentNames.forEach(function(a){
+    var d=TEAM[a];if(!d)return;
+    var sg=d._summary&&d._summary.activeGoals;
+    if(Array.isArray(sg)&&sg.length){
       sg.forEach(function(x){
         if(!x||!x.target||x.target<=0)return;
         var isPC=x.type==='PC';
         var gRec={type:x.type,period:x.period,year:x.year,month:x.month,quarter:x.quarter,startDate:x.startDate,endDate:x.endDate,target:x.target,pcType:x.pcType};
         allGoals.push({agent:a,role:d.role||'Agent',g:gRec,isPC:isPC,actual:Number(x.actual)||0,pct:Math.min(Number(x.pct)||0,999),_status:x.status});
       });
-    });
-  }else{
-    agentNames.forEach(function(a){
-      var d=TEAM[a];if(!d)return;
+    }else{
       (d.goals||[]).forEach(function(g){
         if(!g||!g.target||g.target<=0)return;
         var isPC=g.type==='PC';
@@ -2700,8 +2647,8 @@ function renderTeamGoals(){
         var pct=Math.round(actual/g.target*100);
         allGoals.push({agent:a,role:d.role||'Agent',g:g,isPC:isPC,actual:actual,pct:Math.min(pct,999),_status:goalStatus(g)});
       });
-    });
-  }
+    }
+  });
   // filter
   var shown=allGoals;
   if(_teamGoalsFilter==='active'){shown=allGoals.filter(function(x){return x._status==='active';});}
