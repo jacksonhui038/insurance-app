@@ -12,7 +12,7 @@
  * 開完一次後可改用 agent-app.html（正常 URL）
  */
 (function(){
-  var AGENT_VER='v3.10.76',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.78',AGENT_VER_KEY='agent_app_version';
   // v3.10.72: 同時掛 window 屬性，避免 IIFE 外部用 AGENT_VER 時 ReferenceError
   try { window.AGENT_VER = AGENT_VER; } catch(e){}
   try { localStorage.setItem(AGENT_VER_KEY, AGENT_VER); } catch(e){}
@@ -1064,6 +1064,29 @@ function buildUploadData() {
     goalRate:(function(){var m=new Date().getMonth(),y=new Date().getFullYear();var target=0,achieved=0;(DB.goals||[]).forEach(function(g){if(g.period==='monthly'&&g.year===y&&g.month===m+1&&Number(g.target)>0){target=Number(g.target);achieved=(function(){var s=0;_smArr('commissions').forEach(function(c){var dt=new Date(c.date);if(dt.getMonth()===m&&dt.getFullYear()===y)s+=Number(c.amount||0);});return s;})();}});return target>0?Math.round(achieved/target*100):0;})(),
     updatedAt:new Date().toISOString()
   };
+  // v3.10.78: 經理版 3 個 widget 讀明細 list（commissions/schedules/goals），但 ciphertext 解唔到。
+  // 預聚合 plaintext 落 data_summary 副 keys 補救，ciphertext agent re-sync 後即見到。
+  // plaintext 舊版會忽略（fallback ciphertext 邏輯）。
+  base.data_summary.monthlyComm = (function(){
+    var out={};var now2=new Date();
+    for(var mi=11;mi>=0;mi--){var dm=new Date(now2.getFullYear(),now2.getMonth()-mi,1);var k=dm.getFullYear()+'-'+String(dm.getMonth()+1).padStart(2,'0');out[k]=0;}
+    function _acc(arr){(arr||[]).forEach(function(c){if(!c||!c.date||c.amount==null)return;var dt=new Date(c.date);if(isNaN(dt))return;var k2=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0');if(k2 in out)out[k2]+=Number(c.amount)||0;});}
+    _acc(_smArr('commissions'));_acc(_smArr('pcs'));
+    return out;
+  })();
+  base.data_summary.activeGoals = (function(){
+    var arr=[];var now2=new Date();
+    function _gs(g){var gy=Number(g.year);if(gy<now2.getFullYear())return'expired';if(gy>now2.getFullYear())return'not_started';if(g.period==='monthly'){var gm=Number(g.month);if(gm<now2.getMonth()+1)return'expired';if(gm>now2.getMonth()+1)return'not_started';return'active';}if(g.period==='quarterly'){var gq=Number(g.quarter),cq=Math.floor(now2.getMonth()/3)+1;if(gq<cq)return'expired';if(gq>cq)return'not_started';return'active';}return'active';}
+    function _ga(g,src){var a=0,gy=Number(g.year),gm=Number(g.month),gq=Number(g.quarter);if(g.period==='custom'&&g.startDate&&g.endDate){var s=parseYMD(g.startDate),e=parseYMD(g.endDate);if(!s||!e)return 0;s.setHours(0,0,0,0);e.setHours(23,59,59,999);src.forEach(function(c){var d=parseYMD(c.date);if(!d)return;if(d>=s&&d<=e){if(g.type==='PC'&&g.pcType&&g.pcType!=='全部'&&!pcTypeMatchesGoal(c.pcType,g.pcType))return;a+=Number(c.amount)||0;}});}else if(g.period==='monthly'){src.forEach(function(c){var d=new Date(c.date);if(d.getMonth()===(gm-1)&&d.getFullYear()===gy){if(g.type==='PC'&&g.pcType&&g.pcType!=='全部'&&!pcTypeMatchesGoal(c.pcType,g.pcType))return;a+=Number(c.amount)||0;}});}else{var s2,e2;if(g.period==='quarterly'){s2=new Date(gy,(gq-1)*3,1);e2=new Date(gy,(gq-1)*3+3,0);}else{s2=new Date(gy,0,1);e2=new Date(gy,11,31);}src.forEach(function(c){var d=new Date(c.date);if(d>=s2&&d<=e2){if(g.type==='PC'&&g.pcType&&g.pcType!=='全部'&&!pcTypeMatchesGoal(c.pcType,g.pcType))return;a+=Number(c.amount)||0;}});}return a;}
+    (DB.goals||[]).forEach(function(g){if(!g||!g.target||g.target<=0)return;var st=_gs(g);if(st==='expired')return;var src=g.type==='PC'?_smArr('pcs'):_smArr('commissions');var actual=_ga(g,src);var pct=Math.round(actual/Number(g.target)*100);arr.push({type:g.type||'佣金',period:g.period,year:g.year,month:g.month,quarter:g.quarter,startDate:g.startDate||null,endDate:g.endDate||null,target:Number(g.target),actual:actual,pct:Math.min(pct,999),pcType:g.pcType||'全部',status:st});});
+    return arr;
+  })();
+  base.data_summary.schedulesRecent = (function(){
+    var now2=new Date();now2.setHours(0,0,0,0);
+    var from2=new Date(now2);from2.setDate(from2.getDate()-14);
+    var to2=new Date(now2);to2.setDate(to2.getDate()+14);
+    return (DB.schedules||[]).filter(function(s){var d=parseYMD(s.date);return d&&d>=from2&&d<=to2;}).map(function(s){return {date:s.date,startTime:s.startTime||null,endTime:s.endTime||null,clientName:s.clientName||'',purpose:s.purpose||'',location:s.location||'',status:s.status||'待確認',meetingNotes:s.meetingNotes||'',followUp:s.followUp||''};}).sort(function(a,b){return (b.date||'').localeCompare(a.date||'');}).slice(0,30);
+  })();
   return base;
 }
 function saveToCloud(callback, retry) {
