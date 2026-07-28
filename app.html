@@ -12,7 +12,7 @@
  * 開完一次後可改用 agent-app.html（正常 URL）
  */
 (function(){
-  var AGENT_VER='v3.10.75',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.76',AGENT_VER_KEY='agent_app_version';
   // v3.10.72: 同時掛 window 屬性，避免 IIFE 外部用 AGENT_VER 時 ReferenceError
   try { window.AGENT_VER = AGENT_VER; } catch(e){}
   try { localStorage.setItem(AGENT_VER_KEY, AGENT_VER); } catch(e){}
@@ -1055,8 +1055,13 @@ function buildUploadData() {
     totalPolicies:_smArr('policies').length,
     totalComm:_smArr('commissions').reduce(function(s,c){return s+Number(c.amount||0);},0),
     monthComm:(function(){var m=new Date().getMonth(),y=new Date().getFullYear(),s=0;_smArr('commissions').forEach(function(c){var dt=new Date(c.date);if(dt.getMonth()===m&&dt.getFullYear()===y)s+=Number(c.amount||0);});return s;})(),
+    yearComm:(function(){var y=new Date().getFullYear(),s=0;_smArr('commissions').forEach(function(c){var dt=new Date(c.date);if(dt.getFullYear()===y)s+=Number(c.amount||0);});return s;})(),
     totalExp:(DB.expenses||[]).reduce(function(s,e){return s+Number(e.amount||0);},0),
     totalPC:_smArr('pcs').reduce(function(s,pc){return s+Number(pc.amount||0);},0),
+    monthPC:(function(){var m=new Date().getMonth(),y=new Date().getFullYear(),s=0;_smArr('pcs').forEach(function(pc){var dt=new Date(pc.date);if(dt.getMonth()===m&&dt.getFullYear()===y)s+=Number(pc.amount||0);});return s;})(),
+    yearPC:(function(){var y=new Date().getFullYear(),s=0;_smArr('pcs').forEach(function(pc){var dt=new Date(pc.date);if(dt.getFullYear()===y)s+=Number(pc.amount||0);});return s;})(),
+    // v3.10.77: goals 喺 ciphertext 內 server 讀唔到，特登計 goalRate 落 data_summary 畀經理版 render 用
+    goalRate:(function(){var m=new Date().getMonth(),y=new Date().getFullYear();var target=0,achieved=0;(DB.goals||[]).forEach(function(g){if(g.period==='monthly'&&g.year===y&&g.month===m+1&&Number(g.target)>0){target=Number(g.target);achieved=(function(){var s=0;_smArr('commissions').forEach(function(c){var dt=new Date(c.date);if(dt.getMonth()===m&&dt.getFullYear()===y)s+=Number(c.amount||0);});return s;})();}});return target>0?Math.round(achieved/target*100):0;})(),
     updatedAt:new Date().toISOString()
   };
   return base;
