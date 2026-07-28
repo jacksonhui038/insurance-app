@@ -2,7 +2,7 @@
 <html lang="zh-HK">
 <head>
 <script>// v3.9.29: 移除 Service Worker（回復正常靜態站行為）+ 雲端自檢自動更新
-var MGR_VER='v3.9.48',MGR_VER_KEY='mgr_app_version';
+var MGR_VER='v3.9.49',MGR_VER_KEY='mgr_app_version';
 (function(){
   try { localStorage.setItem(MGR_VER_KEY, MGR_VER); } catch(e){}
   // v3.9.32: 早期獨立同步版本 badge（免受 render() 未跑/大函數錯誤影響，手機/桌面登入前都顯示正確版本）
@@ -1703,8 +1703,8 @@ function renderCharts(ranks,maxComm,agentNames,y,m){
   if(chartInstances['chartTeamTrend'])chartInstances['chartTeamTrend'].destroy();
   var tlabels=[],tdata=[];
   // v3.9.48: 優先用 s.monthlyComm（ciphertext 救星），fallback 舊 TEAM[a].commissions
-  var _hasSummary=false;agentNames.forEach(function(a){var s=TEAM[a]&&TEAM[a].data_summary;if(s&&s.monthlyComm){_hasSummary=true;}});
-  for(var i=5;i>=0;i--){var dm=new Date(y,m-i,1);tlabels.push(dm.getFullYear()+'/'+(dm.getMonth()+1));var ts=0;var dk=dm.getFullYear()+'-'+String(dm.getMonth()+1).padStart(2,'0');agentNames.forEach(function(a){if(_hasSummary){var s2=TEAM[a]&&TEAM[a].data_summary;if(s2&&s2.monthlyComm&&dk in s2.monthlyComm){ts+=Number(s2.monthlyComm[dk])||0;return;}ts+=0;}else{TEAM[a].commissions.forEach(function(c){var d=new Date(c.date);if(d.getMonth()===dm.getMonth()&&d.getFullYear()===dm.getFullYear())ts+=Number(c.amount)||0;});}});tdata.push(ts);}
+  var _hasSummary=false;agentNames.forEach(function(a){var _s=TEAM[a]&&TEAM[a]._summary;if(_s&&_s.monthlyComm){_hasSummary=true;}});
+  for(var i=5;i>=0;i--){var dm=new Date(y,m-i,1);tlabels.push(dm.getFullYear()+'/'+(dm.getMonth()+1));var ts=0;var dk=dm.getFullYear()+'-'+String(dm.getMonth()+1).padStart(2,'0');agentNames.forEach(function(a){var _s=TEAM[a]&&TEAM[a]._summary;if(_hasSummary&&_s&&_s.monthlyComm&&dk in _s.monthlyComm){ts+=Number(_s.monthlyComm[dk])||0;return;}if(TEAM[a].commissions){TEAM[a].commissions.forEach(function(c){var d=new Date(c.date);if(d.getMonth()===dm.getMonth()&&d.getFullYear()===dm.getFullYear())ts+=Number(c.amount)||0;});}});tdata.push(ts);}
   chartInstances['chartTeamTrend']=new chartLib(document.getElementById('chartTeamTrend'),{type:'line',data:{labels:tlabels,datasets:[{data:tdata,borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,0.1)',fill:true,tension:0.4,pointRadius:isMobile?3:4,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:isMobile?10:12}}},y:{beginAtZero:true,ticks:{callback:function(v){return'HK$'+v.toLocaleString()}}}}}});
 }
 
@@ -1853,11 +1853,11 @@ function renderTeamActivity() {
   var agentNames = getTree(currentRoot);
 
   // v3.9.48: 優先用 s.schedulesRecent（ciphertext 救星），fallback 舊 TEAM[a].schedules 邏輯
-  var _useSummary2=false;agentNames.forEach(function(a){var s=TEAM[a]&&TEAM[a].data_summary;if(Array.isArray(s&&s.schedulesRecent)){_useSummary2=true;}});
+  var _useSummary2=false;agentNames.forEach(function(a){var _s=TEAM[a]&&TEAM[a]._summary;if(Array.isArray(_s&&_s.schedulesRecent)){_useSummary2=true;}});
   if(_useSummary2){
     agentNames.forEach(function(agentName){
       var agentData=TEAM[agentName];if(!agentData)return;
-      var sr=agentData.data_summary&&agentData.data_summary.schedulesRecent;
+      var sr=agentData._summary&&agentData._summary.schedulesRecent;
       if(!Array.isArray(sr))return;
       sr.forEach(function(schedule){
         var scheduleDate=parseScheduleDate(schedule.date);
@@ -2676,11 +2676,11 @@ function renderTeamGoals(){
   var agentNames=getTree(currentRoot);if(!agentNames||agentNames.length===0)return;
   var allGoals=[];
   // v3.9.48: 優先用 s.activeGoals（ciphertext 救星），fallback 舊 d.goals 邏輯
-  var _useSummary=false;agentNames.forEach(function(a){var s=TEAM[a]&&TEAM[a].data_summary;if(Array.isArray(s&&s.activeGoals)){_useSummary=true;}});
+  var _useSummary=false;agentNames.forEach(function(a){var _s=TEAM[a]&&TEAM[a]._summary;if(Array.isArray(_s&&_s.activeGoals)){_useSummary=true;}});
   if(_useSummary){
     agentNames.forEach(function(a){
       var d=TEAM[a];if(!d)return;
-      var sg=d.data_summary&&d.data_summary.activeGoals;
+      var sg=d._summary&&d._summary.activeGoals;
       if(!Array.isArray(sg))return;
       sg.forEach(function(x){
         if(!x||!x.target||x.target<=0)return;
