@@ -2,7 +2,7 @@
 <html lang="zh-HK">
 <head>
 <script>// v3.9.29: 移除 Service Worker（回復正常靜態站行為）+ 雲端自檢自動更新
-var MGR_VER='v3.9.45',MGR_VER_KEY='mgr_app_version';
+var MGR_VER='v3.9.46',MGR_VER_KEY='mgr_app_version';
 (function(){
   try { localStorage.setItem(MGR_VER_KEY, MGR_VER); } catch(e){}
   // v3.9.32: 早期獨立同步版本 badge（免受 render() 未跑/大函數錯誤影響，手機/桌面登入前都顯示正確版本）
@@ -652,27 +652,38 @@ function doMgrLogin() {
   if (!role) { err.textContent = '請選擇職級'; return; }
   if (!pin || pin.length < 4) { err.textContent = 'PIN 碼至少 4 位數字'; return; }
   btn.textContent = '驗證中...'; btn.disabled = true;
+  // v3.9.46: 【關鍵修復】唔再將「載入數據」綁死喺 Supabase Auth 登入。
+  // 讀取團隊數據用 anon key（SELECT policy 已 USING(true)，公開可讀），根本唔需要 Auth。
+  // 所以就算 Auth 登入失敗（帳戶未建 / PIN 唔對 / 網絡抖動），經理都照樣可以睇到自己 downline（唯讀模式）。
+  // 之前嘅寫法：Auth 失敗 → 永遠唔 call mgrLoadFromCloud() → 經理永遠睇唔到數據（呢個就係「經理版睇唔到數據」嘅真正元兇）。
+  // Auth 成功只係為咗 write path（改 role 等需要 auth.uid() = user_id）。
   mgrAuthSignIn(name, pin).then(function(res){
     MGR_JWT = res.jwt; MGR_UID = res.uid;
     try { sessionStorage.setItem('mgr_jwt', MGR_JWT); sessionStorage.setItem('mgr_uid', MGR_UID); } catch(e){}
-    localStorage.setItem(MGR_KEY, name);
-    localStorage.setItem(MGR_PIN_KEY, pin);
-    localStorage.setItem('mgr_role', role);
-    mgrUnlocked = true;
-    mgrRole = role;
-    // v3.9.33: 切換登入者後重置下鑽狀態，避免顯示上一個用戶/舊 root
-    currentRoot = name; rootStack = []; saveDrillState();
-    document.getElementById('lockBg').classList.add('hide');
-    var hdr = document.getElementById('mgrNameDisplay');
-    if (hdr) hdr.textContent = role + '：' + name;
-    render();
-    mgrLoadFromCloud();
-    btn.textContent = '登入'; btn.disabled = false;
+    mgrAfterLogin(name, role, pin, true);
   }).catch(function(e){
-    btn.textContent = '登入'; btn.disabled = false;
-    var st = (e && e.status) || '';
-    err.textContent = '⚠️ Supabase 驗證失敗（PIN 錯誤或網絡問題）' + (st ? ' ['+st+']' : '');
+    console.warn('[doMgrLogin] Auth 登入失敗，轉唯讀模式載入數據:', e);
+    mgrAfterLogin(name, role, pin, false);
   });
+}
+
+// v3.9.46: 登入後統一處理（無論 Auth 成功與否都載數據）
+function mgrAfterLogin(name, role, pin, authed){
+  var btn = document.getElementById('mgrLoginBtn');
+  localStorage.setItem(MGR_KEY, name);
+  localStorage.setItem(MGR_PIN_KEY, pin);
+  localStorage.setItem('mgr_role', role);
+  mgrUnlocked = true;
+  mgrRole = role;
+  // v3.9.33: 切換登入者後重置下鑽狀態，避免顯示上一個用戶/舊 root
+  currentRoot = name; rootStack = []; saveDrillState();
+  document.getElementById('lockBg').classList.add('hide');
+  var hdr = document.getElementById('mgrNameDisplay');
+  if (hdr) hdr.textContent = role + '：' + name + (authed ? '' : '（唯讀）');
+  render();
+  mgrLoadFromCloud();
+  if (btn) { btn.textContent = '登入'; btn.disabled = false; }
+  if (!authed) toast('⚠️ 身份驗證失敗，已轉「唯讀模式」（只可檢視，不可修改角色）。如欲修改請確認 PIN 正確。', 'warning');
 }
 
 function doSetupPin(){
@@ -702,8 +713,14 @@ function doSetupPin(){
     unlockOK();
   }).catch(function(e){
     if(btn){ btn.textContent='設定'; btn.disabled=false; }
-    var st=(e&&e.status)||'';
-    err.textContent='⚠️ Supabase 驗證失敗（PIN 錯誤或網絡問題）'+(st?' ['+st+']':'')+'（經理必須先喺 agent app 接好帳戶）';
+    // v3.9.46: 就算 Auth 失敗，都照樣設定身份 + 載數據（read 用 anon）
+    console.warn('[doSetupPin] Auth 失敗，轉唯讀模式:', e);
+    localStorage.setItem(MGR_KEY,name);
+    localStorage.setItem(MGR_PIN_KEY,pin);
+    localStorage.setItem('mgr_role',role);
+    mgrRole = role;
+    unlockOK();
+    toast('⚠️ 身份驗證失敗，已轉「唯讀模式」（只可檢視）。如欲修改角色請確認帳戶已喺 agent app 接好。', 'warning');
   });
 }
 
@@ -727,8 +744,9 @@ function doUnlock(){
     unlockOK();
   }).catch(function(e){
     if(btn){ btn.textContent='解鎖'; btn.disabled=false; }
-    var st=(e&&e.status)||'';
-    err.textContent='⚠️ Supabase 驗證失敗（網絡問題）'+(st?' ['+st+']':'');
+    // v3.9.46: 就算 Auth 失敗，都照樣解鎖 + 載數據（read 用 anon，唔需要 Auth）
+    console.warn('[doUnlock] Auth 失敗，轉唯讀模式解鎖:', e);
+    unlockOK();
   });
 }
 
