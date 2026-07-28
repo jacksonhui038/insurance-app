@@ -12,7 +12,7 @@
  * 開完一次後可改用 agent-app.html（正常 URL）
  */
 (function(){
-  var AGENT_VER='v3.10.72',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.74',AGENT_VER_KEY='agent_app_version';
   // v3.10.72: 同時掛 window 屬性，避免 IIFE 外部用 AGENT_VER 時 ReferenceError
   try { window.AGENT_VER = AGENT_VER; } catch(e){}
   try { localStorage.setItem(AGENT_VER_KEY, AGENT_VER); } catch(e){}
@@ -1074,7 +1074,12 @@ function saveToCloud(callback, retry) {
     }
   }
   if (SUPA_URL && SUPA_KEY) {
-    saveToSupabase(function(ok, errMsg){ supaOk=ok; if (!ok) console.error('[saveToCloud Supabase]', errMsg||'unknown'); checkDone(); });
+    saveToSupabase(function(ok, errMsg){
+      supaOk=ok;
+      if (!ok) console.error('[saveToCloud Supabase]', errMsg||'unknown');
+      if (ok) { try { if (_syncTimer) { clearTimeout(_syncTimer); _syncTimer = null; } } catch(e){} }
+      checkDone();
+    });
   } else {
     if (callback) callback(false);
     else toast('⚠️ 未設定 Supabase，無法同步','error');
@@ -1097,8 +1102,10 @@ function saveToCloud(callback, retry) {
 function _scheduleRetry(callback) {
   if (_syncTimer) clearTimeout(_syncTimer);
   var delay = Math.min(8000 * Math.pow(1.5, _syncRetryCount), 60000); // 8s, 12s, 18s, 最多 60s
+  // v3.10.73: 之前用 `if (!done)` 但 done 係 saveToCloud 內部 closure variable，
+  // 喺 setTimeout 外層 scope 攞唔到 → ReferenceError。直接 retry，成功 save 後會 clearTimeout 取消。
   _syncTimer = setTimeout(function(){
-    if (!done) { saveToCloud(callback, true); }
+    saveToCloud(callback, true);
   }, delay);
 }
 
@@ -1114,6 +1121,23 @@ function loadFromCloud(callback, retry) {
 
 
 // ===== Supabase 同步函數 =====
+// v3.10.74: 獨立、只寫 data_summary 嘅 PATCH。主 PATCH 已經帶 data_summary，
+// 呢個係雙保險 —— 就算主 payload 有任何古怪（舊 cache / 序列化問題），data_summary 都會獨立落地，
+// 確保經理版一定見到業績。用 supaHeaders（SUPA_JWT || SUPA_KEY），代理人登入後用自己 JWT 寫自己 row。
+function pushDataSummary(summary, cb) {
+  if (!SUPA_URL || !SUPA_KEY || !agentName || !summary) { if (cb) cb(false); return; }
+  try {
+    var h = Object.assign({}, supaHeaders(), { 'Content-Type':'application/json', 'Prefer':'return=minimal' });
+    fetch(SUPA_URL + '/rest/v1/agents?name=eq.'+encodeURIComponent(agentName), {
+      method:'PATCH',
+      headers:h,
+      body:JSON.stringify({ data_summary: summary })
+    }).then(function(res){
+      console.log('[pushDataSummary] HTTP', res.status, 'for', agentName);
+      if (cb) cb(res.ok);
+    }).catch(function(e){ console.error('[pushDataSummary]', e); if (cb) cb(false); });
+  } catch(e){ console.error('[pushDataSummary]', e); if (cb) cb(false); }
+}
 function saveToSupabase(callback) {
   if (!SUPA_URL || !SUPA_KEY || !agentName) { if (callback) callback(false); return; }
   // v3.9.4: 鐵規 — 本機未成功從雲端下載過、而本地又係空 DB 時，絕對唔上傳，
@@ -1151,14 +1175,30 @@ function saveToSupabase(callback) {
         method:'PATCH',
         headers:{ ...supaHeaders(),
           'Content-Type':'application/json',
-          'Prefer':'return=minimal'
+          'Prefer':'return=representation'
         },
         body:payload,
         signal:controller.signal
       })
       .then(function(res){
         clearTimeout(timeoutId);
-        if (res.ok) { if (callback) callback(true); }
+        if (res.ok) {
+          return res.json().then(function(rows){
+            var wrote = Array.isArray(rows) && rows.length > 0;
+            console.log('[saveToSupabase] PATCH HTTP', res.status, '，更新行數 =', rows ? rows.length : '?', '；data_summary =', JSON.stringify(uploadData.data_summary));
+            if (!wrote) {
+              // v3.10.74: 寫 0 行 = 實際冇寫入（通常係 anon 無 UPDATE 權限 / RLS 擋咗 / SUPA_JWT 未 set）。
+              // 之前用 return=minimal + if(res.ok) 會假報成功，經理永遠見唔到數據。
+              console.warn('[saveToSupabase] ⚠️ 0 行更新 —— 同步實際失敗（請重新登入攞 JWT 再 sync）');
+              if (callback) callback(false, '0-rows-updated');
+              return;
+            }
+            pushDataSummary(uploadData.data_summary, function(dsOk){
+              console.log('[saveToSupabase] 🔁 data_summary 獨立 PATCH 結果 =', dsOk);
+            });
+            if (callback) callback(true);
+          }).catch(function(e){ console.error('[saveToSupabase] json 解析失敗', e); if (callback) callback(false, 'parse'); });
+        }
         else {
           res.text().then(function(t){ console.error('[saveToSupabase] HTTP',res.status, t.substring(0,200)); });
           if (callback) callback(false, 'HTTP '+res.status);
@@ -1214,7 +1254,7 @@ function forceUploadToSupabase() {
     // v3.10.60 Track A: 強制上傳前同樣加密 data
     encryptData(uploadData, agentPIN || '').then(function(encData){
       var payload = JSON.stringify(buildUpsertPayload(agentName, encData, mgr, team, uploadData.data_summary));
-      doForceUpload(payload, mgr, team);
+      doForceUpload(payload, mgr, team, uploadData.data_summary);
     }).catch(function(e){ console.error('[forceUpload] encrypt fail', e); toast('❌ 加密失敗','error'); });
   })
   .catch(function(e){
@@ -1225,11 +1265,11 @@ function forceUploadToSupabase() {
     // v3.10.60 Track A: 強制上傳前同樣加密 data
     encryptData(uploadData, agentPIN || '').then(function(encData){
       var payload = JSON.stringify(buildUpsertPayload(agentName, encData, mgr, team, uploadData.data_summary));
-      doForceUpload(payload, mgr, team);
+      doForceUpload(payload, mgr, team, uploadData.data_summary);
     }).catch(function(e){ console.error('[forceUpload] encrypt fail', e); toast('❌ 加密失敗','error'); });
   });
 }
-function doForceUpload(payload, mgr, team) {
+function doForceUpload(payload, mgr, team, summary) {
   var controller = new AbortController();
   var timeoutId = setTimeout(function(){ controller.abort(); }, 30000);
   // v3.10.70: 已登入代理人只更新自己既有 row，避免 POST upsert 被 RLS INSERT policy 擋住。
@@ -1250,6 +1290,9 @@ function doForceUpload(payload, mgr, team) {
         document.getElementById('lastSyncTime').textContent = getLastSyncTime();
         toast('✅ 強制上傳成功！' + agentName + ' 已同步到 Supabase', 'success');
         console.log('[forceUpload] ✅ 上傳成功', agentName, rows);
+        pushDataSummary(summary, function(dsOk){
+          console.log('[forceUpload] 🔁 data_summary 獨立 PATCH 結果 =', dsOk);
+        });
       });
     } else {
       res.text().then(function(t){
