@@ -2,7 +2,7 @@
 <html lang="zh-HK">
 <head>
 <script>// v3.9.29: 移除 Service Worker（回復正常靜態站行為）+ 雲端自檢自動更新
-var MGR_VER='v3.9.46',MGR_VER_KEY='mgr_app_version';
+var MGR_VER='v3.9.47',MGR_VER_KEY='mgr_app_version';
 (function(){
   try { localStorage.setItem(MGR_VER_KEY, MGR_VER); } catch(e){}
   // v3.9.32: 早期獨立同步版本 badge（免受 render() 未跑/大函數錯誤影響，手機/桌面登入前都顯示正確版本）
@@ -1609,21 +1609,21 @@ function render(){
       var yNow=new Date().getFullYear(),mNow=new Date().getMonth();
       (d.commissions||[]).forEach(function(c){var amt=Number(c.amount)||0;yc+=amt;var dt=new Date(c.date);if(dt.getMonth()===mNow&&dt.getFullYear()===yNow)mc+=amt;});
     }
-    var mpc=0,ypc=0;
-    if(typeof s.totalPC==='number'){/* PC 總額已在 summary，不分月年，用 sum 即可 */}
+    var mpc=0,ypc=0,tpc=0;
+    if(typeof s.totalPC==='number'){tpc=s.totalPC;}
     if(typeof s.monthPC==='number'){mpc=s.monthPC;}
     if(typeof s.yearPC==='number'){ypc=s.yearPC;}
     if(typeof s.monthPC!=='number'||typeof s.yearPC!=='number'){
       var yNow2=new Date().getFullYear(),mNow2=new Date().getMonth();
-      if(d.pcs) d.pcs.forEach(function(pc){var amt=Number(pc.amount)||0;ypc+=amt;var dt=new Date(pc.date);if(dt.getMonth()===mNow2&&dt.getFullYear()===yNow2)mpc+=amt;});
+      if(d.pcs) d.pcs.forEach(function(pc){var amt=Number(pc.amount)||0;ypc+=amt;tpc+=amt;var dt=new Date(pc.date);if(dt.getMonth()===mNow2&&dt.getFullYear()===yNow2)mpc+=amt;});
     }
     var me=0;
     if(typeof s.monthExp==='number'){me=s.monthExp;}
     else{(d.expenses||[]).forEach(function(e){var dt=new Date(e.date);if(dt.getMonth()===m&&dt.getFullYear()===y)me+=Number(e.amount)||0;});}
-    var goalRate=0;(d.goals||[]).forEach(function(g){if(g.period==='monthly'&&g.year===y&&g.month===m+1&&g.target>0)goalRate=Math.round(mc/g.target*100);});
+    var goalRate=0;if(typeof s.goalRate==='number'&&s.goalRate>0){goalRate=s.goalRate;}else{(d.goals||[]).forEach(function(g){if(g.period==='monthly'&&g.year===y&&g.month===m+1&&g.target>0)goalRate=Math.round(mc/g.target*100);});}
     var tClients=(typeof s.totalClients==='number')?s.totalClients:(d.clients||[]).length;
     var tPolicies=(typeof s.totalPolicies==='number')?s.totalPolicies:(d.policies||[]).length;
-    ranks.push({name:a.name,depth:a.depth,role:d.role||'Agent',clients:tClients,policies:tPolicies,monthComm:mc,yearComm:yc,monthPC:mpc,yearPC:ypc,expenses:me,goalRate:Math.min(goalRate,999),net:mc-me,supervisor:d.supervisor||''});
+    ranks.push({name:a.name,depth:a.depth,role:d.role||'Agent',clients:tClients,policies:tPolicies,monthComm:mc,yearComm:yc,monthPC:mpc,yearPC:ypc,totalPC:tpc,expenses:me,goalRate:Math.min(goalRate,999),net:mc-me,supervisor:d.supervisor||''});
   });
   var roleOrder={'SDD':1,'DD':2,'SDM':3,'DM':4,'SASM':5,'ASM':6,'Agent':7};
   // v3.9.27: 頂層只顯示經理（getTableAgentsForView 已過濾 Agent），按職級+月佣排序（SDD>DD>SDM>DM>SASM>ASM）
@@ -1653,7 +1653,7 @@ function render(){
     var isAgent = (r.role==='Agent');
     var nameCellStyle = 'padding-left:'+(indent+10)+'px'+(isAgent?';color:#6b7280;font-weight:400':'');
     var agentDot = isAgent ? '<span style="color:#cbd5e1;margin-right:4px;font-size:10px">└</span>' : '';
-    tableHtml+='<tr class="agent-row'+(selectedAgent===r.name?' selected':'')+(r.name===currentRoot?' mgr-self':'')+(isAgent?' agent-sub':'')+'" onclick="selectAgent(\''+esc(r.name)+'\',this)"><td>'+(i+1)+'</td><td style="'+nameCellStyle+'">'+agentDot+esc(r.name)+' '+roleBadge+drillIcon+'</td><td>'+r.clients+'</td><td>'+r.policies.length+'</td><td class="amt-pos">'+money(r.monthComm)+'</td><td>'+money(r.yearComm)+'</td><td>'+money(r.monthPC)+'</td><td><span class="badge '+(r.goalRate>=100?'badge-green':r.goalRate>=70?'badge-blue':'badge-yellow')+'">'+(r.goalRate===0?'未設定':r.goalRate+'%')+'</span></td><td>'+money(r.net)+'</td></tr>';
+    tableHtml+='<tr class="agent-row'+(selectedAgent===r.name?' selected':'')+(r.name===currentRoot?' mgr-self':'')+(isAgent?' agent-sub':'')+'" onclick="selectAgent(\''+esc(r.name)+'\',this)"><td>'+(i+1)+'</td><td style="'+nameCellStyle+'">'+agentDot+esc(r.name)+' '+roleBadge+drillIcon+'</td><td>'+r.clients+'</td><td>'+r.policies+'</td><td class="amt-pos">'+money(r.monthComm)+'</td><td>'+money(r.yearComm)+'</td><td>'+money(r.totalPC)+'</td><td><span class="badge '+(r.goalRate>=100?'badge-green':r.goalRate>=70?'badge-blue':'badge-yellow')+'">'+(r.goalRate===0?'未設定':r.goalRate+'%')+'</span></td><td>'+money(r.net)+'</td></tr>';
   });
   if(tableHtml === ''){
     tableHtml='<tr><td colspan="9" style="text-align:center;padding:24px;color:#6b7280">📭 '+esc(currentRoot||'此人')+' 暫無直屬下屬（可按「返回」上一層）</td></tr>';
