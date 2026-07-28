@@ -12,7 +12,7 @@
  * 開完一次後可改用 agent-app.html（正常 URL）
  */
 (function(){
-  var AGENT_VER='v3.10.74',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.75',AGENT_VER_KEY='agent_app_version';
   // v3.10.72: 同時掛 window 屬性，避免 IIFE 外部用 AGENT_VER 時 ReferenceError
   try { window.AGENT_VER = AGENT_VER; } catch(e){}
   try { localStorage.setItem(AGENT_VER_KEY, AGENT_VER); } catch(e){}
@@ -1126,17 +1126,21 @@ function loadFromCloud(callback, retry) {
 // 確保經理版一定見到業績。用 supaHeaders（SUPA_JWT || SUPA_KEY），代理人登入後用自己 JWT 寫自己 row。
 function pushDataSummary(summary, cb) {
   if (!SUPA_URL || !SUPA_KEY || !agentName || !summary) { if (cb) cb(false); return; }
-  try {
-    var h = Object.assign({}, supaHeaders(), { 'Content-Type':'application/json', 'Prefer':'return=minimal' });
-    fetch(SUPA_URL + '/rest/v1/agents?name=eq.'+encodeURIComponent(agentName), {
-      method:'PATCH',
-      headers:h,
-      body:JSON.stringify({ data_summary: summary })
-    }).then(function(res){
-      console.log('[pushDataSummary] HTTP', res.status, 'for', agentName);
-      if (cb) cb(res.ok);
-    }).catch(function(e){ console.error('[pushDataSummary]', e); if (cb) cb(false); });
-  } catch(e){ console.error('[pushDataSummary]', e); if (cb) cb(false); }
+  // v3.10.75: 寫入前確保 JWT 有效（SUPA_JWT 空 = 之前用 anon 0 行）
+  ensureJwt(agentName, agentPIN).then(function(jwtOk){
+    if (!jwtOk) console.warn('[pushDataSummary] ⚠️ ensureJwt 失敗，用 anon 嘗試（會被 RLS 擋）');
+    try {
+      var h = Object.assign({}, supaHeaders(), { 'Content-Type':'application/json', 'Prefer':'return=minimal' });
+      fetch(SUPA_URL + '/rest/v1/agents?name=eq.'+encodeURIComponent(agentName), {
+        method:'PATCH',
+        headers:h,
+        body:JSON.stringify({ data_summary: summary })
+      }).then(function(res){
+        console.log('[pushDataSummary] HTTP', res.status, 'for', agentName, jwtOk ? '(with JWT)' : '(anon)');
+        if (cb) cb(res.ok);
+      }).catch(function(e){ console.error('[pushDataSummary]', e); if (cb) cb(false); });
+    } catch(e){ console.error('[pushDataSummary]', e); if (cb) cb(false); }
+  });
 }
 function saveToSupabase(callback) {
   if (!SUPA_URL || !SUPA_KEY || !agentName) { if (callback) callback(false); return; }
@@ -1147,8 +1151,12 @@ function saveToSupabase(callback) {
     if (callback) callback(false, 'skip-empty-protect');
     return;
   }
-  // v3.9.5: 如果本機冇雲端快照（下載失敗/未完成），save 之前先拉一次雲端資料做基底，
-  // 確保唔會用本地 DB 清走 role/manager/team 同雲端既有記錄
+  // v3.10.75: 寫入前確保 JWT 有效。SUPA_JWT 空 / 過期 → 自動 authSignIn，失敗就 call provision EF 接好。
+  // 冇呢步 RLS UPDATE policy 會擋住 PATCH（auth.uid()=user_id 不成立），導致 0 行假成功。
+  ensureJwt(agentName, agentPIN).then(function(jwtOk){
+    if (!jwtOk) console.warn('[saveToSupabase] ⚠️ ensureJwt 失敗，將以 anon 嘗試（會被 RLS 擋）');
+    doUpload();
+  });
   function doUpload() {
     var mgr = assignedManager || localStorage.getItem('insurance_mgr_'+encodeURIComponent(agentName)) || '';
     var team = assignedTeam || localStorage.getItem('insurance_team_'+encodeURIComponent(agentName)) || '';
@@ -1235,6 +1243,13 @@ function forceUploadToSupabase() {
   if (isDBEmpty()) {
     if (!confirm('⚠️ 你嘅本地數據係空嘅。強制上傳會用空資料覆蓋雲端，清走晒雲端現有資料。確定繼續？')) return;
   }
+  // v3.10.75: 強制上傳前先確保 JWT 有效（避免 0 行假成功）
+  ensureJwt(agentName, agentPIN).then(function(jwtOk){
+    if (!jwtOk) console.warn('[forceUpload] ⚠️ ensureJwt 失敗，將以 anon 嘗試（會被 RLS 擋）');
+    forceUploadToSupabaseInner();
+  });
+}
+function forceUploadToSupabaseInner() {
   toast('⬆️ 正在強制上傳到 Supabase...', 'info');
   fixAllScheduleTimes(false);
   var mgr = assignedManager || localStorage.getItem('insurance_mgr_'+encodeURIComponent(agentName)) || '';
@@ -1551,6 +1566,22 @@ function patchUserId(name, uid) {
     headers: supaHeaders({'Content-Type':'application/json','Prefer':'return=minimal'}),
     body: JSON.stringify({user_id: uid})
   }).then(function(res){ return res.ok; }).catch(function(e){ console.warn('[patchUserId]', e); return false; });
+}
+// v3.10.75: 確保 SUPA_JWT 有有效值（sync 寫入前自動 self-heal）。
+// 代理人版之前冇同 mgrAuthSignIn(v3.9.37) 一樣嘅 self-heal，導致 anon 登入路徑 SUPA_JWT 空 → PATCH 0 行。
+// 流程：authSignIn → 成功就 set JWT；失敗就 call provision EF 自動接好 Auth + user_id → 再 retry signIn。
+// 必須傳 (name, pin)，SUPA_JWT 過期時每次 sync 都會自動 refresh。
+function ensureJwt(name, pin) {
+  if (!name || !pin) return Promise.resolve(false);
+  if (SUPA_JWT) return Promise.resolve(true);
+  return authSignIn(name, pin).then(function(res){
+    SUPA_JWT = res.jwt || SUPA_JWT;
+    SUPA_UID = res.uid || SUPA_UID;
+    return !!SUPA_JWT;
+  }).catch(function(){
+    // 401 = 帳號未接好 / 密碼未 set（placeholder）→ 經 Edge Function 自動接好 + retry
+    return provisionAgent(name, pin).then(function(ok){ return !!ok; });
+  });
 }
 // 叫 Edge Function（service_role）幫呢位 agent 接好：建/改 Auth 帳號（密碼=PIN+SALT）+ 填 user_id。
 // 用家仍只入 name+PIN，完全唔知背後發生咩。Edge Function 會先驗證 PIN（解密 data / 比對 _pinHash）先 set password，防 brute-force / DoS。
