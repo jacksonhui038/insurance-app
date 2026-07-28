@@ -2,7 +2,7 @@
 <html lang="zh-HK">
 <head>
 <script>// v3.9.29: 移除 Service Worker（回復正常靜態站行為）+ 雲端自檢自動更新
-var MGR_VER='v3.9.51',MGR_VER_KEY='mgr_app_version';
+var MGR_VER='v3.9.52',MGR_VER_KEY='mgr_app_version';
 (function(){
   try { localStorage.setItem(MGR_VER_KEY, MGR_VER); } catch(e){}
   // v3.9.32: 早期獨立同步版本 badge（免受 render() 未跑/大函數錯誤影響，手機/桌面登入前都顯示正確版本）
@@ -358,8 +358,8 @@ tr:hover td{background:var(--blue50)}
 
     <!-- Charts -->
     <div class="charts-row">
-      <div class="chart-card"><h3>🏆 代理人佣金排名</h3><canvas id="chartRanking"></canvas></div>
-      <div class="chart-card"><h3>📊 月度佣金趨勢（全團隊）</h3><canvas id="chartTeamTrend"></canvas></div>
+      <div class="chart-card"><h3>🏆 代理人 PC 排名</h3><canvas id="chartRanking"></canvas></div>
+      <div class="chart-card"><h3>📊 月度 PC 趨勢（全團隊）</h3><canvas id="chartTeamTrend"></canvas></div>
     </div>
 
     <!-- Performance Table -->
@@ -375,7 +375,7 @@ tr:hover td{background:var(--blue50)}
         </div>
       </div>
       <div class="table-responsive">
-        <table><thead><tr><th>排名</th><th>代理人</th><th>客戶數</th><th>保單數</th><th>本月佣金</th><th>本年佣金</th><th>PC</th><th>目標達成率</th><th>淨收入</th></tr></thead><tbody id="agentRankingTable"></tbody></table>
+        <table><thead><tr><th>排名</th><th>代理人</th><th>客戶數</th><th>保單數</th><th>本月 PC</th><th>本年 PC</th><th>累計 PC</th><th>目標達成率</th><th>PC 淨額</th></tr></thead><tbody id="agentRankingTable"></tbody></table>
       </div>
     </div>
 
@@ -402,7 +402,7 @@ tr:hover td{background:var(--blue50)}
       <div class="detail-tabs">
         <button class="detail-tab active" onclick="showDetailTab('clients',this)">👥 客戶</button>
         <button class="detail-tab" onclick="showDetailTab('policies',this)">📄 保單</button>
-        <button class="detail-tab" onclick="showDetailTab('commissions',this)">💰 佣金</button>
+        <button class="detail-tab" onclick="showDetailTab('pcs',this)">💰 PC</button>
         <button class="detail-tab" onclick="showDetailTab('expenses',this)">💳 開支</button>
         <button class="detail-tab" onclick="showDetailTab('schedules',this)">📅 行程</button>
         <button class="detail-tab" onclick="showDetailTab('goals',this)">🎯 目標</button>
@@ -1470,7 +1470,7 @@ function getTableAgentsForView(){
         var ra=roleOrder[TEAM[a.name].role]||99;
         var rb=roleOrder[TEAM[b.name].role]||99;
         if(ra!==rb) return ra-rb;
-        return b.monthComm-a.monthComm;
+        return b.monthPC-a.monthPC;
       });
       return result;
     }
@@ -1569,7 +1569,7 @@ function render(){
   // Summary — 用全部子樹成員聚合
   var totalClients=0, totalPolicies=0, totalComm=0, totalExp=0, totalPC=0, totalGoals=0;
   var now=new Date(),m=now.getMonth(),y=now.getFullYear();
-  var monthComm=0, monthPC=0;
+  var monthComm=0, monthPC=0, yearPC=0;
   allTreeAgents.forEach(function(a){
     var d=TEAM[a]||{};
     var s=d._summary||{};
@@ -1580,6 +1580,12 @@ function render(){
     var mComm=(typeof s.monthComm==='number')?s.monthComm:0;
     var tExp=(typeof s.totalExp==='number')?s.totalExp:0;
     var tPC=(typeof s.totalPC==='number')?s.totalPC:(Array.isArray(d.pcs)?d.pcs.reduce(function(s,pc){return s+Number(pc.amount||0);},0):0);
+    var mPC=(typeof s.monthPC==='number')?s.monthPC:0;
+    var yPC=(typeof s.yearPC==='number')?s.yearPC:0;
+    if(typeof s.monthPC!=='number'||typeof s.yearPC!=='number'){
+      var mm=new Date().getMonth(),yy=new Date().getFullYear();
+      (d.pcs||[]).forEach(function(pc){var amt=Number(pc.amount)||0;yPC+=amt;var dt=new Date(pc.date);if(dt.getMonth()===mm&&dt.getFullYear()===yy)mPC+=amt;});
+    }
     if(typeof s.monthComm!=='number'){
       var mm=new Date().getMonth(),yy=new Date().getFullYear();
       (d.commissions||[]).forEach(function(c){
@@ -1587,14 +1593,14 @@ function render(){
         var dt=new Date(c.date);if(dt.getMonth()===mm&&dt.getFullYear()===yy)mComm+=amt;
       });
     }
-    totalClients+=tClients;totalPolicies+=tPolicies;totalComm+=tComm;totalExp+=tExp;totalPC+=tPC;monthComm+=mComm;
+    totalClients+=tClients;totalPolicies+=tPolicies;totalComm+=tComm;totalExp+=tExp;totalPC+=tPC;monthComm+=mComm;monthPC+=mPC;yearPC+=yPC;
   });
   document.getElementById('summaryCards').innerHTML=
     '<div class="stat-card" style="border-left-color:#3b82f6"><div class="label">總人數</div><div class="value">'+allTreeAgents.length+'</div><div class="sub">'+esc(rootName)+' 線內成員</div></div>'+
-    '<div class="stat-card" style="border-left-color:#22c55e"><div class="label">本月佣金</div><div class="value">'+money(monthComm)+'</div><div class="sub">'+esc(rootName)+' 線</div></div>'+
+    '<div class="stat-card" style="border-left-color:#22c55e"><div class="label">本月 PC 收取</div><div class="value">'+money(monthPC)+'</div><div class="sub">'+esc(rootName)+' 線</div></div>'+
     '<div class="stat-card" style="border-left-color:#a855f7"><div class="label">總客戶數</div><div class="value">'+totalClients+'</div><div class="sub">保單總數: '+totalPolicies+'</div></div>'+
-    '<div class="stat-card" style="border-left-color:#eab308"><div class="label">累計佣金</div><div class="value">'+money(totalComm)+'</div><div class="sub">開支: '+money(totalExp)+' | PC: '+money(totalPC)+'</div></div>'+
-    '<div class="stat-card" style="border-left-color:#ef4444"><div class="label">人均月佣</div><div class="value">'+money(allTreeAgents.length>0?Math.round(monthComm/allTreeAgents.length):0)+'</div><div class="sub">人均客戶: '+Math.round(totalClients/allTreeAgents.length)+'</div></div>';
+    '<div class="stat-card" style="border-left-color:#eab308"><div class="label">累計 PC 收取</div><div class="value">'+money(totalPC)+'</div><div class="sub">開支: '+money(totalExp)+' | 本年 PC: '+money(yearPC)+'</div></div>'+
+    '<div class="stat-card" style="border-left-color:#ef4444"><div class="label">人均本月 PC</div><div class="value">'+money(allTreeAgents.length>0?Math.round(monthPC/allTreeAgents.length):0)+'</div><div class="sub">人均客戶: '+Math.round(totalClients/allTreeAgents.length)+'</div></div>';
 
   // Agent ranking — 表格成員由 getTableAgentsForView() 決定（頂層顯示全 team 經理，下鑼層顯示 subtree）
   var ranks=[];
@@ -1623,7 +1629,7 @@ function render(){
     var goalRate=0;if(typeof s.goalRate==='number'&&s.goalRate>0){goalRate=s.goalRate;}else{(d.goals||[]).forEach(function(g){if(g.period==='monthly'&&g.year===y&&g.month===m+1&&g.target>0)goalRate=Math.round(mc/g.target*100);});}
     var tClients=(typeof s.totalClients==='number')?s.totalClients:(d.clients||[]).length;
     var tPolicies=(typeof s.totalPolicies==='number')?s.totalPolicies:(d.policies||[]).length;
-    ranks.push({name:a.name,depth:a.depth,role:d.role||'Agent',clients:tClients,policies:tPolicies,monthComm:mc,yearComm:yc,monthPC:mpc,yearPC:ypc,totalPC:tpc,expenses:me,goalRate:Math.min(goalRate,999),net:mc-me,supervisor:d.supervisor||''});
+    ranks.push({name:a.name,depth:a.depth,role:d.role||'Agent',clients:tClients,policies:tPolicies,monthComm:mc,yearComm:yc,monthPC:mpc,yearPC:ypc,totalPC:tpc,expenses:me,goalRate:Math.min(goalRate,999),net:mpc-me,supervisor:d.supervisor||''});
   });
   var roleOrder={'SDD':1,'DD':2,'SDM':3,'DM':4,'SASM':5,'ASM':6,'Agent':7};
   // v3.9.27: 頂層只顯示經理（getTableAgentsForView 已過濾 Agent），按職級+月佣排序（SDD>DD>SDM>DM>SASM>ASM）
@@ -1635,10 +1641,10 @@ function render(){
       var ra=roleOrder[a.role]||99;
       var rb=roleOrder[b.role]||99;
       if(ra!==rb)return ra-rb;
-      return b.monthComm-a.monthComm;
+      return b.monthPC-a.monthPC;
     });
   }
-  var maxComm=ranks.length>0?ranks[0].monthComm:1;
+  var maxComm=ranks.length>0?ranks[0].monthPC:1;
   var roleColors={'SDD':'#1e40af','DD':'#2563eb','SDM':'#3b82f6','DM':'#60a5fa','SASM':'#93c5fd','ASM':'#bfdbfe','Agent':'#e5e7eb'};
   var tableHtml='';
   ranks.forEach(function(r,i){
@@ -1653,7 +1659,7 @@ function render(){
     var isAgent = (r.role==='Agent');
     var nameCellStyle = 'padding-left:'+(indent+10)+'px'+(isAgent?';color:#6b7280;font-weight:400':'');
     var agentDot = isAgent ? '<span style="color:#cbd5e1;margin-right:4px;font-size:10px">└</span>' : '';
-    tableHtml+='<tr class="agent-row'+(selectedAgent===r.name?' selected':'')+(r.name===currentRoot?' mgr-self':'')+(isAgent?' agent-sub':'')+'" onclick="selectAgent(\''+esc(r.name)+'\',this)"><td>'+(i+1)+'</td><td style="'+nameCellStyle+'">'+agentDot+esc(r.name)+' '+roleBadge+drillIcon+'</td><td>'+r.clients+'</td><td>'+r.policies+'</td><td class="amt-pos">'+money(r.monthComm)+'</td><td>'+money(r.yearComm)+'</td><td>'+money(r.totalPC)+'</td><td><span class="badge '+(r.goalRate>=100?'badge-green':r.goalRate>=70?'badge-blue':'badge-yellow')+'">'+(r.goalRate===0?'未設定':r.goalRate+'%')+'</span></td><td>'+money(r.net)+'</td></tr>';
+    tableHtml+='<tr class="agent-row'+(selectedAgent===r.name?' selected':'')+(r.name===currentRoot?' mgr-self':'')+(isAgent?' agent-sub':'')+'" onclick="selectAgent(\''+esc(r.name)+'\',this)"><td>'+(i+1)+'</td><td style="'+nameCellStyle+'">'+agentDot+esc(r.name)+' '+roleBadge+drillIcon+'</td><td>'+r.clients+'</td><td>'+r.policies+'</td><td class="amt-pos">'+money(r.monthPC)+'</td><td>'+money(r.yearPC)+'</td><td>'+money(r.totalPC)+'</td><td><span class="badge '+(r.goalRate>=100?'badge-green':r.goalRate>=70?'badge-blue':'badge-yellow')+'">'+(r.goalRate===0?'未設定':r.goalRate+'%')+'</span></td><td>'+money(r.net)+'</td></tr>';
   });
   if(tableHtml === ''){
     tableHtml='<tr><td colspan="9" style="text-align:center;padding:24px;color:#6b7280">📭 '+esc(currentRoot||'此人')+' 暫無直屬下屬（可按「返回」上一層）</td></tr>';
@@ -1676,8 +1682,8 @@ function render(){
   }
 
   // Ranking chart — v3.9.23: 鑽入時圖表用月佣排序副本（表格保留 tree 順序）
-  var chartRanks = (rootStack.length === 0) ? ranks : ranks.slice().sort(function(a,b){return b.monthComm-a.monthComm;});
-  var chartMax = chartRanks.length>0?chartRanks[0].monthComm:1;
+  var chartRanks = (rootStack.length === 0) ? ranks : ranks.slice().sort(function(a,b){return b.monthPC-a.monthPC;});
+  var chartMax = chartRanks.length>0?chartRanks[0].monthPC:1;
   if(chartLib)renderCharts(chartRanks,chartMax,allTreeAgents,y,m);
 
   // Detail panel
@@ -1696,15 +1702,15 @@ function renderCharts(ranks,maxComm,agentNames,y,m){
   if(!chartLib)return;
   var isMobile = window.innerWidth <= 768;
   var topCount = isMobile ? 8 : 15;
-  var top=ranks.slice(0,topCount),labels=top.map(function(r){return r.name;}),data=top.map(function(r){return r.monthComm;});
+  var top=ranks.slice(0,topCount),labels=top.map(function(r){return r.name;}),data=top.map(function(r){return r.monthPC;});
   if(chartInstances['chartRanking'])chartInstances['chartRanking'].destroy();
   chartInstances['chartRanking']=new chartLib(document.getElementById('chartRanking'),{type:'bar',data:{labels:labels,datasets:[{data:data,backgroundColor:'#3b82f6',borderRadius:6}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{callback:function(v){return'HK$'+v.toLocaleString()}}},y:{ticks:{font:{size:isMobile?10:12}}}}}});
 
   if(chartInstances['chartTeamTrend'])chartInstances['chartTeamTrend'].destroy();
   var tlabels=[],tdata=[];
   // v3.9.48: 優先用 s.monthlyComm（ciphertext 救星），fallback 舊 TEAM[a].commissions
-  var _hasSummary=false;agentNames.forEach(function(a){var _s=TEAM[a]&&TEAM[a]._summary;if(_s&&_s.monthlyComm){_hasSummary=true;}});
-  for(var i=5;i>=0;i--){var dm=new Date(y,m-i,1);tlabels.push(dm.getFullYear()+'/'+(dm.getMonth()+1));var ts=0;var dk=dm.getFullYear()+'-'+String(dm.getMonth()+1).padStart(2,'0');agentNames.forEach(function(a){var _s=TEAM[a]&&TEAM[a]._summary;if(_hasSummary&&_s&&_s.monthlyComm&&dk in _s.monthlyComm){ts+=Number(_s.monthlyComm[dk])||0;return;}if(TEAM[a].commissions){TEAM[a].commissions.forEach(function(c){var d=new Date(c.date);if(d.getMonth()===dm.getMonth()&&d.getFullYear()===dm.getFullYear())ts+=Number(c.amount)||0;});}});tdata.push(ts);}
+  var _hasSummary=false;agentNames.forEach(function(a){var _s=TEAM[a]&&TEAM[a]._summary;if(_s&&_s.monthlyPC){_hasSummary=true;}});
+  for(var i=5;i>=0;i--){var dm=new Date(y,m-i,1);tlabels.push(dm.getFullYear()+'/'+(dm.getMonth()+1));var ts=0;var dk=dm.getFullYear()+'-'+String(dm.getMonth()+1).padStart(2,'0');agentNames.forEach(function(a){var _s=TEAM[a]&&TEAM[a]._summary;if(_hasSummary&&_s&&_s.monthlyPC&&dk in _s.monthlyPC){ts+=Number(_s.monthlyPC[dk])||0;return;}if(TEAM[a].pcs){TEAM[a].pcs.forEach(function(c){var d=new Date(c.date);if(d.getMonth()===dm.getMonth()&&d.getFullYear()===dm.getFullYear())ts+=Number(c.amount)||0;});}});tdata.push(ts);}
   chartInstances['chartTeamTrend']=new chartLib(document.getElementById('chartTeamTrend'),{type:'line',data:{labels:tlabels,datasets:[{data:tdata,borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,0.1)',fill:true,tension:0.4,pointRadius:isMobile?3:4,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:isMobile?10:12}}},y:{beginAtZero:true,ticks:{callback:function(v){return'HK$'+v.toLocaleString()}}}}}});
 }
 
@@ -1976,8 +1982,9 @@ function renderDetail(){
   var d=TEAM[selectedAgent];if(!d)return;
   var now=new Date(),m=now.getMonth(),y=now.getFullYear();
   var mc=0;d.commissions.forEach(function(c){var dt=new Date(c.date);if(dt.getMonth()===m&&dt.getFullYear()===y)mc+=Number(c.amount)||0;});
+  var mpc=0;if(d.pcs)d.pcs.forEach(function(pc){var dt=new Date(pc.date);if(dt.getMonth()===m&&dt.getFullYear()===y)mpc+=Number(pc.amount)||0;});
   document.getElementById('detailAgentName').textContent='🔍 '+selectedAgent;
-  document.getElementById('detailMeta').innerHTML='客戶: '+d.clients.length+' | 保單: '+d.policies.length+' | 本月佣金: '+money(mc)+' | PC: '+(d.pcs?d.pcs.length:0)+' 筆 | 匯出時間: '+(d.exportedAt?new Date(d.exportedAt).toLocaleString('zh-HK'):'未知');
+  document.getElementById('detailMeta').innerHTML='客戶: '+d.clients.length+' | 保單: '+d.policies.length+' | 本月 PC: '+money(mpc)+' | PC: '+(d.pcs?d.pcs.length:0)+' 筆 | 匯出時間: '+(d.exportedAt?new Date(d.exportedAt).toLocaleString('zh-HK'):'未知');
   detailTab='clients';
   document.querySelectorAll('.detail-tab').forEach(function(b){b.classList.remove('active');});
   document.querySelector('.detail-tab').classList.add('active');
@@ -1992,9 +1999,9 @@ function renderDetailContent(){
   }else if(detailTab==='policies'){
     if(d.policies.length===0)html='<div class="empty">無保單記錄</div>';
     else{html='<table><thead><tr><th>保單編號</th><th>客戶</th><th>類型</th><th>保費</th><th>佣金率</th><th>投保日期</th><th>狀態</th></tr></thead><tbody>';d.policies.forEach(function(p){var sc=p.status==='生效'?'badge-green':p.status==='待生效'?'badge-yellow':p.status==='審核中'?'badge-blue':'badge-red';var insDate=p.insureDate||p.startDate||'';html+='<tr><td>'+esc(p.policyNo||'—')+'</td><td>'+esc(p.clientName)+'</td><td>'+esc(p.type)+'</td><td>'+money(p.premium)+'</td><td>'+(p.commissionRate||0)+'%</td><td>'+esc(df(insDate))+'</td><td><span class="badge '+sc+'">'+esc(p.status)+'</span></td></tr>';});html+='</tbody></table>';}
-  }else if(detailTab==='commissions'){
-    if(d.commissions.length===0)html='<div class="empty">無佣金記錄</div>';
-    else{html='<table><thead><tr><th>日期</th><th>客戶</th><th>保單</th><th>類型</th><th>金額</th><th>備註</th></tr></thead><tbody>';d.commissions.forEach(function(c){html+='<tr><td>'+esc(df(c.date))+'</td><td>'+esc(c.clientName)+'</td><td>'+esc(c.policyNo||'—')+'</td><td><span class="badge badge-blue">'+esc(c.type)+'</span></td><td class="amt-pos">'+money(c.amount)+'</td><td>'+(c.notes?esc(c.notes):'—')+'</td></tr>';});html+='</tbody></table>';}
+  }else if(detailTab==='pcs'){
+    if(!d.pcs||d.pcs.length===0)html='<div class="empty">無 PC 記錄</div>';
+    else{html='<table><thead><tr><th>日期</th><th>類型</th><th>客戶</th><th>保單</th><th>金額</th><th>備註</th></tr></thead><tbody>';d.pcs.forEach(function(pc){var tc=pc.pcType==='H&P'?'badge-blue':pc.pcType==='ILAS'?'badge-purple':pc.pcType==='SAVING'?'badge-green':pc.pcType==='PENSION'?'badge-yellow':pc.pcType==='INOW'?'badge-inow':pc.pcType==='IFUNDS'?'badge-ifunds':'badge-gray';html+='<tr><td>'+esc(df(pc.date))+'</td><td><span class="badge '+tc+'">'+esc(pc.pcType||'—')+'</span></td><td>'+esc(pc.clientName||'—')+'</td><td>'+esc(pc.policyNo||'—')+'</td><td class="amt-pos">'+money(pc.amount)+'</td><td>'+(pc.notes?esc(pc.notes):'—')+'</td></tr>';});html+='</tbody></table>';}
   }else if(detailTab==='expenses'){
     if(d.expenses.length===0)html='<div class="empty">無開支記錄</div>';
     else{html='<table><thead><tr><th>日期</th><th>分類</th><th>金額</th><th>付款方式</th><th>備註</th></tr></thead><tbody>';d.expenses.forEach(function(e){html+='<tr><td>'+esc(df(e.date))+'</td><td><span class="badge badge-gray">'+esc(e.category)+'</span></td><td class="amt-neg">'+money(e.amount)+'</td><td>'+esc(e.payment||'—')+'</td><td>'+(e.notes?esc(e.notes):'—')+'</td></tr>';});html+='</tbody></table>';}
