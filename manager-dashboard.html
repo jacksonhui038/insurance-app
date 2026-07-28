@@ -2,7 +2,7 @@
 <html lang="zh-HK">
 <head>
 <script>// v3.9.29: 移除 Service Worker（回復正常靜態站行為）+ 雲端自檢自動更新
-var MGR_VER='v3.9.43',MGR_VER_KEY='mgr_app_version';
+var MGR_VER='v3.9.44',MGR_VER_KEY='mgr_app_version';
 (function(){
   try { localStorage.setItem(MGR_VER_KEY, MGR_VER); } catch(e){}
   // v3.9.32: 早期獨立同步版本 badge（免受 render() 未跑/大函數錯誤影響，手機/桌面登入前都顯示正確版本）
@@ -125,8 +125,6 @@ tr:hover td{background:var(--blue50)}
 /* v3.9.20: 下鑽時高亮「當前視圖經理（DD/SDD/經理自己）」嗰行，令佢嘅存在一目了然 */
 .agent-row.mgr-self td{background:linear-gradient(90deg,#dbeafe,#eff6ff)!important;font-weight:700;box-shadow:inset 3px 0 0 var(--blue600)}
 .agent-row.mgr-self td:first-child{color:var(--blue700)}
-.agent-row.needs-sync td{background:#fafaf9!important;color:#9ca3af!important}
-.agent-row.needs-sync:hover td{background:#fef3c7!important}
 /* DETAIL PANEL */
 .detail-panel{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;margin-bottom:24px}
 .detail-panel h3{font-size:18px;font-weight:700;margin-bottom:6px}
@@ -1013,12 +1011,7 @@ function mgrLoadFromSupabase() {
           });
         }
         // v3.10.66: data_summary 是 plaintext metrics（data column 已 Track A 加密時 dashboard 仍可顯示業績）
-        if (r.data_summary) {
-          TEAM[aName]._summary = r.data_summary;
-        } else {
-          // v3.9.43: ciphertext 兼未 sync 過 data_summary 嘅 agent — render 灰色提示而唔係誤導性 0
-          TEAM[aName]._needsSync = true;
-        }
+        if (r.data_summary) TEAM[aName]._summary = r.data_summary;
         visibleCount++;
       });
       // v3.9.21: 恢復下鑽狀態（版本 reload 後唔會再踢返首頁）；無保存過就用登入者自己
@@ -1555,15 +1548,8 @@ function render(){
   var totalClients=0, totalPolicies=0, totalComm=0, totalExp=0, totalPC=0, totalGoals=0;
   var now=new Date(),m=now.getMonth(),y=now.getFullYear();
   var monthComm=0, monthPC=0;
-  // v3.9.43: 計算 _needsSync 嘅成員數（data_summary 未 sync / 數據加密中）
-  var needsSyncCount=0, needsSyncNames=[];
   allTreeAgents.forEach(function(a){
     var d=TEAM[a]||{};
-    if (d._needsSync) {
-      needsSyncCount++;
-      if (needsSyncNames.length<5) needsSyncNames.push(a);
-      return; // 唔累積 ciphertext agent 入 team totals
-    }
     var s=d._summary||{};
     // v3.10.66: 優先用 data_summary (plaintext metrics)，fallback 讀 plaintext data 計算
     var tClients=(typeof s.totalClients==='number')?s.totalClients:((d.clients||[]).length);
@@ -1581,17 +1567,12 @@ function render(){
     }
     totalClients+=tClients;totalPolicies+=tPolicies;totalComm+=tComm;totalExp+=tExp;totalPC+=tPC;monthComm+=mComm;
   });
-  // v3.9.43: summary cards 加 needsSync 提示
-  var needsSyncBadge = needsSyncCount>0
-    ? '<div style="margin:8px 0 4px;padding:8px 12px;background:#fef3c7;border-left:3px solid #f59e0b;border-radius:4px;font-size:12px;color:#92400e"><strong>🔒 '+needsSyncCount+' 位成員需同步</strong>：'+(needsSyncNames.join('、'))+(needsSyncCount>5?' 等':'')+' 嘅數據已加密，請通知佢哋登入代理人版 (v3.10.70+) 同步，否則業績不會顯示。</div>'
-    : '';
   document.getElementById('summaryCards').innerHTML=
-    needsSyncBadge +
-    '<div class="stat-card" style="border-left-color:#3b82f6"><div class="label">總人數</div><div class="value">'+allTreeAgents.length+'</div><div class="sub">已同步: '+(allTreeAgents.length-needsSyncCount)+' | 需同步: '+needsSyncCount+'</div></div>'+
+    '<div class="stat-card" style="border-left-color:#3b82f6"><div class="label">總人數</div><div class="value">'+allTreeAgents.length+'</div><div class="sub">'+esc(rootName)+' 線內成員</div></div>'+
     '<div class="stat-card" style="border-left-color:#22c55e"><div class="label">本月佣金</div><div class="value">'+money(monthComm)+'</div><div class="sub">'+esc(rootName)+' 線</div></div>'+
     '<div class="stat-card" style="border-left-color:#a855f7"><div class="label">總客戶數</div><div class="value">'+totalClients+'</div><div class="sub">保單總數: '+totalPolicies+'</div></div>'+
     '<div class="stat-card" style="border-left-color:#eab308"><div class="label">累計佣金</div><div class="value">'+money(totalComm)+'</div><div class="sub">開支: '+money(totalExp)+' | PC: '+money(totalPC)+'</div></div>'+
-    '<div class="stat-card" style="border-left-color:#ef4444"><div class="label">人均月佣</div><div class="value">'+money(allTreeAgents.length-needsSyncCount>0?Math.round(monthComm/(allTreeAgents.length-needsSyncCount)):0)+'</div><div class="sub">人均客戶: '+((allTreeAgents.length-needsSyncCount)>0?Math.round(totalClients/(allTreeAgents.length-needsSyncCount)):0)+'</div></div>';
+    '<div class="stat-card" style="border-left-color:#ef4444"><div class="label">人均月佣</div><div class="value">'+money(allTreeAgents.length>0?Math.round(monthComm/allTreeAgents.length):0)+'</div><div class="sub">人均客戶: '+Math.round(totalClients/allTreeAgents.length)+'</div></div>';
 
   // Agent ranking — 表格成員由 getTableAgentsForView() 決定（頂層顯示全 team 經理，下鑼層顯示 subtree）
   var ranks=[];
@@ -1620,7 +1601,7 @@ function render(){
     var goalRate=0;(d.goals||[]).forEach(function(g){if(g.period==='monthly'&&g.year===y&&g.month===m+1&&g.target>0)goalRate=Math.round(mc/g.target*100);});
     var tClients=(typeof s.totalClients==='number')?s.totalClients:(d.clients||[]).length;
     var tPolicies=(typeof s.totalPolicies==='number')?s.totalPolicies:(d.policies||[]).length;
-    ranks.push({name:a.name,depth:a.depth,role:d.role||'Agent',clients:tClients,policies:tPolicies,monthComm:mc,yearComm:yc,monthPC:mpc,yearPC:ypc,expenses:me,goalRate:Math.min(goalRate,999),net:mc-me,supervisor:d.supervisor||'',needsSync:!!d._needsSync});
+    ranks.push({name:a.name,depth:a.depth,role:d.role||'Agent',clients:tClients,policies:tPolicies,monthComm:mc,yearComm:yc,monthPC:mpc,yearPC:ypc,expenses:me,goalRate:Math.min(goalRate,999),net:mc-me,supervisor:d.supervisor||''});
   });
   var roleOrder={'SDD':1,'DD':2,'SDM':3,'DM':4,'SASM':5,'ASM':6,'Agent':7};
   // v3.9.27: 頂層只顯示經理（getTableAgentsForView 已過濾 Agent），按職級+月佣排序（SDD>DD>SDM>DM>SASM>ASM）
@@ -1650,16 +1631,7 @@ function render(){
     var isAgent = (r.role==='Agent');
     var nameCellStyle = 'padding-left:'+(indent+10)+'px'+(isAgent?';color:#6b7280;font-weight:400':'');
     var agentDot = isAgent ? '<span style="color:#cbd5e1;margin-right:4px;font-size:10px">└</span>' : '';
-    // v3.9.43: 數據待同步嘅成員 — 客戶/保單/佣金 cells 顯示灰色 fallback
-    var lockBadge = r.needsSync ? ' <span title="數據已加密，需同事登入代理人版同步" style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:#fef3c7;color:#92400e;font-size:10px;margin-left:4px">🔒</span>' : '';
-    var lockCell = r.needsSync ? '<span style="color:#9ca3af;font-size:11px">🔒 待同步</span>' : '';
-    var numCell = r.needsSync ? lockCell : r.clients;
-    var polCell = r.needsSync ? lockCell : r.policies;
-    var mcCell = r.needsSync ? lockCell : money(r.monthComm);
-    var ycCell = r.needsSync ? lockCell : money(r.yearComm);
-    var mpcCell = r.needsSync ? lockCell : money(r.monthPC);
-    var netCell = r.needsSync ? lockCell : money(r.net);
-    tableHtml+='<tr class="agent-row'+(selectedAgent===r.name?' selected':'')+(r.name===currentRoot?' mgr-self':'')+(isAgent?' agent-sub':'')+(r.needsSync?' needs-sync':'')+'" onclick="selectAgent(\''+esc(r.name)+'\',this)"><td>'+(i+1)+'</td><td style="'+nameCellStyle+'">'+agentDot+esc(r.name)+' '+roleBadge+drillIcon+lockBadge+'</td><td>'+numCell+'</td><td>'+polCell+'</td><td class="amt-pos">'+mcCell+'</td><td>'+ycCell+'</td><td>'+mpcCell+'</td><td><span class="badge '+(r.goalRate>=100?'badge-green':r.goalRate>=70?'badge-blue':'badge-yellow')+'">'+(r.goalRate===0?'未設定':r.goalRate+'%')+'</span></td><td>'+netCell+'</td></tr>';
+    tableHtml+='<tr class="agent-row'+(selectedAgent===r.name?' selected':'')+(r.name===currentRoot?' mgr-self':'')+(isAgent?' agent-sub':'')+'" onclick="selectAgent(\''+esc(r.name)+'\',this)"><td>'+(i+1)+'</td><td style="'+nameCellStyle+'">'+agentDot+esc(r.name)+' '+roleBadge+drillIcon+'</td><td>'+r.clients+'</td><td>'+r.policies.length+'</td><td class="amt-pos">'+money(r.monthComm)+'</td><td>'+money(r.yearComm)+'</td><td>'+money(r.monthPC)+'</td><td><span class="badge '+(r.goalRate>=100?'badge-green':r.goalRate>=70?'badge-blue':'badge-yellow')+'">'+(r.goalRate===0?'未設定':r.goalRate+'%')+'</span></td><td>'+money(r.net)+'</td></tr>';
   });
   if(tableHtml === ''){
     tableHtml='<tr><td colspan="9" style="text-align:center;padding:24px;color:#6b7280">📭 '+esc(currentRoot||'此人')+' 暫無直屬下屬（可按「返回」上一層）</td></tr>';
@@ -2009,16 +1981,6 @@ function renderDetail(){
 function renderDetailContent(){
   var d=TEAM[selectedAgent];if(!d)return;
   var html='';
-  // v3.9.43: ciphertext 兼未 sync 過 data_summary 嘅成員 — 全部 tabs 都顯示 fallback banner
-  if (d._needsSync) {
-    html = '<div style="padding:32px;text-align:center;background:#fef3c7;border-radius:8px;border:1px solid #fbbf24;margin-bottom:12px">'+
-      '<div style="font-size:48px;margin-bottom:8px">🔒</div>'+
-      '<div style="font-size:16px;font-weight:600;color:#92400e;margin-bottom:8px">'+esc(selectedAgent)+' 嘅數據已加密</div>'+
-      '<div style="font-size:13px;color:#78350f;line-height:1.6">此人係 Track A 加密用戶，<strong>請通知佢哋登入代理人版 (v3.10.70+)</strong> 做一次同步，<br>經理版即可見到佢哋嘅客戶、保單、佣金等完整數據。</div>'+
-      '</div>';
-    document.getElementById('detailContent').innerHTML = html;
-    return;
-  }
   if(detailTab==='clients'){
     if(d.clients.length===0)html='<div class="empty">無客戶記錄</div>';
     else{html='<table><thead><tr><th>姓名</th><th>電話</th><th>電郵</th><th>狀態</th><th>備註</th></tr></thead><tbody>';d.clients.forEach(function(c){var sc=c.status==='活躍'?'badge-green':c.status==='潛在'?'badge-yellow':'badge-red';html+='<tr><td>'+esc(c.name)+'</td><td>'+esc(c.phone||'—')+'</td><td>'+esc(c.email||'—')+'</td><td><span class="badge '+sc+'">'+esc(c.status)+'</span></td><td>'+esc((c.notes||'').substring(0,40))+'</td></tr>';});html+='</tbody></table>';}
@@ -2662,8 +2624,6 @@ function renderTeamGoals(){
   var allGoals=[];
   agentNames.forEach(function(a){
     var d=TEAM[a];if(!d)return;
-    // v3.9.43: 跳過未 sync 嘅 ciphertext agent（佢哋冇 goals / pcs / commissions 可讀）
-    if (d._needsSync) return;
     (d.goals||[]).forEach(function(g){
       if(!g||!g.target||g.target<=0)return;
       var isPC=g.type==='PC';
