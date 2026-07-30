@@ -2,7 +2,7 @@
 <html lang="zh-HK">
 <head>
 <script>// v3.9.29: 移除 Service Worker（回復正常靜態站行為）+ 雲端自檢自動更新
-var MGR_VER='v3.9.52',MGR_VER_KEY='mgr_app_version';
+var MGR_VER='v3.9.53',MGR_VER_KEY='mgr_app_version';
 (function(){
   try { localStorage.setItem(MGR_VER_KEY, MGR_VER); } catch(e){}
   // v3.9.32: 早期獨立同步版本 badge（免受 render() 未跑/大函數錯誤影響，手機/桌面登入前都顯示正確版本）
@@ -1984,7 +1984,7 @@ function renderDetail(){
   var mc=0;d.commissions.forEach(function(c){var dt=new Date(c.date);if(dt.getMonth()===m&&dt.getFullYear()===y)mc+=Number(c.amount)||0;});
   var mpc=0;if(d.pcs)d.pcs.forEach(function(pc){var dt=new Date(pc.date);if(dt.getMonth()===m&&dt.getFullYear()===y)mpc+=Number(pc.amount)||0;});
   document.getElementById('detailAgentName').textContent='🔍 '+selectedAgent;
-  document.getElementById('detailMeta').innerHTML='客戶: '+d.clients.length+' | 保單: '+d.policies.length+' | 本月 PC: '+money(mpc)+' | PC: '+(d.pcs?d.pcs.length:0)+' 筆 | 匯出時間: '+(d.exportedAt?new Date(d.exportedAt).toLocaleString('zh-HK'):'未知');
+  document.getElementById('detailMeta').innerHTML='客戶: '+d.clients.length+' | 保單: '+d.policies.length+' | 本月 PC: '+money(mpc)+' | PC: '+(d.pcs?d.pcs.length:0)+' 筆 | 匯出時間: '+(d.exportedAt?new Date(d.exportedAt).toLocaleString('zh-HK'):'未知') + (d._decrypted?' <span style="color:#16a34a;font-size:11px">✅ 已解密</span>':' <button onclick="mgrDecryptAgent(\''+esc(selectedAgent)+'\')" style="font-size:11px;padding:3px 8px;border:1px solid #2563eb;background:#eff6ff;color:#2563eb;border-radius:6px;cursor:pointer">🔓 經理解密</button>');
   detailTab='clients';
   document.querySelectorAll('.detail-tab').forEach(function(b){b.classList.remove('active');});
   document.querySelector('.detail-tab').classList.add('active');
@@ -2013,6 +2013,39 @@ function renderDetailContent(){
     else{html='<table><thead><tr><th>類型</th><th>週期</th><th>年份</th><th>月份/季度</th><th>目標金額</th><th>描述</th></tr></thead><tbody>';var mn=['','1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];d.goals.forEach(function(g){html+='<tr><td>'+esc(g.type)+'</td><td>'+esc(g.period==='monthly'?'月度':g.period==='quarterly'?'季度':'年度')+'</td><td>'+g.year+'</td><td>'+esc(g.period==='monthly'?mn[g.month||1]:g.period==='quarterly'?'Q'+g.quarter:'全年')+'</td><td>'+money(g.target)+'</td><td>'+esc(g.desc||'—')+'</td></tr>';});html+='</tbody></table>';}
   }
   document.getElementById('detailContent').innerHTML=html;
+}
+
+// v3.9.49: 經理解密 — 用 decrypt-agent EF（RSA 私鑰喺 Supabase secret）攞 agent 全文，
+// 解決「data 係 PIN 加密、dashboard 本地解唔到 → 明細 tab 空白」嘅問題。
+// 要求：經理已登入（MGR_JWT 有效）+ target 喺 downline + agent 已用 v3.10.79+ 同步（data_summary._mgr 有副本）。
+function mgrDecryptAgent(name){
+  if(!name) return;
+  if(!MGR_JWT){ toast('⚠️ 請先以經理身份登入（輸入 PIN）以授權經理解密','warning'); return; }
+  var url = MGR_SUPA_URL.replace(/\/rest\/v1$/, '') + '/functions/v1/decrypt-agent';
+  toast('🔓 經理解密中…');
+  fetch(url, {
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+MGR_JWT},
+    body: JSON.stringify({name:name})
+  }).then(function(res){ return res.json().then(function(j){ return {status:res.status, j:j}; }); })
+  .then(function(o){
+    var j=o.j;
+    if(!j.ok){
+      if(j.error==='no_mgr_blob'){ toast('⚠️ '+name+' 未用 v3.10.79+ 同步，server 無全文副本（只見到聚合）','warning'); }
+      else if(j.error==='forbidden'){ toast('⚠️ 無權限：'+name+' 唔喺你 downline','error'); }
+      else if(j.error==='bad_jwt'||j.error==='no_auth'||j.error==='mgr_not_provisioned'){ toast('⚠️ 登入已過期或未接好，請重新登入經理','error'); }
+      else { toast('⚠️ 解密失敗：'+(j.error||o.status),'error'); }
+      console.warn('[mgrDecryptAgent]', j);
+      return;
+    }
+    var d=j.data||{};
+    var t=TEAM[name];
+    if(!t){ t=TEAM[name]={clients:[],policies:[],commissions:[],expenses:[],goals:[],schedules:[],pcs:[],incomes:[]}; }
+    ['clients','policies','commissions','expenses','goals','schedules','pcs','incomes'].forEach(function(k){ if(d[k]&&Array.isArray(d[k])) t[k]=d[k]; });
+    t._decrypted=true;
+    if(selectedAgent===name){ renderDetailContent(); }
+    toast('✅ 已解密 '+name+' 全文（'+(d.clients?d.clients.length:0)+' 個客戶）');
+  }).catch(function(e){ console.error('[mgrDecryptAgent]',e); toast('⚠️ 解密請求失敗（EF 未部署？）','error'); });
 }
 
 // ============================================================
