@@ -12,7 +12,7 @@
  * 開完一次後可改用 agent-app.html（正常 URL）
  */
 (function(){
-  var AGENT_VER='v3.10.78',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.79',AGENT_VER_KEY='agent_app_version';
   // v3.10.72: 同時掛 window 屬性，避免 IIFE 外部用 AGENT_VER 時 ReferenceError
   try { window.AGENT_VER = AGENT_VER; } catch(e){}
   try { localStorage.setItem(AGENT_VER_KEY, AGENT_VER); } catch(e){}
@@ -1199,7 +1199,8 @@ function saveToSupabase(callback) {
     fixAllScheduleTimes(false);
     // v3.9.5: 用 buildUploadData() 取代直接 Object.assign({},DB)，確保保留 role/manager/team 同雲端既有記錄（MERGE 唔係 REPLACE）
     // v3.10.60 Track A: 上傳前用 PIN 加密 data（雲端只存密文）
-    encryptData(uploadData, agentPIN || '').then(function(encData){
+    // v3.10.79: 先 attach hybrid _mgr（server 可讀全文），再 PIN 加密上傳
+    attachMgrBlob(uploadData).then(function(){ return encryptData(uploadData, agentPIN || ''); }).then(function(encData){
       var payload = JSON.stringify(buildUpsertPayload(agentName, encData, mgr, team, uploadData.data_summary));
       var payloadSize = new Blob([payload]).size;
       if (payloadSize > 5 * 1024 * 1024) console.warn('[saveToSupabase] Payload size:', Math.round(payloadSize/1024), 'KB');
@@ -1295,7 +1296,7 @@ function forceUploadToSupabaseInner() {
     var uploadData = buildUploadData();
     uploadData._forceUpload = new Date().toISOString();
     // v3.10.60 Track A: 強制上傳前同樣加密 data
-    encryptData(uploadData, agentPIN || '').then(function(encData){
+    attachMgrBlob(uploadData).then(function(){ return encryptData(uploadData, agentPIN || ''); }).then(function(encData){
       var payload = JSON.stringify(buildUpsertPayload(agentName, encData, mgr, team, uploadData.data_summary));
       doForceUpload(payload, mgr, team, uploadData.data_summary);
     }).catch(function(e){ console.error('[forceUpload] encrypt fail', e); toast('❌ 加密失敗','error'); });
@@ -1306,7 +1307,7 @@ function forceUploadToSupabaseInner() {
     var uploadData = buildUploadData();
     uploadData._forceUpload = new Date().toISOString();
     // v3.10.60 Track A: 強制上傳前同樣加密 data
-    encryptData(uploadData, agentPIN || '').then(function(encData){
+    attachMgrBlob(uploadData).then(function(){ return encryptData(uploadData, agentPIN || ''); }).then(function(encData){
       var payload = JSON.stringify(buildUpsertPayload(agentName, encData, mgr, team, uploadData.data_summary));
       doForceUpload(payload, mgr, team, uploadData.data_summary);
     }).catch(function(e){ console.error('[forceUpload] encrypt fail', e); toast('❌ 加密失敗','error'); });
@@ -1796,6 +1797,47 @@ function decryptData(d, pin) {
   });
 }
 
+// ===== v3.10.79 Hybrid 加密：server（經理版 decrypt-agent）可讀取 agent 全文 =====
+// 公鑰只喺 app 內（任何人可讀但只可 encrypt）；私鑰喺 Supabase secret AGENT_DATA_RSA_PRIV（decrypt-agent EF 持有）。
+// blob 格式：rsa:v1:<b64 rsaOaepEncAesKey>.<b64 iv>.<b64 aesGcmCt>
+// RSA-OAEP(SHA-256) 包住 32-byte AES-256-GCM key；AES-GCM 加密全文。server 用私鑰解 AES key 再解全文。
+var HYBRID_MGR_ENABLED = true;
+var AGENT_DATA_PUB_PEM = `-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0b2H3XTRLAlDEsRY5/Ou
+pMdRIJ/FEuIQhEmkMv5MFxHVCPBu+3Ib0mCF9seIWgovaEejNZBgh7Pr4aX0Gzdx
+9Cs0TW//3/Z8eUG/TKBENguk4+uq1qQBpCQlbD8oq1Eez0vVzRDNE/95q5mVxzfZ
+zQRnCME+t4uOASddZYMgz/uq0wUEXwOQMmpuVYc0/mL7bpeg5Yx7rfmxjLpd/vuC
+JfxU9GDMhJPgYPWEAvCjWqBH049xnUPmhvM3cI+AVBJTi74JPHi+HNJmu2IYyxNl
+58w+i4tbTHAubodZhalyEyMfDxGxzzASB9rKqG/YBQ2BHXdAsD90NhFTw1wYAM0k
+vQIDAQAB
+-----END PUBLIC KEY-----`;
+var _pubKeyCache = null;
+function _importAgentPubKey() {
+  if (_pubKeyCache) return Promise.resolve(_pubKeyCache);
+  var b64 = AGENT_DATA_PUB_PEM.replace(/-----[^-]+-----/g, '').replace(/\s+/g, '');
+  var bin = atob(b64); var bytes = new Uint8Array(bin.length);
+  for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return crypto.subtle.importKey('spki', bytes, { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['encrypt'])
+    .then(function(k) { _pubKeyCache = k; return k; });
+}
+async function hybridEncryptMgr(obj) {
+  var pub = await _importAgentPubKey();
+  var dataBuf = new TextEncoder().encode(JSON.stringify(obj));
+  var aesKey = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
+  var aesRaw = new Uint8Array(await crypto.subtle.exportKey('raw', aesKey));
+  var iv = crypto.getRandomValues(new Uint8Array(12));
+  var aesCt = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, aesKey, dataBuf));
+  var rsaCt = new Uint8Array(await crypto.subtle.encrypt({ name: 'RSA-OAEP', hash: 'SHA-256' }, pub, aesRaw));
+  return 'rsa:v1:' + _b64enc(rsaCt) + '.' + _b64enc(iv) + '.' + _b64enc(aesCt);
+}
+async function attachMgrBlob(uploadData) {
+  if (!HYBRID_MGR_ENABLED || !_hasCrypto() || !AGENT_DATA_PUB_PEM) return;
+  try {
+    uploadData.data_summary = uploadData.data_summary || {};
+    uploadData.data_summary._mgr = await hybridEncryptMgr(uploadData);
+  } catch (e) { console.warn('[attachMgrBlob] skip _mgr', e); }
+}
+
 function showChoiceMode() {
   ['choiceMode','loginMode','registerMode','unlockMode','switchMode'].forEach(function(id) {
     var el = document.getElementById(id); if (el) el.style.display = 'none';
@@ -1813,7 +1855,7 @@ function showLoginMode() {
     var loginMode = document.getElementById('loginMode');
     if (!loginMode) { console.error('[showLoginMode] loginMode element not found'); return; }
     loginMode.style.display = 'block';
-    var ln = document.getElementById('loginName'); if (ln) ln.value = '';
+    var ln = document.getElementById('loginName'); if (ln) { ln.value = window._deepName || ''; if (window._deepName) { setTimeout(function(){ var lp = document.getElementById('loginPin'); if (lp) lp.focus(); }, 120); } }
     var lp = document.getElementById('loginPin'); if (lp) lp.value = '';
     var errEl = document.getElementById('loginErr'); if (errEl) errEl.style.display = 'none';
     if (ln) { setTimeout(function(){ try { ln.focus(); } catch(e){} }, 50); }
@@ -3050,6 +3092,10 @@ function afterLoginSync() {
           if (ok2) { setLastSyncTime(); var _lst=document.getElementById('lastSyncTime'); if(_lst) _lst.textContent=getLastSyncTime(); }
           else { console.warn('[afterLoginSync] 上傳 Supabase 失敗，30s 後自動重試'); }
         });
+        if (window._deepSync) {
+          console.log('[afterLoginSync] deep-link sync=1 → 強制刷新 data_summary + _mgr');
+          setTimeout(function(){ try { forceUploadToSupabase(); } catch(e){ console.warn('[afterLoginSync] forceUpload fail', e); } }, 1500);
+        }
       } else if (isDBEmpty()) {
         console.warn('[afterLoginSync] 本地無數據，跳過自動上傳，避免清空白雲端');
         if (!ok) {
@@ -3081,6 +3127,12 @@ document.addEventListener('DOMContentLoaded',function(){
     return;
   }
   localStorage.setItem('app_version', CURRENT_VER);
+  // v3.10.79: 一鍵同步深鏈接（Jackson 經 WhatsApp 發俾 agent）
+  try {
+    var _dl = new URLSearchParams(window.location.search);
+    window._deepName = _dl.get('name') || '';
+    window._deepSync = _dl.get('sync') === '1';
+  } catch(e) { window._deepName = ''; window._deepSync = false; }
   // v3.10.11: 動態更新 sidebar 版本 badge
   var sv = document.getElementById('sidebarVer'); if (sv) sv.textContent = CURRENT_VER;
   // v3.10.48: 手機版 topbar + 登入畫面版本標籤
