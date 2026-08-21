@@ -2,7 +2,50 @@
 <html lang="zh-HK">
 <head>
 <script>// v3.9.29: 移除 Service Worker（回復正常靜態站行為）+ 雲端自檢自動更新
-var MGR_VER='v3.9.53',MGR_VER_KEY='mgr_app_version';
+// v3.9.54: silently auto-reload 改為「先顯示 banner 等同事 click 刷新頁面」(manulife/updatable UX)
+var MGR_VER='v3.9.54',MGR_VER_KEY='mgr_app_version';
+var MGR_BANNER_DISMISS_KEY='mgr_update_banner_dismissed';
+var MGR_UPDATE_TARGET_KEY='mgr_update_target';
+function mgrReloadCnt(){ try { return parseInt(sessionStorage.getItem('mgr_reload_cnt')||'0',10)||0; } catch(e){ return 0; } }
+function doReload(){
+  if (mgrReloadCnt() >= 5) return; // 安全掣：CDN 仲未更新時避免死 loop
+  try { sessionStorage.setItem('mgr_reload_cnt', String(mgrReloadCnt()+1)); } catch(e){}
+  try { if(typeof saveDrillState==='function')saveDrillState(); localStorage.setItem(MGR_VER_KEY, MGR_VER); var _b = location.href.split('?')[0]; location.replace(_b + '?_cv=' + Date.now() + (location.hash||'')); }
+  catch(e){ location.reload(true); }
+}
+// v3.9.54: 顯示新版本提示 banner；如已 dismiss 則 fallback 自動 reload；如 DOM 未就緒亦 fallback
+function showUpdateBanner(cloudVer){
+  try {
+    if (sessionStorage.getItem(MGR_BANNER_DISMISS_KEY) === '1') { doReload(); return; }
+    var b = document.getElementById('updateBanner');
+    if (!b) { doReload(); return; }
+    var v = document.getElementById('ubCloudVer');
+    if (v) v.textContent = '（' + (cloudVer||'新版本') + '）';
+    b.classList.add('show');
+    try { document.body.classList.add('update-banner-shown'); } catch(e){}
+    var rb = document.getElementById('ubRefreshBtn');
+    if (rb && !rb._mgrWired) {
+      rb._mgrWired = 1;
+      rb.addEventListener('click', function(e){ e.preventDefault(); doReload(); });
+    }
+    var cb = document.getElementById('ubCloseBtn');
+    if (cb && !cb._mgrWired) {
+      cb._mgrWired = 1;
+      cb.addEventListener('click', function(){
+        try { sessionStorage.setItem(MGR_BANNER_DISMISS_KEY,'1'); }catch(e){}
+        try { if (cloudVer) sessionStorage.setItem(MGR_UPDATE_TARGET_KEY, cloudVer); }catch(e){}
+        hideUpdateBanner();
+        doReload(); // dismiss 後照樣升級，避免同事睇到舊版
+      });
+    }
+  } catch(e){ doReload(); }
+}
+function hideUpdateBanner(){
+  try {
+    var b = document.getElementById('updateBanner'); if (b) b.classList.remove('show');
+    try { document.body.classList.remove('update-banner-shown'); } catch(e){}
+  } catch(e){}
+}
 (function(){
   try { localStorage.setItem(MGR_VER_KEY, MGR_VER); } catch(e){}
   // v3.9.32: 早期獨立同步版本 badge（免受 render() 未跑/大函數錯誤影響，手機/桌面登入前都顯示正確版本）
@@ -15,39 +58,26 @@ var MGR_VER='v3.9.53',MGR_VER_KEY='mgr_app_version';
       }).catch(function(){});
     }
   } catch(e){}
-  function reloadCnt(){ try { return parseInt(sessionStorage.getItem('mgr_reload_cnt')||'0',10)||0; } catch(e){ return 0; } }
-  function doReload(){
-    if (reloadCnt() >= 5) return; // 安全掣：CDN 仲未更新時避免死 loop
-    try { sessionStorage.setItem('mgr_reload_cnt', String(reloadCnt()+1)); } catch(e){}
-    try { if(typeof saveDrillState==='function')saveDrillState(); localStorage.setItem(MGR_VER_KEY, MGR_VER); var _b = location.href.split('?')[0]; location.replace(_b + '?_cv=' + Date.now() + (location.hash||'')); }
-    catch(e){ location.reload(true); }
-  }
-  try {
-    fetch('version.json?t=' + Date.now(), {cache:'no-store'})
-      .then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(d){
-        if (d && d.mgr && d.mgr !== MGR_VER) {
-          console.log('[AutoUpdate] 雲端版本 '+d.mgr+' > 本地 '+MGR_VER+'，自動升級');
-          doReload();
-        } else {
-          try { sessionStorage.removeItem('mgr_reload_cnt'); } catch(e){}
-        }
-      })
-      .catch(function(e){ /* 網絡失敗唔阻擋 */ });
-  } catch(e){}
-  // 每 60 秒定時複檢（防初始網絡抖動跳過，確保一定會升到最新）
-  setInterval(function(){
+  // 雲端自檢永遠跑 —— 發現版本唔同時顯示 banner（v3.9.54+），由同事 click 刷新
+  function checkUpdate(){
     try {
       fetch('version.json?t=' + Date.now(), {cache:'no-store'})
         .then(function(r){ return r.ok ? r.json() : null; })
         .then(function(d){
           if (d && d.mgr && d.mgr !== MGR_VER) {
-            console.log('[AutoUpdate] 定時檢查發現新版本 '+d.mgr+'，自動升級');
-            doReload();
+            console.log('[AutoUpdate] 雲端版本 '+d.mgr+' > 本地 '+MGR_VER+'，顯示更新 banner');
+            try { sessionStorage.setItem(MGR_UPDATE_TARGET_KEY, d.mgr); } catch(e){}
+            showUpdateBanner(d.mgr);
+          } else {
+            try { sessionStorage.removeItem('mgr_reload_cnt'); } catch(e){}
           }
-        }).catch(function(){});
+        })
+        .catch(function(e){ /* 網絡失敗唔阻擋 */ });
     } catch(e){}
-  }, 60000);
+  }
+  checkUpdate();
+  // 每 60 秒定時複檢（防初始網絡抖動跳過，確保一定會升到最新）
+  setInterval(checkUpdate, 60000);
 })();
 </script>
 <meta charset="UTF-8">
@@ -202,9 +232,26 @@ tr:hover td{background:var(--blue50)}
 .lock-card .lock-icon{font-size:48px;margin-bottom:12px}
 .lock-card .lock-label{display:block;text-align:left;font-size:12px;color:var(--gray500);margin-bottom:4px;font-weight:500}
 .lock-err{color:var(--red500);font-size:13px;margin-top:8px;min-height:18px}
+/* v3.9.54: 新版本提示 banner —— 取代 silently auto-reload，等同事自己 click 刷新頁面 */
+.update-banner{position:fixed;top:0;left:0;right:0;z-index:99999;display:none;align-items:center;gap:12px;padding:10px 14px;background:#d1f4e0;color:#1a3a2a;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,.08);border-bottom:1px solid #9bd9b3;font-family:inherit}
+.update-banner.show{display:flex}
+.update-banner .ub-icon{font-size:18px;line-height:1;flex-shrink:0}
+.update-banner .ub-text{flex:1;line-height:1.4}
+.update-banner strong{font-weight:700}
+.update-banner a.ub-refresh{color:#0d6e3f;text-decoration:underline;font-weight:700;cursor:pointer;background:transparent;border:0;padding:0 2px;font:inherit}
+.update-banner a.ub-refresh:hover{color:#08482a}
+.update-banner .ub-close{background:transparent;border:0;color:#1a3a2a;font-size:20px;cursor:pointer;padding:0 6px;line-height:1;opacity:.7}
+.update-banner .ub-close:hover{opacity:1}
+body.update-banner-shown{padding-top:48px !important}
 </style>
 </head>
 <body>
+<!-- v3.9.54: 新版本提示 banner —— 雲端自檢發現版本唔同就 show，等同事 click 刷新頁面 -->
+<div id="updateBanner" class="update-banner" role="status" aria-live="polite">
+  <span class="ub-icon" aria-hidden="true">🔊</span>
+  <span class="ub-text"><strong>檢測到新的更新版本</strong>。<strong id="ubCloudVer"></strong> 您可以 <a class="ub-refresh" id="ubRefreshBtn">刷新頁面</a> 進行更新。</span>
+  <button class="ub-close" id="ubCloseBtn" aria-label="稍後再說" title="稍後再說">×</button>
+</div>
 <!-- LOCK SCREEN -->
 <div class="lock-bg" id="lockBg">
   <div class="lock-card" id="lockCard">
