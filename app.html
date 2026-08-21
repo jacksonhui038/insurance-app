@@ -12,7 +12,9 @@
  * 開完一次後可改用 agent-app.html（正常 URL）
  */
 (function(){
-  var AGENT_VER='v3.10.79',AGENT_VER_KEY='agent_app_version';
+  var AGENT_VER='v3.10.80',AGENT_VER_KEY='agent_app_version';
+  var AGENT_BANNER_DISMISS_KEY='agent_update_banner_dismissed';
+  var AGENT_UPDATE_TARGET_KEY='agent_update_target';
   // v3.10.72: 同時掛 window 屬性，避免 IIFE 外部用 AGENT_VER 時 ReferenceError
   try { window.AGENT_VER = AGENT_VER; } catch(e){}
   try { localStorage.setItem(AGENT_VER_KEY, AGENT_VER); } catch(e){}
@@ -51,8 +53,8 @@ function doReload(){
     sessionStorage.setItem('agent_reload_ts', String(Date.now()));
   } catch(e){}
   // v3.10.53: 直接導去 versioned 檔名（app-vX.Y.Z.html），檔名帶版本號 = 全新生 URL，徹底避開手機 cache，唔使人手清快取
-  var target = AGENT_VER;
-  try { target = sessionStorage.getItem('agent_update_target') || AGENT_VER; } catch(e){}
+var target = AGENT_VER;
+    try { target = sessionStorage.getItem(AGENT_UPDATE_TARGET_KEY) || AGENT_VER; } catch(e){}
   try {
     localStorage.setItem(AGENT_VER_KEY, AGENT_VER);
     var v = String(target).replace(/^v/, '');
@@ -61,35 +63,61 @@ function doReload(){
     location.href = base + '-v' + v + '.html?_cv=' + Date.now() + (location.hash || '');
   } catch(e) { location.reload(true); }
 }
-  // 雲端自檢永遠跑
+// v3.10.80: 顯示新版本提示 banner；如已 dismiss 則 fallback 自動 reload；如 DOM 未就緒亦 fallback
+function showUpdateBanner(cloudVer){
   try {
-    fetch('version.json?t=' + Date.now(), {cache:'no-store'})
-      .then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(d){
-        if (d && d.version && d.version !== AGENT_VER) {
-          console.log('[AutoUpdate] 雲端版本 '+d.version+' > 本地 '+AGENT_VER+'，自動升級');
-          try { sessionStorage.setItem('agent_update_target', d.version); } catch(e){}
-          doReload();
-        } else {
-          try { sessionStorage.removeItem('agent_reload_cnt'); } catch(e){} // 版本一致，重置計數
-        }
-      })
-      .catch(function(e){ /* 網絡失敗唔阻擋 */ });
+    if (sessionStorage.getItem(AGENT_BANNER_DISMISS_KEY) === '1') { doReload(); return; }
+    var b = document.getElementById('updateBanner');
+    if (!b) { doReload(); return; }
+    var v = document.getElementById('ubCloudVer');
+    if (v) v.textContent = '（' + (cloudVer||'新版本') + '）';
+    b.classList.add('show');
+    try { document.body.classList.add('update-banner-shown'); } catch(e){}
+    var rb = document.getElementById('ubRefreshBtn');
+    if (rb && !rb._agentWired) {
+      rb._agentWired = 1;
+      rb.addEventListener('click', function(e){ e.preventDefault(); doReload(); });
+    }
+    var cb = document.getElementById('ubCloseBtn');
+    if (cb && !cb._agentWired) {
+      cb._agentWired = 1;
+      cb.addEventListener('click', function(){
+        try { sessionStorage.setItem(AGENT_BANNER_DISMISS_KEY,'1'); }catch(e){}
+        try { if (cloudVer) sessionStorage.setItem(AGENT_UPDATE_TARGET_KEY, cloudVer); }catch(e){}
+        hideUpdateBanner();
+        doReload();
+      });
+    }
+  } catch(e){ doReload(); }
+}
+function hideUpdateBanner(){
+  try {
+    var b = document.getElementById('updateBanner'); if (b) b.classList.remove('show');
+    try { document.body.classList.remove('update-banner-shown'); } catch(e){}
   } catch(e){}
-  // 每 60 秒定時複檢（防初始網絡抖動跳過，確保一定會升到最新）
-  setInterval(function(){
+}
+  // 雲端自檢永遠跑 —— 發現版本唔同時顯示 banner（v3.10.80+），由同事 click 刷新
+  function checkUpdate(){
     try {
       fetch('version.json?t=' + Date.now(), {cache:'no-store'})
         .then(function(r){ return r.ok ? r.json() : null; })
         .then(function(d){
           if (d && d.version && d.version !== AGENT_VER) {
-            console.log('[AutoUpdate] 定時檢查發現新版本 '+d.version+'，自動升級');
-            try { sessionStorage.setItem('agent_update_target', d.version); } catch(e){}
-            doReload();
+            console.log('[AutoUpdate] 雲端版本 '+d.version+' > 本地 '+AGENT_VER+'，顯示更新 banner');
+            try { sessionStorage.setItem(AGENT_UPDATE_TARGET_KEY, d.version); } catch(e){}
+            showUpdateBanner(d.version);
+          } else {
+            try { sessionStorage.removeItem('agent_reload_cnt'); } catch(e){} // 版本一致，重置計數
           }
-        }).catch(function(){});
+        })
+        .catch(function(e){ /* 網絡失敗唔阻擋 */ });
     } catch(e){}
-  }, 60000);
+  }
+  checkUpdate();
+  // 每 60 秒定時複檢（防初始網絡抖動跳過，確保一定會升到最新）
+  setInterval(checkUpdate, 60000);
+  // v3.10.80: 將 banner helpers 暴露到 window，方便 console / devtools 預覽
+  try { window.showUpdateBanner = showUpdateBanner; window.hideUpdateBanner = hideUpdateBanner; window.doReload = doReload; } catch(e){}
 })();
 
 /* v3.10.20: 動態偵測 iOS 瀏海/動態島，僅真正有 notch 的設備才啟用 viewport-fit=cover + .has-notch */
@@ -314,9 +342,27 @@ tr:hover td{background:var(--blue50)}
   .table-wrap{overflow-x:auto}
   table{min-width:640px}
 }
+/* v3.10.80: 新版本提示 banner —— 取代 silently auto-reload，等同事自己 click 刷新頁面 */
+.update-banner{position:fixed;top:0;left:0;right:0;z-index:99999;display:none;align-items:center;gap:12px;padding:10px 14px;background:#d1f4e0;color:#1a3a2a;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,.08);border-bottom:1px solid #9bd9b3;font-family:inherit}
+.update-banner.show{display:flex}
+.update-banner .ub-icon{font-size:18px;line-height:1;flex-shrink:0}
+.update-banner .ub-text{flex:1;line-height:1.4}
+.update-banner strong{font-weight:700}
+.update-banner a.ub-refresh{color:#0d6e3f;text-decoration:underline;font-weight:700;cursor:pointer;background:transparent;border:0;padding:0 2px;font:inherit}
+.update-banner a.ub-refresh:hover{color:#08482a}
+.update-banner .ub-close{background:transparent;border:0;color:#1a3a2a;font-size:20px;cursor:pointer;padding:0 6px;line-height:1;opacity:.7}
+.update-banner .ub-close:hover{opacity:1}
+body.update-banner-shown{padding-top:48px !important}
 </style>
 </head>
 <body>
+
+<!-- v3.10.80: 新版本提示 banner —— 雲端自檢發現版本唔同就 show，等同事 click 刷新頁面 -->
+<div id="updateBanner" class="update-banner" role="status" aria-live="polite">
+  <span class="ub-icon" aria-hidden="true">🔊</span>
+  <span class="ub-text"><strong>檢測到新的更新版本</strong>。<strong id="ubCloudVer"></strong> 您可以 <a class="ub-refresh" id="ubRefreshBtn">刷新頁面</a> 進行更新。</span>
+  <button class="ub-close" id="ubCloseBtn" aria-label="稍後再說" title="稍後再說">×</button>
+</div>
 
 <!-- NAME / PIN MODAL -->
 <div class="modal-bg show" id="nameModalBg">
@@ -1199,8 +1245,7 @@ function saveToSupabase(callback) {
     fixAllScheduleTimes(false);
     // v3.9.5: 用 buildUploadData() 取代直接 Object.assign({},DB)，確保保留 role/manager/team 同雲端既有記錄（MERGE 唔係 REPLACE）
     // v3.10.60 Track A: 上傳前用 PIN 加密 data（雲端只存密文）
-    // v3.10.79: 先 attach hybrid _mgr（server 可讀全文），再 PIN 加密上傳
-    attachMgrBlob(uploadData).then(function(){ return encryptData(uploadData, agentPIN || ''); }).then(function(encData){
+    encryptData(uploadData, agentPIN || '').then(function(encData){
       var payload = JSON.stringify(buildUpsertPayload(agentName, encData, mgr, team, uploadData.data_summary));
       var payloadSize = new Blob([payload]).size;
       if (payloadSize > 5 * 1024 * 1024) console.warn('[saveToSupabase] Payload size:', Math.round(payloadSize/1024), 'KB');
@@ -1296,7 +1341,7 @@ function forceUploadToSupabaseInner() {
     var uploadData = buildUploadData();
     uploadData._forceUpload = new Date().toISOString();
     // v3.10.60 Track A: 強制上傳前同樣加密 data
-    attachMgrBlob(uploadData).then(function(){ return encryptData(uploadData, agentPIN || ''); }).then(function(encData){
+    encryptData(uploadData, agentPIN || '').then(function(encData){
       var payload = JSON.stringify(buildUpsertPayload(agentName, encData, mgr, team, uploadData.data_summary));
       doForceUpload(payload, mgr, team, uploadData.data_summary);
     }).catch(function(e){ console.error('[forceUpload] encrypt fail', e); toast('❌ 加密失敗','error'); });
@@ -1307,7 +1352,7 @@ function forceUploadToSupabaseInner() {
     var uploadData = buildUploadData();
     uploadData._forceUpload = new Date().toISOString();
     // v3.10.60 Track A: 強制上傳前同樣加密 data
-    attachMgrBlob(uploadData).then(function(){ return encryptData(uploadData, agentPIN || ''); }).then(function(encData){
+    encryptData(uploadData, agentPIN || '').then(function(encData){
       var payload = JSON.stringify(buildUpsertPayload(agentName, encData, mgr, team, uploadData.data_summary));
       doForceUpload(payload, mgr, team, uploadData.data_summary);
     }).catch(function(e){ console.error('[forceUpload] encrypt fail', e); toast('❌ 加密失敗','error'); });
@@ -1797,47 +1842,6 @@ function decryptData(d, pin) {
   });
 }
 
-// ===== v3.10.79 Hybrid 加密：server（經理版 decrypt-agent）可讀取 agent 全文 =====
-// 公鑰只喺 app 內（任何人可讀但只可 encrypt）；私鑰喺 Supabase secret AGENT_DATA_RSA_PRIV（decrypt-agent EF 持有）。
-// blob 格式：rsa:v1:<b64 rsaOaepEncAesKey>.<b64 iv>.<b64 aesGcmCt>
-// RSA-OAEP(SHA-256) 包住 32-byte AES-256-GCM key；AES-GCM 加密全文。server 用私鑰解 AES key 再解全文。
-var HYBRID_MGR_ENABLED = true;
-var AGENT_DATA_PUB_PEM = `-----BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0b2H3XTRLAlDEsRY5/Ou
-pMdRIJ/FEuIQhEmkMv5MFxHVCPBu+3Ib0mCF9seIWgovaEejNZBgh7Pr4aX0Gzdx
-9Cs0TW//3/Z8eUG/TKBENguk4+uq1qQBpCQlbD8oq1Eez0vVzRDNE/95q5mVxzfZ
-zQRnCME+t4uOASddZYMgz/uq0wUEXwOQMmpuVYc0/mL7bpeg5Yx7rfmxjLpd/vuC
-JfxU9GDMhJPgYPWEAvCjWqBH049xnUPmhvM3cI+AVBJTi74JPHi+HNJmu2IYyxNl
-58w+i4tbTHAubodZhalyEyMfDxGxzzASB9rKqG/YBQ2BHXdAsD90NhFTw1wYAM0k
-vQIDAQAB
------END PUBLIC KEY-----`;
-var _pubKeyCache = null;
-function _importAgentPubKey() {
-  if (_pubKeyCache) return Promise.resolve(_pubKeyCache);
-  var b64 = AGENT_DATA_PUB_PEM.replace(/-----[^-]+-----/g, '').replace(/\s+/g, '');
-  var bin = atob(b64); var bytes = new Uint8Array(bin.length);
-  for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return crypto.subtle.importKey('spki', bytes, { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['encrypt'])
-    .then(function(k) { _pubKeyCache = k; return k; });
-}
-async function hybridEncryptMgr(obj) {
-  var pub = await _importAgentPubKey();
-  var dataBuf = new TextEncoder().encode(JSON.stringify(obj));
-  var aesKey = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
-  var aesRaw = new Uint8Array(await crypto.subtle.exportKey('raw', aesKey));
-  var iv = crypto.getRandomValues(new Uint8Array(12));
-  var aesCt = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, aesKey, dataBuf));
-  var rsaCt = new Uint8Array(await crypto.subtle.encrypt({ name: 'RSA-OAEP', hash: 'SHA-256' }, pub, aesRaw));
-  return 'rsa:v1:' + _b64enc(rsaCt) + '.' + _b64enc(iv) + '.' + _b64enc(aesCt);
-}
-async function attachMgrBlob(uploadData) {
-  if (!HYBRID_MGR_ENABLED || !_hasCrypto() || !AGENT_DATA_PUB_PEM) return;
-  try {
-    uploadData.data_summary = uploadData.data_summary || {};
-    uploadData.data_summary._mgr = await hybridEncryptMgr(uploadData);
-  } catch (e) { console.warn('[attachMgrBlob] skip _mgr', e); }
-}
-
 function showChoiceMode() {
   ['choiceMode','loginMode','registerMode','unlockMode','switchMode'].forEach(function(id) {
     var el = document.getElementById(id); if (el) el.style.display = 'none';
@@ -1855,7 +1859,7 @@ function showLoginMode() {
     var loginMode = document.getElementById('loginMode');
     if (!loginMode) { console.error('[showLoginMode] loginMode element not found'); return; }
     loginMode.style.display = 'block';
-    var ln = document.getElementById('loginName'); if (ln) { ln.value = window._deepName || ''; if (window._deepName) { setTimeout(function(){ var lp = document.getElementById('loginPin'); if (lp) lp.focus(); }, 120); } }
+    var ln = document.getElementById('loginName'); if (ln) ln.value = '';
     var lp = document.getElementById('loginPin'); if (lp) lp.value = '';
     var errEl = document.getElementById('loginErr'); if (errEl) errEl.style.display = 'none';
     if (ln) { setTimeout(function(){ try { ln.focus(); } catch(e){} }, 50); }
@@ -3092,10 +3096,6 @@ function afterLoginSync() {
           if (ok2) { setLastSyncTime(); var _lst=document.getElementById('lastSyncTime'); if(_lst) _lst.textContent=getLastSyncTime(); }
           else { console.warn('[afterLoginSync] 上傳 Supabase 失敗，30s 後自動重試'); }
         });
-        if (window._deepSync) {
-          console.log('[afterLoginSync] deep-link sync=1 → 強制刷新 data_summary + _mgr');
-          setTimeout(function(){ try { forceUploadToSupabase(); } catch(e){ console.warn('[afterLoginSync] forceUpload fail', e); } }, 1500);
-        }
       } else if (isDBEmpty()) {
         console.warn('[afterLoginSync] 本地無數據，跳過自動上傳，避免清空白雲端');
         if (!ok) {
@@ -3127,12 +3127,6 @@ document.addEventListener('DOMContentLoaded',function(){
     return;
   }
   localStorage.setItem('app_version', CURRENT_VER);
-  // v3.10.79: 一鍵同步深鏈接（Jackson 經 WhatsApp 發俾 agent）
-  try {
-    var _dl = new URLSearchParams(window.location.search);
-    window._deepName = _dl.get('name') || '';
-    window._deepSync = _dl.get('sync') === '1';
-  } catch(e) { window._deepName = ''; window._deepSync = false; }
   // v3.10.11: 動態更新 sidebar 版本 badge
   var sv = document.getElementById('sidebarVer'); if (sv) sv.textContent = CURRENT_VER;
   // v3.10.48: 手機版 topbar + 登入畫面版本標籤
